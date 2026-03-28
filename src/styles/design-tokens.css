@@ -1,0 +1,81 @@
+/* WEO-OH Design Tokens — Option B: Soft Brutalism (uhoh.com style)
+ * Prefix: --neo-
+ */
+
+:root {
+    color-scheme: light;
+
+    /* ─── Canvas & Surfaces ─── */
+    --neo-bg-canvas: #F9F8F3;
+    /* Soft Off-white / Paper */
+    --neo-bg-surface: #FFFFFF;
+    /* Pure white cards */
+    --neo-ink: #000000;
+    /* Deep black — borders, text */
+
+    /* ─── Accents ─── */
+    --neo-accent-green: #39FF14;
+    /* Neon Green — success/active states */
+    --neo-accent-rainbow: linear-gradient(to right, #f76ca3, #ff9a44, #ffe26f, #7be495, #63c7f9, #8b88f8, #d78aff);
+    --neo-accent-danger: #ff2d55;
+    /* Hot pink/red for errors */
+
+    /* ─── Shadows ─── */
+    --neo-shadow-button: 0 4px 14px rgba(0, 0, 0, 0.1);
+    /* Soft blurred shadow */
+    --neo-shadow-card: 0 8px 30px rgba(0, 0, 0, 0.08);
+    /* Deep blurred shadow */
+
+    /* ─── Typography ─── */
+    /* Font: Clash Display or Space Grotesk — geometric, bold, high-impact */
+    --neo-font-display: 'Space Grotesk', system-ui, sans-serif;
+    --neo-font-body: system-ui, -apple-system, sans-serif;
+    /* Clean, highly legible body */
+    --neo-font-mono: 'Space Mono', monospace;
+
+    /* Oversized scale */
+    --neo-text-hero: clamp(3rem, 8vw, 6rem);
+    /* 48–96px */
+    --neo-text-h1: clamp(2rem, 5vw, 3.5rem);
+    /* 32–56px */
+    --neo-text-h2: clamp(1.5rem, 3vw, 2rem);
+    /* 24–32px */
+    --neo-text-body: 1.125rem;
+    /* 18px body for readability */
+    --neo-text-label: 0.875rem;
+    /* 14px, uppercase, tracked */
+
+    /* ─── Shape & Borders ─── */
+    --neo-border-width: 2px;
+    --neo-border: var(--neo-border-width) solid var(--neo-ink);
+    --neo-radius: 8px;
+    /* Softened corners, not sharp */
+    --neo-radius-lg: 12px;
+    /* For larger cards and modals */
+    --neo-radius-full: 9999px;
+    /* For pill buttons */
+
+    /* Spacing */
+    --neo-space-1: 4px;
+    --neo-space-2: 8px;
+    --neo-space-3: 12px;
+    --neo-space-4: 16px;
+    --neo-space-5: 20px;
+    --neo-space-6: 24px;
+    --neo-space-8: 32px;
+    --neo-space-10: 40px;
+    --neo-space-12: 48px;
+
+    /* ─── Compatibility Aliases for existing components (temporarily until migrated) ─── */
+    --bg-primary: var(--neo-bg-canvas);
+    --bg-secondary: var(--neo-bg-surface);
+    --bg-card: var(--neo-bg-surface);
+    --border: rgba(0, 0, 0, 0.1);
+    --text-primary: var(--neo-ink);
+    --text-secondary: rgba(0, 0, 0, 0.7);
+    --text-muted: rgba(0, 0, 0, 0.5);
+    --panel-gap: 24px;
+    --bubble-bg: #FFFFFF;
+    --bubble-thought: var(--neo-bg-canvas);
+    --bubble-narration: #000000;
+}

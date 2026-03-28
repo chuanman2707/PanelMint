@@ -1,3 +1,0 @@
-Hiện tại thì weoweo của chúng ta đã hoàn thành tốt việc sử dụng prompt copy từ truyện web novel và dịch sang thành truyện tranh
-
-Anh muốn build 1 side project dựa trên dự án sau, anh muốn sản xuất content youtube, cụ thể ví dụ: anh muốn copy 10 trang truyện trên webnovel bằng cách crawl4ai, sau đó vứt vào n8n để nó trích xuất script tóm tắt truyện, 10 trang truyện khoảng 20k chữ, tóm tắt lại còn 10k chữ là được, yêu cầu của anh là đổi tên nhân vật, vì sợ đánh bản quyền, rồi khi có script, chúng ta tận dụng pipeline của weoweo để tạo ra ảnh truyện, sau đó dùng TTS model để đọc script truyện và ghép ảnh vào thành video rồi up lên youtube, em cho ra nhận xét nhé

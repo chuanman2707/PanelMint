@@ -1,0 +1,89 @@
+import {
+    Plus,
+    ChevronLeft,
+    ChevronRight,
+    ChevronDown,
+    ChevronUp,
+    Settings,
+    Book,
+    Sparkles,
+    Image as ImageIcon,
+    Edit2,
+    Trash2,
+    Check,
+    X,
+    AlertCircle,
+    Search,
+    Download,
+    Shield,
+    Key,
+    RefreshCw,
+    Eye,
+    EyeOff,
+    ExternalLink,
+    Wallet,
+    Coins,
+    CreditCard,
+    Crown,
+    BadgeCheck,
+    User,
+    LogOut,
+    LayoutGrid,
+    FileText,
+    Loader2,
+    Clock,
+    ArrowLeft,
+    ArrowRight
+} from 'lucide-react'
+
+const ICON_MAP = {
+    'plus': Plus,
+    'chevron-left': ChevronLeft,
+    'chevron-right': ChevronRight,
+    'chevron-down': ChevronDown,
+    'chevron-up': ChevronUp,
+    'settings': Settings,
+    'book': Book,
+    'sparkles': Sparkles,
+    'image': ImageIcon,
+    'edit': Edit2,
+    'trash': Trash2,
+    'check': Check,
+    'close': X,
+    'alert': AlertCircle,
+    'search': Search,
+    'download': Download,
+    'shield': Shield,
+    'key': Key,
+    'refresh': RefreshCw,
+    'eye': Eye,
+    'eye-off': EyeOff,
+    'external-link': ExternalLink,
+    'wallet': Wallet,
+    'coins': Coins,
+    'credit-card': CreditCard,
+    'crown': Crown,
+    'badge-check': BadgeCheck,
+    'user': User,
+    'logout': LogOut,
+    'layout-grid': LayoutGrid,
+    'file-text': FileText,
+    'loader': Loader2,
+    'clock': Clock,
+    'arrow-left': ArrowLeft,
+    'arrow-right': ArrowRight,
+} as const
+
+export type IconName = keyof typeof ICON_MAP
+
+interface IconProps extends React.SVGProps<SVGSVGElement> {
+    name: string
+    size?: number
+}
+
+export function Icon({ name, size = 20, className, ...props }: IconProps) {
+    const LucideIcon = ICON_MAP[name as IconName]
+    if (!LucideIcon) return null
+
+    return <LucideIcon size={size} className={className} {...props as any} />
+}

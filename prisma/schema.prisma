@@ -1,0 +1,271 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                       String              @id @default(uuid())
+  email                    String              @unique
+  name                     String?
+  authUserId               String?             @unique @map("auth_user_id")
+  passwordHash             String?
+  apiKey                   String?             @db.Text
+  apiProvider              String?
+  preferences              String?             @db.Text
+  credits                  Int                 @default(300)
+  accountTier              String              @default("free")
+  lifetimePurchasedCredits Int                 @default(0)
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @default(now()) @updatedAt
+  projects                 Project[]
+  creditTransactions       CreditTransaction[]
+  usageRecords             UsageRecord[]
+  pipelineRuns             PipelineRun[]
+
+  @@map("users")
+}
+
+model Project {
+  id         String      @id @default(uuid())
+  userId     String
+  name       String
+  artStyle   String      @default("manga")
+  imageModel String?
+  llmModel   String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @default(now()) @updatedAt
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episodes   Episode[]
+  characters Character[]
+  locations  Location[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model Episode {
+  id          String       @id @default(uuid())
+  projectId   String
+  name        String
+  novelText   String?      @db.Text
+  pageCount   Int?
+  format      String       @default("webtoon")
+  status      String       @default("pending")
+  progress    Int          @default(0)
+  error       String?      @db.Text
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @default(now()) @updatedAt
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pages       Page[]
+  pipelineRun PipelineRun?
+
+  @@index([projectId])
+  @@map("episodes")
+}
+
+model Page {
+  id           String   @id @default(uuid())
+  episodeId    String
+  pageIndex    Int
+  summary      String   @db.Text
+  content      String   @db.Text
+  characters   String?  @db.Text
+  location     String?
+  screenplay   String?  @db.Text
+  sceneContext String?  @db.Text
+  imageUrl     String?  @db.Text
+  storageKey   String?  @map("storage_key") @db.Text
+  approved     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  episode      Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  panels       Panel[]
+
+  @@unique([episodeId, pageIndex])
+  @@index([episodeId])
+  @@map("pages")
+}
+
+model Panel {
+  id                String         @id @default(uuid())
+  pageId            String
+  panelIndex        Int
+  shotType          String?
+  description       String?        @db.Text
+  dialogue          String?        @db.Text
+  characters        String?        @db.Text
+  location          String?
+  sourceExcerpt     String?        @db.Text
+  mustKeep          String?        @db.Text
+  mood              String?
+  lighting          String?
+  imagePrompt       String?        @db.Text
+  imageUrl          String?        @db.Text
+  storageKey        String?        @map("storage_key") @db.Text
+  generationAttempt Int            @default(0) @map("generation_attempt")
+  status            String         @default("pending")
+  approved          Boolean        @default(false)
+  approvedPrompt    String?        @db.Text
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @default(now()) @updatedAt
+  page              Page           @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  bubbles           SpeechBubble[]
+
+  @@unique([pageId, panelIndex])
+  @@index([pageId])
+  @@map("panels")
+}
+
+model SpeechBubble {
+  id          String  @id @default(uuid())
+  panelId     String
+  bubbleIndex Int
+  speaker     String?
+  content     String  @db.Text
+  bubbleType  String  @default("speech")
+  positionX   Float   @default(0.5)
+  positionY   Float   @default(0.5)
+  width       Float   @default(0.3)
+  height      Float   @default(0.2)
+  panel       Panel   @relation(fields: [panelId], references: [id], onDelete: Cascade)
+
+  @@unique([panelId, bubbleIndex])
+  @@index([panelId])
+  @@map("speech_bubbles")
+}
+
+model Character {
+  id           String                @id @default(uuid())
+  projectId    String
+  name         String
+  aliases      String?               @db.Text
+  description  String?               @db.Text
+  identityJson String?               @db.Text
+  imageUrl     String?               @db.Text
+  storageKey   String?               @map("storage_key") @db.Text
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @default(now()) @updatedAt
+  project      Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  appearances  CharacterAppearance[]
+
+  @@index([projectId])
+  @@map("characters")
+}
+
+model CharacterAppearance {
+  id                  String    @id @default(uuid())
+  characterId         String
+  appearanceIndex     Int
+  description         String?   @db.Text
+  imageUrl            String?   @db.Text
+  storageKey          String?   @map("storage_key") @db.Text
+  imageUrls           String?   @db.Text
+  storageKeys         String?   @map("storage_keys") @db.Text
+  selectedIndex       Int       @default(0)
+  referenceImageUrl   String?   @db.Text
+  referenceStorageKey String?   @map("reference_storage_key") @db.Text
+  isDefault           Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+  character           Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([characterId, appearanceIndex])
+  @@index([characterId])
+  @@map("character_appearances")
+}
+
+model Location {
+  id          String  @id @default(uuid())
+  projectId   String
+  name        String
+  description String? @db.Text
+  imageUrl    String? @db.Text
+  storageKey  String? @map("storage_key") @db.Text
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("locations")
+}
+
+model CreditTransaction {
+  id           String   @id @default(uuid())
+  userId       String
+  amount       Int
+  reason       String
+  balance      Int
+  episodeId    String?
+  providerTxId String?  @unique
+  operationKey String?  @unique @map("operation_key") @db.Text
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("credit_transactions")
+}
+
+model UsageRecord {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  model     String
+  tokens    Int?
+  cost      Float?
+  metadata  String?  @db.Text
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("usage_records")
+}
+
+model RateLimitWindow {
+  id          String   @id @default(uuid())
+  scope       String
+  windowStart DateTime @map("window_start")
+  count       Int      @default(0)
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([scope, windowStart])
+  @@index([expiresAt])
+  @@map("rate_limit_windows")
+}
+
+model PipelineRun {
+  id           String          @id @default(uuid())
+  episodeId    String          @unique
+  userId       String
+  status       String          @default("pending")
+  currentStep  String?         @map("current_step")
+  inngestRunId String?         @unique @map("inngest_run_id")
+  startedAt    DateTime        @default(now()) @map("started_at")
+  completedAt  DateTime?       @map("completed_at")
+  error        String?         @db.Text
+  updatedAt    DateTime        @default(now()) @updatedAt
+  episode      Episode         @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events       PipelineEvent[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("pipeline_runs")
+}
+
+model PipelineEvent {
+  id                 String      @id @default(uuid())
+  runId              String      @map("run_id")
+  step               String
+  status             String
+  startedAt          DateTime    @default(now()) @map("started_at")
+  completedAt        DateTime?   @map("completed_at")
+  metadata           String?     @db.Text
+  creditOperationKey String?     @unique @map("credit_operation_key") @db.Text
+  run                PipelineRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, startedAt])
+  @@index([step, status])
+  @@map("pipeline_events")
+}

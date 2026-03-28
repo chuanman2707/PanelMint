@@ -1,0 +1,252 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => {
+    class MockContentFilterError extends Error {
+        constructor(message: string) {
+            super(message)
+            this.name = 'ContentFilterError'
+        }
+    }
+
+    class MockServiceError extends Error {
+        constructor(message: string) {
+            super(message)
+            this.name = 'ServiceError'
+        }
+    }
+
+    return {
+        prisma: {
+            episode: {
+                findUnique: vi.fn(),
+                findUniqueOrThrow: vi.fn(),
+                update: vi.fn(),
+            },
+            character: {
+                findMany: vi.fn(),
+            },
+            panel: {
+                findMany: vi.fn(),
+                findUnique: vi.fn(),
+                update: vi.fn(),
+                updateMany: vi.fn(),
+                count: vi.fn(),
+            },
+        },
+        getProviderConfig: vi.fn(),
+        collectPanelReferenceImages: vi.fn(),
+        buildCharacterCanon: vi.fn(),
+        checkCredits: vi.fn(),
+        deductCredits: vi.fn(),
+        refundCredits: vi.fn(),
+        recordPipelineEvent: vi.fn(),
+        syncPipelineRunState: vi.fn(),
+        generatePanelImage: vi.fn(),
+        ContentFilterError: MockContentFilterError,
+        ServiceError: MockServiceError,
+    }
+})
+
+vi.mock('@/lib/prisma', () => ({
+    prisma: mocks.prisma,
+}))
+
+vi.mock('@/lib/pipeline/analyze', () => ({
+    analyzeCharactersAndLocations: vi.fn(),
+    splitIntoPagesWithPanels: vi.fn(),
+}))
+
+vi.mock('@/lib/ai/character-design', () => ({
+    generateCharacterDescription: vi.fn(),
+    generateCharacterSheet: vi.fn(),
+}))
+
+vi.mock('@/lib/pipeline/reference-images', () => ({
+    collectPanelReferenceImages: mocks.collectPanelReferenceImages,
+}))
+
+vi.mock('@/lib/pipeline/character-canon', () => ({
+    buildCharacterCanon: mocks.buildCharacterCanon,
+}))
+
+vi.mock('@/lib/api-config', () => ({
+    getProviderConfig: mocks.getProviderConfig,
+}))
+
+vi.mock('@/lib/billing', () => ({
+    ACTION_CREDIT_COSTS: {
+        llm_generation: 80,
+        standard_image: 40,
+        premium_image: 250,
+    },
+    checkCredits: mocks.checkCredits,
+    deductCredits: mocks.deductCredits,
+    refundCredits: mocks.refundCredits,
+    getImageGenerationCreditCost: (tier: 'standard' | 'premium') => tier === 'premium' ? 250 : 40,
+    getImageGenerationReason: (tier: 'standard' | 'premium') =>
+        tier === 'premium' ? 'premium_image_generation' : 'standard_image_generation',
+    normalizeImageModelTier: (tier?: string | null) => tier === 'premium' ? 'premium' : 'standard',
+    InsufficientCreditsError: class InsufficientCreditsError extends Error {},
+}))
+
+vi.mock('@/lib/pipeline/image-gen', () => ({
+    generatePanelImage: mocks.generatePanelImage,
+    ContentFilterError: mocks.ContentFilterError,
+    ServiceError: mocks.ServiceError,
+}))
+
+vi.mock('@/lib/pipeline/run-state', () => ({
+    recordPipelineEvent: mocks.recordPipelineEvent,
+    syncPipelineRunState: mocks.syncPipelineRunState,
+}))
+
+import { runImageGenStep } from '@/lib/pipeline/orchestrator'
+
+describe('runImageGenStep', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+
+        mocks.prisma.episode.findUniqueOrThrow.mockResolvedValue({
+            id: 'episode-1',
+            status: 'review_storyboard',
+            project: {
+                userId: 'user-1',
+                artStyle: 'webtoon',
+                imageModel: 'standard',
+            },
+            projectId: 'project-1',
+        })
+        mocks.prisma.episode.findUnique.mockResolvedValue({ status: 'imaging' })
+        mocks.prisma.character.findMany.mockResolvedValue([
+            {
+                id: 'char-1',
+                name: 'Anh Minh',
+                identityJson: null,
+                imageUrl: '/chars/minh.png',
+                appearances: [],
+            },
+        ])
+        mocks.getProviderConfig.mockResolvedValue({
+            provider: 'openrouter',
+            apiKey: 'api-key',
+            llmModel: 'model',
+            imageModel: 'image-model',
+            baseUrl: 'https://openrouter.ai/api/v1',
+        })
+        mocks.collectPanelReferenceImages.mockReturnValue([])
+        mocks.buildCharacterCanon.mockReturnValue([])
+        mocks.checkCredits.mockResolvedValue(true)
+        mocks.deductCredits.mockResolvedValue(undefined)
+        mocks.refundCredits.mockResolvedValue(undefined)
+        mocks.recordPipelineEvent.mockResolvedValue(undefined)
+        mocks.syncPipelineRunState.mockResolvedValue(undefined)
+        mocks.prisma.episode.update.mockResolvedValue({})
+        mocks.prisma.panel.findUnique.mockResolvedValue({ generationAttempt: 1 })
+        mocks.prisma.panel.update.mockResolvedValue({})
+        mocks.prisma.panel.updateMany.mockResolvedValue({ count: 1 })
+    })
+
+    it('marks content-filtered panels and still completes when no retryable panels remain', async () => {
+        mocks.prisma.panel.findMany.mockResolvedValue([
+            {
+                id: 'panel-1',
+                characters: JSON.stringify(['Anh Minh']),
+                approvedPrompt: 'blocked prompt',
+                description: 'blocked prompt',
+                shotType: 'wide',
+                location: 'city',
+                mood: null,
+                lighting: null,
+                page: {
+                    sceneContext: null,
+                    characters: JSON.stringify(['Anh Minh']),
+                },
+            },
+        ])
+        mocks.generatePanelImage.mockRejectedValue(
+            new mocks.ContentFilterError('blocked by policy'),
+        )
+        mocks.prisma.panel.count
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(0)
+
+        await runImageGenStep('episode-1', ['panel-1'])
+
+        expect(mocks.prisma.panel.update).toHaveBeenCalledWith({
+            where: { id: 'panel-1' },
+            data: { status: 'content_filtered' },
+        })
+        expect(mocks.refundCredits).toHaveBeenCalledWith(
+            'user-1',
+            40,
+            'panel gen failed: panel-1',
+            'episode-1',
+            { operationKey: 'refund:image:panel-1:1' },
+        )
+        expect(mocks.prisma.episode.update).toHaveBeenLastCalledWith({
+            where: { id: 'episode-1' },
+            data: { status: 'done', progress: 100 },
+        })
+    })
+
+    it('returns the episode to storyboard review when retryable panels still remain', async () => {
+        mocks.prisma.panel.findMany.mockResolvedValue([
+            {
+                id: 'panel-2',
+                characters: JSON.stringify(['Anh Minh']),
+                approvedPrompt: 'fight scene',
+                description: 'fight scene',
+                shotType: 'medium',
+                location: 'bridge',
+                mood: null,
+                lighting: null,
+                page: {
+                    sceneContext: null,
+                    characters: JSON.stringify(['Anh Minh']),
+                },
+            },
+        ])
+        mocks.generatePanelImage.mockRejectedValue(new Error('upstream timeout'))
+        mocks.prisma.panel.count
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(1)
+
+        await runImageGenStep('episode-1', ['panel-2'])
+
+        expect(mocks.prisma.panel.update).toHaveBeenCalledWith({
+            where: { id: 'panel-2' },
+            data: { status: 'error' },
+        })
+        expect(mocks.refundCredits).toHaveBeenCalledWith(
+            'user-1',
+            40,
+            'panel gen failed: panel-2',
+            'episode-1',
+            { operationKey: 'refund:image:panel-2:1' },
+        )
+        expect(mocks.prisma.episode.update).toHaveBeenLastCalledWith({
+            where: { id: 'episode-1' },
+            data: { status: 'review_storyboard', progress: 50 },
+        })
+    })
+})

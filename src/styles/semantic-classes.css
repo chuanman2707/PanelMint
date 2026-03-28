@@ -1,0 +1,193 @@
+/* WEO-OH Semantic Component Classes — Soft Brutalism
+ * Prefix: .neo-
+ */
+
+/* ─── Surfaces ─── */
+.neo-surface {
+    background: var(--neo-bg-surface);
+    border: var(--neo-border);
+    border-radius: var(--neo-radius);
+    padding: var(--neo-space-6);
+    box-shadow: var(--neo-shadow-card);
+}
+
+.neo-card {
+    background: var(--neo-bg-surface);
+    border: var(--neo-border);
+    border-radius: var(--neo-radius-lg);
+    box-shadow: var(--neo-shadow-card);
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease;
+}
+
+/* ─── Legacy compatibility classes (redirected to neo styling) ─── */
+
+.weo-surface,
+.weo-surface-card {
+    background: var(--neo-bg-surface);
+    border: var(--neo-border);
+    border-radius: var(--neo-radius);
+    padding: var(--neo-space-6);
+    box-shadow: var(--neo-shadow-card);
+}
+
+.weo-surface-elevated,
+.weo-surface-modal {
+    background: var(--neo-bg-surface);
+    border: var(--neo-border);
+    border-radius: var(--neo-radius-lg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.weo-ghost-border {
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+.weo-surface-footer {
+    background: var(--neo-bg-canvas);
+    border-top: var(--neo-border);
+    border-radius: 0 0 var(--neo-radius-lg) var(--neo-radius-lg);
+}
+
+/* ─── Buttons (Legacy mappings, will be replaced by NeoButton) ─── */
+.weo-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    font-family: var(--neo-font-body);
+    font-weight: 600;
+    font-size: 16px;
+    border-radius: var(--neo-radius-full);
+    border: var(--neo-border);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    white-space: nowrap;
+    padding: 12px 24px;
+    box-shadow: var(--neo-shadow-button);
+}
+
+.weo-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--neo-bg-canvas), 0 0 0 4px var(--neo-ink);
+}
+
+.weo-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.weo-btn-primary {
+    background: var(--neo-ink);
+    color: var(--neo-bg-surface);
+}
+
+.weo-btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.weo-btn-primary:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.weo-btn-secondary {
+    background: var(--neo-bg-surface);
+    color: var(--neo-ink);
+}
+
+.weo-btn-secondary:hover:not(:disabled) {
+    background: var(--neo-bg-canvas);
+    transform: translateY(-2px);
+}
+
+.weo-btn-ghost {
+    background: transparent;
+    color: var(--neo-ink);
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.weo-btn-ghost:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.weo-btn-danger {
+    background: var(--neo-accent-danger);
+    color: #fff;
+    border-color: var(--neo-ink);
+}
+
+.weo-btn-sm {
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+.weo-btn-md {
+    padding: 12px 24px;
+    font-size: 16px;
+}
+
+.weo-btn-lg {
+    padding: 16px 32px;
+    font-size: 18px;
+}
+
+/* ─── Inputs (Legacy mappings, will be replaced by NeoInput) ─── */
+.weo-input,
+.weo-textarea,
+.weo-select {
+    width: 100%;
+    border-radius: var(--neo-radius);
+    border: var(--neo-border);
+    background: var(--neo-bg-surface);
+    color: var(--neo-ink);
+    font-family: var(--neo-font-body);
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.weo-input::placeholder,
+.weo-textarea::placeholder {
+    color: rgba(0, 0, 0, 0.4);
+}
+
+.weo-input:focus-visible,
+.weo-textarea:focus-visible,
+.weo-select:focus-visible {
+    box-shadow: 0 0 0 2px var(--neo-bg-canvas), 0 0 0 4px var(--neo-ink);
+}
+
+.weo-field-label {
+    font-family: var(--neo-font-display);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--neo-ink);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.weo-field-hint {
+    font-size: 14px;
+    color: rgba(0, 0, 0, 0.6);
+}
+
+/* ─── Overlays ─── */
+.weo-overlay,
+.weo-overlay-soft {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.weo-divider {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Base utility for components */
+.neo-divider {
+    border-top: var(--neo-border);
+    border-top-width: 1px;
+}

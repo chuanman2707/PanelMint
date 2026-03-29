@@ -135,7 +135,7 @@ export function LandingPageClient() {
                                     ].map(([label, value, tone]) => (
                                         <div
                                             key={label}
-                                            className={`border-[var(--neo-border-width)] border-black p-4 shadow-[var(--neo-shadow-button)] ${
+                                            className={`border-[var(--neo-border-width)] border-black p-5 xl:p-6 shadow-[var(--neo-shadow-button)] ${
                                                 tone === 'cyan'
                                                     ? 'bg-[var(--neo-accent-cyan)]'
                                                     : tone === 'lime'
@@ -146,7 +146,7 @@ export function LandingPageClient() {
                                             <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/70">
                                                 {label}
                                             </p>
-                                            <p className="mt-3 font-display text-3xl font-black uppercase tracking-[-0.05em] text-black">
+                                            <p className="mt-3 font-display text-2xl font-black uppercase tracking-[-0.05em] text-black xl:text-3xl">
                                                 {value}
                                             </p>
                                         </div>

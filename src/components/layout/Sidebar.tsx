@@ -24,7 +24,7 @@ export function Sidebar() {
         <aside className="hidden md:fixed md:inset-y-0 md:left-0 md:z-40 md:flex md:w-64 md:flex-col md:border-r-[var(--neo-border-width)] md:border-[var(--neo-ink)] md:bg-[var(--neo-bg-canvas)] md:p-4">
             <div className="flex h-full flex-col gap-5">
                 <div className="space-y-1">
-                    <Link href="/dashboard" className="block font-display text-[1.75rem] font-black uppercase tracking-tight">
+                    <Link href="/dashboard" className="block font-display text-xl font-black uppercase tracking-tight leading-tight">
                         COMIC_ENGINE_V1
                     </Link>
                     <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">

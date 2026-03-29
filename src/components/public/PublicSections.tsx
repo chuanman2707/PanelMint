@@ -156,13 +156,13 @@ export function PricingSection({ id = 'pricing', standalone = false }: PricingSe
             </div>
 
             <div className="mt-12 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-                <div className="grid gap-6 md:grid-cols-3">
+                <div className="grid gap-6 xl:grid-cols-3">
                     {PACKAGES.map((pkg, index) => (
                         <NeoCard
                             key={pkg.name}
                             data-neo-reveal="stamp"
                             style={revealDelay(index)}
-                            className="flex h-full flex-col justify-between"
+                            className="flex h-full flex-col justify-between p-4 lg:p-6"
                         >
                             <div>
                                 <NeoTag tone={pkg.highlight}>{pkg.name}</NeoTag>

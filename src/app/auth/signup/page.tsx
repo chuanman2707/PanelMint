@@ -24,8 +24,24 @@ export default function SignUpPage() {
     const [loading, setLoading] = useState(false)
     const [needsVerification, setNeedsVerification] = useState(false)
 
+    const buildIncompleteSignUpMessage = () => {
+        if (!signUp) {
+            return 'Account verification is not complete yet'
+        }
+
+        if (signUp.missingFields.length > 0) {
+            return `Clerk still needs: ${signUp.missingFields.join(', ')}.`
+        }
+
+        if (signUp.unverifiedFields.length > 0) {
+            return `Still waiting for verification: ${signUp.unverifiedFields.join(', ')}.`
+        }
+
+        return 'Account verification is not complete yet'
+    }
+
     const completeSignUp = async () => {
-        if (!signUp) return
+        if (!signUp) return false
 
         const { error: finalizeError } = await signUp.finalize({
             navigate: ({ session, decorateUrl }) => {
@@ -45,8 +61,11 @@ export default function SignUpPage() {
         })
 
         if (finalizeError) {
-            setError(getClerkErrorMessage(finalizeError, 'Unable to finish account creation'))
+            setError(getClerkErrorMessage(finalizeError, buildIncompleteSignUpMessage()))
+            return false
         }
+
+        return true
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -106,10 +125,9 @@ export default function SignUpPage() {
             return
         }
 
-        if (signUp.status === 'complete') {
-            await completeSignUp()
-        } else {
-            setError('Account verification is not complete yet')
+        const completed = await completeSignUp()
+        if (!completed && signUp.status !== 'complete') {
+            setError(buildIncompleteSignUpMessage())
         }
 
         setLoading(false)

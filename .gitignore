@@ -49,6 +49,7 @@ next-env.d.ts
 public/generated/
 
 # local tooling
+.agent
 .gitnexus
 .claude
 .codex.worktrees

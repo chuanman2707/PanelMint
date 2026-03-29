@@ -1,59 +1,50 @@
-/* WEO-OH Design Tokens — Option B: Soft Brutalism (uhoh.com style)
- * Prefix: --neo-
- */
+/* NeoComic Ink design tokens */
 
 :root {
     color-scheme: light;
 
-    /* ─── Canvas & Surfaces ─── */
-    --neo-bg-canvas: #F9F8F3;
-    /* Soft Off-white / Paper */
-    --neo-bg-surface: #FFFFFF;
-    /* Pure white cards */
-    --neo-ink: #000000;
-    /* Deep black — borders, text */
+    /* Core surfaces */
+    --neo-ink: #09090b;
+    --neo-bg-canvas: #fbf9f4;
+    --neo-bg-surface: #ffffff;
+    --neo-bg-panel: #f0eee9;
+    --neo-bg-panel-soft: #f5f3ee;
+    --neo-bg-panel-strong: #e4e2dd;
 
-    /* ─── Accents ─── */
-    --neo-accent-green: #39FF14;
-    /* Neon Green — success/active states */
-    --neo-accent-rainbow: linear-gradient(to right, #f76ca3, #ff9a44, #ffe26f, #7be495, #63c7f9, #8b88f8, #d78aff);
-    --neo-accent-danger: #ff2d55;
-    /* Hot pink/red for errors */
+    /* Accent palette */
+    --neo-accent-yellow: #ffd500;
+    --neo-accent-cyan: #63c7f9;
+    --neo-accent-pink: #ff6b6b;
+    --neo-accent-lime: #7be495;
+    --neo-accent-rainbow: linear-gradient(90deg, #ffd500 0%, #63c7f9 50%, #7be495 100%);
+    --neo-accent-danger: #ba1a1a;
 
-    /* ─── Shadows ─── */
-    --neo-shadow-button: 0 4px 14px rgba(0, 0, 0, 0.1);
-    /* Soft blurred shadow */
-    --neo-shadow-card: 0 8px 30px rgba(0, 0, 0, 0.08);
-    /* Deep blurred shadow */
-
-    /* ─── Typography ─── */
-    /* Font: Clash Display or Space Grotesk — geometric, bold, high-impact */
-    --neo-font-display: 'Space Grotesk', system-ui, sans-serif;
-    --neo-font-body: system-ui, -apple-system, sans-serif;
-    /* Clean, highly legible body */
-    --neo-font-mono: 'Space Mono', monospace;
-
-    /* Oversized scale */
-    --neo-text-hero: clamp(3rem, 8vw, 6rem);
-    /* 48–96px */
-    --neo-text-h1: clamp(2rem, 5vw, 3.5rem);
-    /* 32–56px */
-    --neo-text-h2: clamp(1.5rem, 3vw, 2rem);
-    /* 24–32px */
-    --neo-text-body: 1.125rem;
-    /* 18px body for readability */
-    --neo-text-label: 0.875rem;
-    /* 14px, uppercase, tracked */
-
-    /* ─── Shape & Borders ─── */
-    --neo-border-width: 2px;
+    /* Borders and shadows */
+    --neo-border-width: 4px;
+    --neo-border-width-sm: 2px;
     --neo-border: var(--neo-border-width) solid var(--neo-ink);
-    --neo-radius: 8px;
-    /* Softened corners, not sharp */
-    --neo-radius-lg: 12px;
-    /* For larger cards and modals */
+    --neo-border-sm: var(--neo-border-width-sm) solid var(--neo-ink);
+    --neo-shadow-button: 4px 4px 0 var(--neo-ink);
+    --neo-shadow-card: 8px 8px 0 var(--neo-ink);
+    --neo-shadow-soft: 4px 4px 0 rgba(9, 9, 11, 0.18);
+    --neo-shadow-focus: 8px 8px 0 var(--neo-accent-yellow);
+
+    /* Typography */
+    --neo-font-display: var(--font-display), "Space Grotesk", system-ui, sans-serif;
+    --neo-font-body: var(--font-body), "Inter", system-ui, sans-serif;
+    --neo-font-mono: var(--font-mono), "Space Mono", ui-monospace, monospace;
+
+    --neo-text-display: clamp(3rem, 6vw, 5.25rem);
+    --neo-text-headline: clamp(2rem, 4vw, 3rem);
+    --neo-text-title: 1.375rem;
+    --neo-text-body: 0.9375rem;
+    --neo-text-label: 0.75rem;
+
+    /* Shape */
+    --neo-radius: 0.125rem;
+    --neo-radius-lg: 0.25rem;
+    --neo-radius-xl: 0.5rem;
     --neo-radius-full: 9999px;
-    /* For pill buttons */
 
     /* Spacing */
     --neo-space-1: 4px;
@@ -66,16 +57,42 @@
     --neo-space-10: 40px;
     --neo-space-12: 48px;
 
-    /* ─── Compatibility Aliases for existing components (temporarily until migrated) ─── */
+    /* Existing component aliases */
     --bg-primary: var(--neo-bg-canvas);
-    --bg-secondary: var(--neo-bg-surface);
+    --bg-secondary: var(--neo-bg-panel);
     --bg-card: var(--neo-bg-surface);
-    --border: rgba(0, 0, 0, 0.1);
+    --border: rgba(9, 9, 11, 0.2);
     --text-primary: var(--neo-ink);
-    --text-secondary: rgba(0, 0, 0, 0.7);
-    --text-muted: rgba(0, 0, 0, 0.5);
+    --text-secondary: rgba(9, 9, 11, 0.72);
+    --text-muted: rgba(9, 9, 11, 0.54);
+    --accent: var(--neo-accent-yellow);
     --panel-gap: 24px;
-    --bubble-bg: #FFFFFF;
+    --bubble-bg: #ffffff;
     --bubble-thought: var(--neo-bg-canvas);
-    --bubble-narration: #000000;
+    --bubble-narration: var(--neo-ink);
+
+    /* Legacy WEO aliases */
+    --weo-bg-canvas: var(--neo-bg-canvas);
+    --weo-bg-muted: var(--neo-bg-panel-soft);
+    --weo-surface-inset: var(--neo-bg-panel);
+    --weo-accent-from: var(--neo-accent-cyan);
+    --weo-accent-glow: rgba(99, 199, 249, 0.18);
+    --weo-shadow-sm: var(--neo-shadow-button);
+    --weo-shadow-md: 6px 6px 0 var(--neo-ink);
+    --weo-shadow-lg: var(--neo-shadow-card);
+    --weo-stroke-soft: rgba(9, 9, 11, 0.18);
+    --weo-border-default: var(--neo-ink);
+    --weo-border-subtle: rgba(9, 9, 11, 0.18);
+    --weo-text-primary: var(--neo-ink);
+    --weo-text-secondary: rgba(9, 9, 11, 0.74);
+    --weo-text-muted: rgba(9, 9, 11, 0.54);
+    --weo-tone-neutral-bg: var(--neo-bg-panel);
+    --weo-tone-info-bg: rgba(99, 199, 249, 0.18);
+    --weo-tone-info-fg: var(--neo-ink);
+    --weo-tone-success-bg: rgba(123, 228, 149, 0.28);
+    --weo-tone-success-fg: var(--neo-ink);
+    --weo-tone-warning-bg: rgba(255, 213, 0, 0.28);
+    --weo-tone-warning-fg: var(--neo-ink);
+    --weo-tone-danger-bg: rgba(255, 107, 107, 0.22);
+    --weo-tone-danger-fg: var(--neo-accent-danger);
 }

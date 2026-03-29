@@ -132,8 +132,7 @@ RULES:
 // ─── Generate Character Sheet (Reference Image) ─────────
 
 /**
- * Generates a character sheet reference image.
- * Uses wavespeed.ai (or legacy provider) for image generation.
+ * Generates a character sheet reference image through WaveSpeed.
  */
 export async function generateCharacterSheet(
     characterId: string,

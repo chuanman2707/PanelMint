@@ -33,7 +33,18 @@ import {
     Loader2,
     Clock,
     ArrowLeft,
-    ArrowRight
+    ArrowRight,
+    Bell,
+    TerminalSquare,
+    Zap,
+    Lock,
+    CheckSquare,
+    Save,
+    History,
+    SlidersHorizontal,
+    ArrowUpDown,
+    LibraryBig,
+    BookOpen,
 } from 'lucide-react'
 
 const ICON_MAP = {
@@ -72,6 +83,17 @@ const ICON_MAP = {
     'clock': Clock,
     'arrow-left': ArrowLeft,
     'arrow-right': ArrowRight,
+    'notifications': Bell,
+    'terminal': TerminalSquare,
+    'zap': Zap,
+    'lock': Lock,
+    'check-square': CheckSquare,
+    'save': Save,
+    'history': History,
+    'filter': SlidersHorizontal,
+    'sort': ArrowUpDown,
+    'library': LibraryBig,
+    'book-open': BookOpen,
 } as const
 
 export type IconName = keyof typeof ICON_MAP

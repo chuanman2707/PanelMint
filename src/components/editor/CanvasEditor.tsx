@@ -446,7 +446,7 @@ export function CanvasEditor({ episodeId, episodeName, pages }: CanvasEditorProp
             {/* Left Sidebar — Page Selector */}
             <div className="w-48 border-r border-[var(--border)] bg-[var(--bg-secondary)] flex flex-col overflow-y-auto">
                 <div className="p-3 border-b border-[var(--border)]">
-                    <a href="/" className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center gap-1">
+                    <a href="/dashboard" className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center gap-1">
                         <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
                             <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>

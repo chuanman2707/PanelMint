@@ -70,11 +70,12 @@ vi.mock('@/lib/pipeline/run-state', () => ({
 import { executePanelImageGeneration } from '@/lib/pipeline/panel-image-executor'
 
 const providerConfig = {
-    provider: 'openrouter' as const,
+    provider: 'wavespeed' as const,
     apiKey: 'api-key',
-    llmModel: 'gemini',
-    imageModel: 'seedream',
-    baseUrl: 'https://openrouter.ai/api/v1',
+    llmModel: 'bytedance-seed/seed-1.6-flash',
+    imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
+    imageFallbackModel: 'bytedance/seedream-v4',
+    baseUrl: 'https://api.wavespeed.ai/api/v3',
 }
 
 const panel = {

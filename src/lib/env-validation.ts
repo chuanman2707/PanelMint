@@ -55,7 +55,6 @@ export function getEnvValidationReport(): EnvValidationReport {
         checks[key] = hasValue(key) ? 'configured' : 'optional'
     }
     checks.ALLOWED_ORIGINS = hasValue('ALLOWED_ORIGINS') ? 'configured' : 'optional'
-    checks.OPENROUTER_API_KEY = hasValue('OPENROUTER_API_KEY') ? 'configured' : 'optional'
     checks.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = hasValue('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY') ? 'configured' : 'missing'
     checks.CLERK_SECRET_KEY = hasValue('CLERK_SECRET_KEY') ? 'configured' : 'missing'
     checks.CLERK_WEBHOOK_SIGNING_SECRET = hasValue('CLERK_WEBHOOK_SIGNING_SECRET') ? 'configured' : 'missing'

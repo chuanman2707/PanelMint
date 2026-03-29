@@ -84,21 +84,18 @@ export async function generatePanelImage(input: PanelImageInput): Promise<string
     const { provider } = input.providerConfig
     console.log(`[ImageGen] Provider: ${provider} | Panel: ${input.panelId}`)
 
-    let url: string
-
-    if (provider === 'wavespeed') {
-        url = await generateImageWavespeed(
-            input.panelId,
-            trimmedPrompt,
-            input.providerConfig,
-            input.referenceImages,
-            input.userId,
-            input.episodeId,
-        )
-    } else {
-        // Legacy providers (BYOK backward compat)
-        url = await generateImageLegacy(input.panelId, trimmedPrompt, input.providerConfig, input.userId, input.episodeId)
+    if (provider !== 'wavespeed') {
+        throw new Error(`Unsupported image provider: ${provider}`)
     }
+
+    const url = await generateImageWavespeed(
+        input.panelId,
+        trimmedPrompt,
+        input.providerConfig,
+        input.referenceImages,
+        input.userId,
+        input.episodeId,
+    )
 
     // Log usage after successful image generation
     if (input.userId) {
@@ -317,111 +314,8 @@ async function pollWavespeedResult(
     throw new Error(`wavespeed.ai task timed out after ${WAVESPEED_POLL_MAX_ATTEMPTS * WAVESPEED_POLL_INTERVAL_MS / 1000}s`)
 }
 
-// ─── Legacy Provider (OpenRouter OpenAI-compat) ─────────
-// Kept for BYOK backward compatibility
-
-async function generateImageLegacy(
-    panelId: string,
-    prompt: string,
-    config: ProviderConfig,
-    userId?: string,
-    episodeId?: string,
-): Promise<string> {
-    const model = config.imageModel
-    console.log(`[ImageGen] Legacy ${config.provider}/${model}`)
-
-    const headers: Record<string, string> = {
-        'Authorization': `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json',
-    }
-    if (config.provider === 'openrouter') {
-        headers['HTTP-Referer'] = 'https://weoweo.app'
-        headers['X-Title'] = 'weoweo'
-    }
-
-    const res = await fetch(`${config.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-            model,
-            messages: [{ role: 'user', content: prompt }],
-            modalities: ['image'],
-            max_tokens: 1,
-        }),
-    })
-
-    if (!res.ok) {
-        const err = await res.text()
-        throw new Error(`Image gen failed (${config.provider}, ${res.status}): ${err.slice(0, 300)}`)
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = await res.json() as any
-    const message = data.choices?.[0]?.message
-    const content = message?.content
-    const images = message?.images as Array<{ image_url?: { url?: string }; b64_json?: string }> | undefined
-
-    if (images?.length) {
-        for (const img of images) {
-            const url = img.image_url?.url
-            if (url) {
-                if (url.startsWith('data:image/')) {
-                    return saveBase64(panelId, url.split(',')[1], userId, episodeId)
-                }
-                return downloadAndSave(panelId, url, userId, episodeId)
-            }
-            if (img.b64_json) {
-                return saveBase64(panelId, img.b64_json, userId, episodeId)
-            }
-        }
-    }
-
-    if (content) {
-        if (typeof content === 'string') {
-            if (content.startsWith('data:image/')) {
-                return saveBase64(panelId, content.split(',')[1], userId, episodeId)
-            }
-            if (content.startsWith('http')) {
-                return downloadAndSave(panelId, content, userId, episodeId)
-            }
-            if (content.length > 1000 && !content.includes(' ')) {
-                return saveBase64(panelId, content, userId, episodeId)
-            }
-        }
-        if (Array.isArray(content)) {
-            for (const part of content) {
-                if (part.type === 'image_url' && part.image_url?.url) {
-                    const url = part.image_url.url
-                    if (url.startsWith('data:image/')) {
-                        return saveBase64(panelId, url.split(',')[1], userId, episodeId)
-                    }
-                    return downloadAndSave(panelId, url, userId, episodeId)
-                }
-            }
-        }
-    }
-
-    const finishReason = data.choices?.[0]?.finish_reason
-    if (finishReason === 'content_filter') {
-        throw new ContentFilterError('Image blocked by content filter')
-    }
-
-    throw new Error(`No image in response from ${config.provider}. Keys: message=${message ? Object.keys(message).join(',') : 'null'}`)
-}
-
 // ─── File Storage Helpers ───────────────────────────────
 // Uses StorageProvider (R2 in production, local in dev)
-
-async function saveBase64(panelId: string, base64: string, userId?: string, episodeId?: string): Promise<string> {
-    const storage = getStorage()
-    const buffer = Buffer.from(base64, 'base64')
-    const key = userId && episodeId
-        ? buildStorageKey(userId, episodeId, panelId)
-        : `${panelId}.png`
-    const url = await storage.upload(buffer, key)
-    console.log(`[ImageGen] Saved: ${key}`)
-    return url
-}
 
 async function downloadAndSave(panelId: string, imageUrl: string, userId?: string, episodeId?: string): Promise<string> {
     const res = await fetch(imageUrl)

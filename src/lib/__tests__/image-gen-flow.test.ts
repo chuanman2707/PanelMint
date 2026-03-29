@@ -49,64 +49,6 @@ describe('generatePanelImage', () => {
         vi.unstubAllGlobals()
     })
 
-    it('generates an image through the legacy provider path and stores it', async () => {
-        const fetchMock = vi.fn()
-            .mockResolvedValueOnce(new Response(JSON.stringify({
-                choices: [{ message: { images: [{ image_url: { url: 'https://cdn.example.com/panel.png' } }] } }],
-            }), { status: 200, headers: { 'content-type': 'application/json' } }))
-            .mockResolvedValueOnce(new Response(Buffer.from('image-bytes'), { status: 200 }))
-        vi.stubGlobal('fetch', fetchMock)
-
-        const imageUrl = await generatePanelImage({
-            panelId: 'panel-1',
-            description: 'A duel at sunset',
-            characters: ['Anh Minh'],
-            shotType: 'wide',
-            location: 'bridge',
-            artStyle: 'manga',
-            providerConfig: {
-                provider: 'openrouter',
-                apiKey: 'api-key',
-                llmModel: 'gemini',
-                imageModel: 'seedream',
-                baseUrl: 'https://openrouter.ai/api/v1',
-            },
-            userId: 'user-1',
-            episodeId: 'episode-1',
-        })
-
-        expect(imageUrl).toBe('/generated/panel.png')
-        expect(mocks.acquire).toHaveBeenCalled()
-        expect(fetchMock).toHaveBeenCalledTimes(2)
-        expect(mocks.upload).toHaveBeenCalled()
-        expect(mocks.logUsage).toHaveBeenCalled()
-    })
-
-    it('throws ContentFilterError when the legacy provider reports content filtering', async () => {
-        const fetchMock = vi.fn().mockResolvedValue(
-            new Response(JSON.stringify({
-                choices: [{ finish_reason: 'content_filter', message: {} }],
-            }), { status: 200, headers: { 'content-type': 'application/json' } }),
-        )
-        vi.stubGlobal('fetch', fetchMock)
-
-        await expect(generatePanelImage({
-            panelId: 'panel-1',
-            description: 'Blocked prompt',
-            characters: [],
-            shotType: 'closeup',
-            location: 'room',
-            artStyle: 'manga',
-            providerConfig: {
-                provider: 'openrouter',
-                apiKey: 'api-key',
-                llmModel: 'gemini',
-                imageModel: 'seedream',
-                baseUrl: 'https://openrouter.ai/api/v1',
-            },
-        })).rejects.toBeInstanceOf(ContentFilterError)
-    })
-
     it('generates an image through the wavespeed path', async () => {
         const fetchMock = vi.fn()
             .mockResolvedValueOnce(new Response(JSON.stringify({
@@ -130,8 +72,7 @@ describe('generatePanelImage', () => {
             providerConfig: {
                 provider: 'wavespeed',
                 apiKey: 'wavespeed-key',
-                llmApiKey: 'openrouter-key',
-                llmModel: 'gemini',
+                llmModel: 'bytedance-seed/seed-1.6-flash',
                 imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
                 imageFallbackModel: 'bytedance/seedream-v4',
                 baseUrl: 'https://api.wavespeed.ai/api/v3',
@@ -143,5 +84,34 @@ describe('generatePanelImage', () => {
         expect(imageUrl).toBe('/generated/panel.png')
         expect(fetchMock).toHaveBeenCalledTimes(3)
         expect(mocks.upload).toHaveBeenCalled()
+    })
+
+    it('throws ContentFilterError when wavespeed reports content filtering', async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                code: 0,
+                data: { id: 'task-filter' },
+            }), { status: 200, headers: { 'content-type': 'application/json' } }))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                data: { status: 'failed', error: 'content filter triggered' },
+            }), { status: 200, headers: { 'content-type': 'application/json' } }))
+        vi.stubGlobal('fetch', fetchMock)
+
+        await expect(generatePanelImage({
+            panelId: 'panel-1',
+            description: 'Blocked prompt',
+            characters: [],
+            shotType: 'closeup',
+            location: 'room',
+            artStyle: 'manga',
+            providerConfig: {
+                provider: 'wavespeed',
+                apiKey: 'wavespeed-key',
+                llmModel: 'bytedance-seed/seed-1.6-flash',
+                imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
+                imageFallbackModel: 'bytedance/seedream-v4',
+                baseUrl: 'https://api.wavespeed.ai/api/v3',
+            },
+        })).rejects.toBeInstanceOf(ContentFilterError)
     })
 })

@@ -17,8 +17,8 @@ const IV_LENGTH = 16
 const TAG_LENGTH = 16
 
 function getKey(): Buffer {
-    const secret = process.env.ENCRYPTION_SECRET || 'weoweo-dev-secret-change-in-production'
-    const salt = process.env.ENCRYPTION_SALT || 'weoweo-dev-salt-change-in-production'
+    const secret = process.env.ENCRYPTION_SECRET || 'panelmint-dev-secret-change-in-production'
+    const salt = process.env.ENCRYPTION_SALT || 'panelmint-dev-salt-change-in-production'
     return scryptSync(salt, secret, 32)
 }
 

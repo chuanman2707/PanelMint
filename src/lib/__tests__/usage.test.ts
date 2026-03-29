@@ -20,7 +20,7 @@ describe('logUsage', () => {
         await logUsage({
             userId: 'user-1',
             type: 'llm_call',
-            model: 'gemini-2.5-flash',
+            model: 'bytedance-seed/seed-1.6-flash',
             tokens: 1500,
         })
 
@@ -28,7 +28,7 @@ describe('logUsage', () => {
             data: expect.objectContaining({
                 userId: 'user-1',
                 type: 'llm_call',
-                model: 'gemini-2.5-flash',
+                model: 'bytedance-seed/seed-1.6-flash',
                 tokens: 1500,
             }),
         })

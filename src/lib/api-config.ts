@@ -1,44 +1,31 @@
 /**
- * API Config — Multi-Provider BYOK
+ * API Config
  *
- * Supports: OpenRouter + NVIDIA NIM (both OpenAI-compatible)
- * Reads user's provider + encrypted key from DB, returns full config.
+ * The production contract is WaveSpeed-only for both LLM and image generation.
+ * Users may optionally store their own WaveSpeed key, otherwise the platform
+ * key from WAVESPEED_API_KEY is used.
  */
 
 import { prisma } from './prisma'
 import { decrypt, isEncrypted } from './crypto'
 
-export type ApiProvider = 'openrouter' | 'nvidia' | 'wavespeed'
+export type ApiProvider = 'wavespeed'
 
 export interface ProviderConfig {
     provider: ApiProvider
     apiKey: string
-    /** Separate API key for LLM calls (wavespeed uses OpenRouter for LLM) */
-    llmApiKey?: string
     llmModel: string
     imageModel: string
     baseUrl: string
-    /** wavespeed.ai fallback image model (e.g. seedream-v4) */
+    /** wavespeed.ai fallback image model when multi-ref generation is unavailable */
     imageFallbackModel?: string
     userId?: string
 }
 
 const PROVIDER_DEFAULTS: Record<ApiProvider, Omit<ProviderConfig, 'apiKey'>> = {
-    openrouter: {
-        provider: 'openrouter',
-        llmModel: 'google/gemini-2.5-flash',
-        imageModel: 'bytedance-seed/seedream-4.5',
-        baseUrl: 'https://openrouter.ai/api/v1',
-    },
-    nvidia: {
-        provider: 'nvidia',
-        llmModel: 'nvidia/nemotron-3-super-120b-a12b',
-        imageModel: 'black-forest-labs/flux.1-dev',
-        baseUrl: 'https://integrate.api.nvidia.com/v1',
-    },
     wavespeed: {
         provider: 'wavespeed',
-        llmModel: 'google/gemini-2.5-flash', // LLM still via OpenRouter
+        llmModel: 'bytedance-seed/seed-1.6-flash',
         imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
         imageFallbackModel: 'bytedance/seedream-v4',
         baseUrl: 'https://api.wavespeed.ai/api/v3',
@@ -46,12 +33,11 @@ const PROVIDER_DEFAULTS: Record<ApiProvider, Omit<ProviderConfig, 'apiKey'>> = {
 }
 
 /**
- * Get full provider config for a user (provider + decrypted key + models).
+ * Get the effective WaveSpeed config for a user.
  *
- * wavespeed provider uses platform-managed keys:
- * - WAVESPEED_API_KEY env var for image gen
- * - OPENROUTER_API_KEY env var for LLM calls (or Gemini fallback)
- * User doesn't need their own API key — they pay with credits.
+ * Preference order:
+ * 1. User-provided WaveSpeed key saved in the DB
+ * 2. Platform-managed WAVESPEED_API_KEY env var
  */
 export async function getProviderConfig(userId: string): Promise<ProviderConfig> {
     const user = await prisma.user.findUnique({
@@ -59,38 +45,19 @@ export async function getProviderConfig(userId: string): Promise<ProviderConfig>
         select: { apiKey: true, apiProvider: true },
     })
 
-    const provider = (user?.apiProvider as ApiProvider) ?? 'wavespeed'
+    const provider: ApiProvider = 'wavespeed'
     const defaults = PROVIDER_DEFAULTS[provider]
-    if (!defaults) {
-        throw new Error(`Unknown provider: ${provider}`)
-    }
-
-    // Platform-managed keys for wavespeed (pay-as-you-go credits model)
-    if (provider === 'wavespeed') {
-        const wavespeedKey = process.env.WAVESPEED_API_KEY
-        if (!wavespeedKey) {
-            throw new Error('WAVESPEED_API_KEY not configured on platform.')
-        }
-        // For LLM, wavespeed config carries the OpenRouter key
-        // (llm.ts handles routing to OpenRouter URL automatically)
-        const llmKey = process.env.OPENROUTER_API_KEY || wavespeedKey
-        return { ...defaults, apiKey: wavespeedKey, llmApiKey: llmKey, userId }
-    }
-
-    // BYOK path for openrouter/nvidia
     const raw = user?.apiKey
-    if (!raw) {
-        throw new Error('API_KEY_MISSING: Please configure your API key in Settings.')
+    if (raw) {
+        const apiKey = isEncrypted(raw) ? decrypt(raw) : raw
+        return { ...defaults, apiKey, userId }
     }
 
-    let apiKey: string
-    if (isEncrypted(raw)) {
-        apiKey = decrypt(raw)
-    } else {
-        apiKey = raw // Legacy plaintext — backward compat
+    const platformKey = process.env.WAVESPEED_API_KEY?.trim()
+    if (!platformKey) {
+        throw new Error('WAVESPEED_API_KEY not configured on platform.')
     }
-
-    return { ...defaults, apiKey, userId }
+    return { ...defaults, apiKey: platformKey, userId }
 }
 
 /**
@@ -109,30 +76,12 @@ export async function hasApiKey(userId: string): Promise<boolean> {
  */
 export function getProviderInfo(provider: ApiProvider) {
     const info = {
-        openrouter: {
-            name: 'OpenRouter',
-            description: 'Pay-per-use. Best quality & reliability.',
-            llmModel: 'Gemini 2.5 Flash',
-            imageModel: 'SeedReam 4.5',
-            pricing: '~$0.003/image',
-            risk: 'none' as const,
-            setupUrl: 'https://openrouter.ai/keys',
-        },
-        nvidia: {
-            name: 'NVIDIA NIM',
-            description: 'FREE but experimental. Rate-limited.',
-            llmModel: 'Nemotron 3 Super 120B',
-            imageModel: 'FLUX.1 Dev',
-            pricing: 'Free (rate-limited)',
-            risk: 'Account may be suspended if abused.' as const,
-            setupUrl: 'https://build.nvidia.com',
-        },
         wavespeed: {
             name: 'WaveSpeed AI',
-            description: 'Pay-per-use. FLUX Kontext multi-ref for character consistency.',
-            llmModel: 'Gemini 2.5 Flash (via OpenRouter)',
+            description: 'Unified provider for text generation and multi-reference image generation.',
+            llmModel: 'Seed 1.6 Flash',
             imageModel: 'FLUX Kontext Pro Multi',
-            pricing: '~$0.006-0.04/image',
+            pricing: 'Project-configured',
             risk: 'none' as const,
             setupUrl: 'https://wavespeed.ai/accesskey',
         },

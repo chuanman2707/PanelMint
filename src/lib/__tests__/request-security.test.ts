@@ -11,7 +11,7 @@ function createRequest(
     method: string,
     headers?: Record<string, string>,
 ) {
-    return new NextRequest('https://app.weoweo.test/api/example', {
+    return new NextRequest('https://app.panelmint.test/api/example', {
         method,
         headers,
     })
@@ -31,22 +31,22 @@ describe('assertTrustedRequestOrigin', () => {
     it('allows same-origin POST requests', () => {
         mutableEnv.NODE_ENV = 'production'
         expect(() => assertTrustedRequestOrigin(createRequest('POST', {
-            origin: 'https://app.weoweo.test',
+            origin: 'https://app.panelmint.test',
         }))).not.toThrow()
     })
 
     it('allows referer fallback when origin is absent', () => {
         mutableEnv.NODE_ENV = 'production'
         expect(() => assertTrustedRequestOrigin(createRequest('POST', {
-            referer: 'https://app.weoweo.test/editor',
+            referer: 'https://app.panelmint.test/editor',
         }))).not.toThrow()
     })
 
     it('allows explicitly configured alternate origins', () => {
         mutableEnv.NODE_ENV = 'production'
-        mutableEnv.ALLOWED_ORIGINS = 'https://beta.weoweo.test, https://app.weoweo.test'
+        mutableEnv.ALLOWED_ORIGINS = 'https://beta.panelmint.test, https://app.panelmint.test'
         expect(() => assertTrustedRequestOrigin(createRequest('POST', {
-            origin: 'https://beta.weoweo.test',
+            origin: 'https://beta.panelmint.test',
         }))).not.toThrow()
     })
 

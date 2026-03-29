@@ -4,12 +4,12 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
-import { NeoButton } from '@/components/ui/NeoButton'
-import { NeoInput } from '@/components/ui/NeoInput'
-import { NeoCard } from '@/components/ui/NeoCard'
-import { Icon } from '@/components/ui/icons'
 import { MIN_PASSWORD_LENGTH } from '@/lib/security-policy'
 import { getClerkErrorMessage } from '@/lib/clerk-errors'
+import { Icon } from '@/components/ui/icons'
+import { NeoButton } from '@/components/ui/NeoButton'
+import { NeoCard } from '@/components/ui/NeoCard'
+import { NeoInput } from '@/components/ui/NeoInput'
 
 export default function ResetPasswordPage() {
     const router = useRouter()
@@ -33,7 +33,7 @@ export default function ResetPasswordPage() {
                     return
                 }
 
-                const targetUrl = decorateUrl('/')
+                const targetUrl = decorateUrl('/dashboard')
                 if (targetUrl.startsWith('http')) {
                     window.location.href = targetUrl
                     return
@@ -126,129 +126,140 @@ export default function ResetPasswordPage() {
     }
 
     return (
-        <div className="min-h-screen px-4 py-8 md:px-6">
-            <div className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-4xl items-center gap-6 lg:grid-cols-[0.95fr_0.8fr]">
-                <div className="rounded-[32px] border border-[var(--weo-stroke-soft)] bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(255,255,255,0.72))] p-8 shadow-[var(--weo-shadow-lg)] animate-fade-in-up md:p-10">
-                    <div className="inline-flex h-14 w-14 items-center justify-center rounded-[22px] bg-[var(--weo-accent-glow)] text-[var(--weo-accent-from)]">
+        <div className="relative min-h-screen overflow-hidden bg-[var(--neo-bg-canvas)] px-4 py-8 md:px-6">
+            <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(#09090B_0.5px,transparent_0.5px)] bg-[size:24px_24px] opacity-[0.05]" />
+            <header className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between border-b-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-ink)] px-4 py-3 text-[var(--neo-accent-lime)] shadow-[var(--neo-shadow-card)] md:px-6">
+                <Link href="/" className="font-mono text-xs font-bold uppercase tracking-[0.24em] text-[var(--neo-accent-lime)] md:text-sm">
+                    COMIC_OS // TERMINAL
+                </Link>
+                <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--neo-accent-lime)]/70">
+                    Account recovery
+                </span>
+            </header>
+
+            <div className="relative z-10 mx-auto grid min-h-[calc(100vh-7rem)] w-full max-w-5xl items-center gap-6 py-8 lg:grid-cols-[0.95fr_0.8fr]">
+                <div className="rounded-[var(--neo-radius-lg)] border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-bg-surface)] p-8 shadow-[var(--neo-shadow-card)] md:p-10">
+                    <div className="inline-flex h-14 w-14 items-center justify-center border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-yellow)] text-[var(--neo-ink)] shadow-[var(--neo-shadow-card)]">
                         <Icon name="shield" size={26} />
                     </div>
-                    <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--weo-text-muted)]">
+                    <p className="mt-6 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--neo-ink)]/55">
                         Account recovery
                     </p>
-                    <h1 className="mt-3 max-w-md text-4xl font-semibold leading-tight text-[var(--weo-text-primary)]">
+                    <h1 className="mt-3 max-w-md text-4xl font-black uppercase leading-tight tracking-tighter text-[var(--neo-ink)]">
                         Reset your password without losing your current workspace.
                     </h1>
-                    <p className="mt-4 max-w-lg text-base leading-7 text-[var(--weo-text-secondary)]">
-                        We&apos;ll email you a secure recovery link. Open it on the same device if possible, then choose a new password.
+                    <p className="mt-4 max-w-lg text-base leading-7 text-[var(--neo-ink)]/75">
+                        We&apos;ll email you a secure recovery code. Open it on the same device if possible, then choose a new password.
                     </p>
                 </div>
 
-                <NeoCard className="animate-fade-in-up p-7 md:p-8">
-                    <div className="mb-8">
-                        <div className="inline-flex items-center gap-2 rounded-full bg-[var(--weo-tone-neutral-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--weo-text-secondary)]">
-                            <Icon name="shield" size={14} className="text-[var(--weo-accent-from)]" />
+                <NeoCard noHover className="p-0">
+                    <div className="border-b-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-bg-panel)] px-6 py-3">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--neo-ink)]/60">
                             Reset password
-                        </div>
-                        <h2 className="mt-5 text-3xl font-semibold text-[var(--weo-text-primary)]">
+                        </span>
+                    </div>
+                    <div className="px-6 py-8 md:px-8">
+                        <h2 className="text-3xl font-black uppercase tracking-tighter text-[var(--neo-ink)]">
                             {step === 'request'
                                 ? 'Send reset code'
                                 : step === 'verify'
                                     ? 'Verify reset code'
                                     : 'Choose new password'}
                         </h2>
-                    </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        {step === 'request' ? (
-                            <NeoInput
-                                id="email"
-                                type="email"
-                                label="Email"
-                                placeholder="you@example.com"
-                                value={email}
-                                onChange={(event) => setEmail(event.target.value)}
-                                autoComplete="email"
-                                required
-                                autoFocus
-                                disabled={loading || fetchStatus === 'fetching'}
-                            />
-                        ) : null}
-
-                        {step === 'verify' ? (
-                            <NeoInput
-                                id="code"
-                                type="text"
-                                label="Reset code"
-                                placeholder="6-digit code"
-                                value={code}
-                                onChange={(event) => setCode(event.target.value)}
-                                autoComplete="one-time-code"
-                                required
-                                autoFocus
-                                disabled={loading || fetchStatus === 'fetching'}
-                            />
-                        ) : null}
-
-                        {step === 'password' ? (
-                            <>
+                        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+                            {step === 'request' ? (
                                 <NeoInput
-                                    id="password"
-                                    type="password"
-                                    label="New password"
-                                    placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-                                    value={password}
-                                    onChange={(event) => setPassword(event.target.value)}
-                                    autoComplete="new-password"
+                                    id="email"
+                                    type="email"
+                                    label="Email"
+                                    placeholder="you@example.com"
+                                    value={email}
+                                    onChange={(event) => setEmail(event.target.value)}
+                                    autoComplete="email"
                                     required
                                     autoFocus
                                     disabled={loading || fetchStatus === 'fetching'}
                                 />
+                            ) : null}
+
+                            {step === 'verify' ? (
                                 <NeoInput
-                                    id="confirm-password"
-                                    type="password"
-                                    label="Confirm password"
-                                    placeholder="Repeat your password"
-                                    value={confirmPassword}
-                                    onChange={(event) => setConfirmPassword(event.target.value)}
-                                    autoComplete="new-password"
+                                    id="code"
+                                    type="text"
+                                    label="Reset code"
+                                    placeholder="6-digit code"
+                                    value={code}
+                                    onChange={(event) => setCode(event.target.value)}
+                                    autoComplete="one-time-code"
                                     required
+                                    autoFocus
                                     disabled={loading || fetchStatus === 'fetching'}
                                 />
-                            </>
-                        ) : null}
+                            ) : null}
 
-                        {error && (
-                            <div className="flex items-start gap-2 rounded-[20px] bg-[var(--weo-tone-danger-bg)] px-4 py-3 text-sm text-[var(--weo-tone-danger-fg)]">
-                                <Icon name="alert" size={16} className="mt-0.5 shrink-0" />
-                                {error}
-                            </div>
-                        )}
+                            {step === 'password' ? (
+                                <>
+                                    <NeoInput
+                                        id="password"
+                                        type="password"
+                                        label="New password"
+                                        placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                                        value={password}
+                                        onChange={(event) => setPassword(event.target.value)}
+                                        autoComplete="new-password"
+                                        required
+                                        autoFocus
+                                        disabled={loading || fetchStatus === 'fetching'}
+                                    />
+                                    <NeoInput
+                                        id="confirm-password"
+                                        type="password"
+                                        label="Confirm password"
+                                        placeholder="Repeat your password"
+                                        value={confirmPassword}
+                                        onChange={(event) => setConfirmPassword(event.target.value)}
+                                        autoComplete="new-password"
+                                        required
+                                        disabled={loading || fetchStatus === 'fetching'}
+                                    />
+                                </>
+                            ) : null}
 
-                        {notice && (
-                            <div className="flex items-start gap-2 rounded-[20px] bg-[var(--weo-tone-neutral-bg)] px-4 py-3 text-sm text-[var(--weo-text-secondary)]">
-                                <Icon name="badge-check" size={16} className="mt-0.5 shrink-0 text-[var(--weo-accent-from)]" />
-                                {notice}
-                            </div>
-                        )}
+                            {error && (
+                                <div className="flex items-start gap-3 border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-pink)] px-4 py-3 text-sm font-bold text-[var(--neo-ink)] shadow-[var(--neo-shadow-button)]">
+                                    <Icon name="alert" size={16} className="mt-0.5 shrink-0" />
+                                    {error}
+                                </div>
+                            )}
 
-                        <NeoButton type="submit" variant="primary" size="lg" disabled={loading || fetchStatus === 'fetching'} className="w-full">
-                            {loading ? <span className="weo-spinner mr-2" /> : null}
-                            {step === 'request'
-                                ? 'Send Reset Code'
-                                : step === 'verify'
-                                    ? 'Verify Code'
-                                    : 'Update Password'}
-                        </NeoButton>
-                    </form>
+                            {notice && (
+                                <div className="flex items-start gap-3 border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-lime)] px-4 py-3 text-sm font-bold text-[var(--neo-ink)] shadow-[var(--neo-shadow-button)]">
+                                    <Icon name="badge-check" size={16} className="mt-0.5 shrink-0" />
+                                    {notice}
+                                </div>
+                            )}
 
-                    <div className="mt-6 rounded-[20px] border border-[var(--weo-stroke-soft)] bg-white/70 px-4 py-3 text-sm text-[var(--weo-text-secondary)]">
-                        Remembered it?{' '}
-                        <Link
-                            href="/auth/signin"
-                            className="font-semibold text-[var(--weo-text-primary)] hover:text-[var(--weo-accent-from)]"
-                        >
-                            Back to sign in
-                        </Link>
+                            <NeoButton type="submit" variant="primary" size="lg" disabled={loading || fetchStatus === 'fetching'} className="w-full">
+                                {loading ? <span className="weo-spinner mr-2 border-black border-t-transparent" /> : null}
+                                {step === 'request'
+                                    ? 'Send Reset Code'
+                                    : step === 'verify'
+                                        ? 'Verify Code'
+                                        : 'Update Password'}
+                            </NeoButton>
+                        </form>
+
+                        <div className="mt-6 border-[var(--neo-border-width-sm)] border-[var(--neo-ink)] bg-[var(--neo-bg-panel)] px-4 py-3 text-sm text-[var(--neo-ink)]/75">
+                            Remembered it?{' '}
+                            <Link
+                                href="/auth/signin"
+                                className="font-semibold text-[var(--neo-ink)] underline decoration-[var(--neo-accent-yellow)] decoration-2 underline-offset-4"
+                            >
+                                Back to sign in
+                            </Link>
+                        </div>
                     </div>
                 </NeoCard>
             </div>

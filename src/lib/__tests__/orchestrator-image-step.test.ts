@@ -127,11 +127,12 @@ describe('runImageGenStep', () => {
             },
         ])
         mocks.getProviderConfig.mockResolvedValue({
-            provider: 'openrouter',
+            provider: 'wavespeed',
             apiKey: 'api-key',
-            llmModel: 'model',
-            imageModel: 'image-model',
-            baseUrl: 'https://openrouter.ai/api/v1',
+            llmModel: 'bytedance-seed/seed-1.6-flash',
+            imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
+            imageFallbackModel: 'bytedance/seedream-v4',
+            baseUrl: 'https://api.wavespeed.ai/api/v3',
         })
         mocks.collectPanelReferenceImages.mockReturnValue([])
         mocks.buildCharacterCanon.mockReturnValue([])

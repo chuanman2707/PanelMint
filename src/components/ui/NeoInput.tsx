@@ -17,7 +17,7 @@ export const NeoInput = React.forwardRef<HTMLInputElement, NeoInputProps>(
         return (
             <div className="space-y-2">
                 {label && (
-                    <label htmlFor={id} className="text-sm font-bold text-black uppercase tracking-wider block">
+                    <label htmlFor={id} className="block font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--neo-ink)]">
                         {label}
                     </label>
                 )}
@@ -25,16 +25,16 @@ export const NeoInput = React.forwardRef<HTMLInputElement, NeoInputProps>(
                     type={type}
                     id={id}
                     className={cn(
-                        "flex h-12 w-full rounded-[var(--neo-radius)] border-2 border-black bg-white px-4 py-2 text-base ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-shadow",
-                        error && "border-[var(--neo-accent-danger)] focus-visible:ring-[var(--neo-accent-danger)]",
+                        "flex h-12 w-full rounded-[var(--neo-radius)] border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-bg-surface)] px-4 py-2 text-[15px] text-[var(--neo-ink)] outline-none transition-[background-color,box-shadow] duration-100 placeholder:text-black/40 focus-visible:bg-[var(--neo-bg-panel-soft)] focus-visible:shadow-[var(--neo-shadow-focus)] disabled:cursor-not-allowed disabled:opacity-50",
+                        error && "border-[var(--neo-accent-danger)] focus-visible:shadow-[8px_8px_0_var(--neo-accent-pink)]",
                         className
                     )}
                     ref={ref}
                     aria-invalid={error ? 'true' : undefined}
                     {...props}
                 />
-                {error && <p className="text-sm font-medium text-[var(--neo-accent-danger)]">{error}</p>}
-                {hint && !error && <p className="text-sm text-gray-600">{hint}</p>}
+                {error && <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--neo-accent-danger)]">{error}</p>}
+                {hint && !error && <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-black/60">{hint}</p>}
             </div>
         )
     }
@@ -52,23 +52,23 @@ export const NeoTextarea = React.forwardRef<HTMLTextAreaElement, NeoTextareaProp
         return (
             <div className="space-y-2">
                 {label && (
-                    <label htmlFor={id} className="text-sm font-bold text-black uppercase tracking-wider block">
+                    <label htmlFor={id} className="block font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--neo-ink)]">
                         {label}
                     </label>
                 )}
                 <textarea
                     id={id}
                     className={cn(
-                        "flex min-h-[80px] w-full rounded-[var(--neo-radius)] border-2 border-black bg-white px-4 py-3 text-base ring-offset-white placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-shadow",
-                        error && "border-[var(--neo-accent-danger)] focus-visible:ring-[var(--neo-accent-danger)]",
+                        "flex min-h-[120px] w-full rounded-[var(--neo-radius)] border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-bg-surface)] px-4 py-3 text-[15px] text-[var(--neo-ink)] outline-none transition-[background-color,box-shadow] duration-100 placeholder:text-black/40 focus-visible:bg-[var(--neo-bg-panel-soft)] focus-visible:shadow-[var(--neo-shadow-focus)] disabled:cursor-not-allowed disabled:opacity-50",
+                        error && "border-[var(--neo-accent-danger)] focus-visible:shadow-[8px_8px_0_var(--neo-accent-pink)]",
                         className
                     )}
                     ref={ref}
                     aria-invalid={error ? 'true' : undefined}
                     {...props}
                 />
-                {error && <p className="text-sm font-medium text-[var(--neo-accent-danger)]">{error}</p>}
-                {hint && !error && <p className="text-sm text-gray-600">{hint}</p>}
+                {error && <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--neo-accent-danger)]">{error}</p>}
+                {hint && !error && <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-black/60">{hint}</p>}
             </div>
         )
     }

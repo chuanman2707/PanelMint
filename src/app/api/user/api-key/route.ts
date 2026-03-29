@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getUserApiKey, setUserApiKey } from '@/lib/auth'
 import { requireAuth } from '@/lib/api-auth'
 import { apiHandler } from '@/lib/api-handler'
@@ -14,10 +14,7 @@ function maskKey(key: string): string {
 
 const VALID_PROVIDERS: ApiProvider[] = [...validApiProviders]
 
-// Validation endpoints per provider
 const VALIDATION_URLS: Record<ApiProvider, string> = {
-    openrouter: 'https://openrouter.ai/api/v1/models',
-    nvidia: 'https://integrate.api.nvidia.com/v1/models',
     wavespeed: 'https://api.wavespeed.ai/api/v3/models',
 }
 
@@ -36,7 +33,7 @@ export const GET = apiHandler(async (request) => {
 
     if (validate && apiKey && provider) {
         try {
-            const validationUrl = VALIDATION_URLS[provider as ApiProvider]
+            const validationUrl = VALIDATION_URLS.wavespeed
             if (!validationUrl) {
                 return NextResponse.json({ valid: false, error: 'Unknown provider' })
             }
@@ -66,7 +63,7 @@ export const POST = apiHandler(async (request) => {
     const { apiKey, provider } = await parseJsonBody(request, apiKeyRequestSchema)
 
     if (!VALID_PROVIDERS.includes(provider)) {
-        return NextResponse.json({ error: 'Provider must be one of: openrouter, nvidia, wavespeed' }, { status: 400 })
+        return NextResponse.json({ error: 'Provider must be: wavespeed' }, { status: 400 })
     }
 
     await setUserApiKey(auth.user.id, apiKey, provider)

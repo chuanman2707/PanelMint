@@ -1,16 +1,16 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSignUp } from '@clerk/nextjs'
-import { Icon } from '@/components/ui/icons'
-import { NeoButton } from '@/components/ui/NeoButton'
-import { NeoInput } from '@/components/ui/NeoInput'
-import { NeoCard } from '@/components/ui/NeoCard'
-import Link from 'next/link'
 import { MIN_PASSWORD_LENGTH } from '@/lib/security-policy'
 import { FREE_SIGNUP_CREDITS } from '@/lib/credit-catalog'
 import { getClerkErrorMessage } from '@/lib/clerk-errors'
+import { Icon } from '@/components/ui/icons'
+import { NeoButton } from '@/components/ui/NeoButton'
+import { NeoCard } from '@/components/ui/NeoCard'
+import { NeoInput } from '@/components/ui/NeoInput'
 
 export default function SignUpPage() {
     const router = useRouter()
@@ -34,7 +34,7 @@ export default function SignUpPage() {
                     return
                 }
 
-                const targetUrl = decorateUrl('/')
+                const targetUrl = decorateUrl('/dashboard')
                 if (targetUrl.startsWith('http')) {
                     window.location.href = targetUrl
                     return
@@ -57,6 +57,7 @@ export default function SignUpPage() {
             setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`)
             return
         }
+
         setLoading(true)
         setError('')
         setNotice('')
@@ -115,147 +116,171 @@ export default function SignUpPage() {
     }
 
     return (
-        <div className="min-h-screen px-4 py-8 md:px-6 bg-[var(--neo-bg-canvas)]">
-            <div className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center gap-10 lg:grid-cols-[1fr_0.8fr]">
+        <div className="relative min-h-screen overflow-hidden bg-[var(--neo-bg-canvas)] px-4 py-8 md:px-6">
+            <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(#09090B_0.5px,transparent_0.5px)] bg-[size:24px_24px] opacity-[0.05]" />
+            <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between border-b-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-ink)] px-4 py-3 text-[var(--neo-accent-lime)] shadow-[var(--neo-shadow-card)] md:px-6">
+                <Link href="/" className="font-mono text-xs font-bold uppercase tracking-[0.24em] text-[var(--neo-accent-lime)] md:text-sm">
+                    COMIC_OS // TERMINAL
+                </Link>
+                <div className="flex items-center gap-4">
+                    <span className="hidden font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--neo-accent-lime)]/70 md:block">
+                        SYSTEM_STATUS: NOMINAL
+                    </span>
+                    <Link href="/auth/signin" className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--neo-accent-lime)] underline underline-offset-4">
+                        Sign In
+                    </Link>
+                </div>
+            </header>
 
-                {/* Value Proposition */}
-                <div className="p-8 md:p-10">
-                    <div className="inline-flex h-16 w-16 items-center justify-center rounded-[var(--neo-radius-lg)] border-2 border-black bg-[var(--neo-accent-green)] text-black shadow-[var(--neo-shadow-button)]" style={{ background: 'var(--neo-accent-rainbow)' }}>
-                        <Icon name="sparkles" size={32} />
+            <div className="relative z-10 mx-auto grid min-h-[calc(100vh-7rem)] w-full max-w-6xl items-center gap-10 py-8 lg:grid-cols-[1fr_0.9fr]">
+                <section className="space-y-8">
+                    <div className="inline-flex h-16 w-16 items-center justify-center border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-yellow)] shadow-[var(--neo-shadow-card)]">
+                        <Icon name="sparkles" size={30} />
                     </div>
-                    <p className="mt-8 text-sm font-bold uppercase tracking-widest text-gray-500">
-                        weoweo
-                    </p>
-                    <h1 className="mt-4 max-w-md text-5xl font-bold font-display uppercase leading-tight tracking-tight text-black">
-                        Start creating instantly.
-                    </h1>
-                    <p className="mt-6 max-w-lg text-lg font-bold text-gray-600">
-                        Create your account, review AI output before rendering, and keep the cost of every chapter visible from day one.
-                    </p>
+                    <div className="space-y-4">
+                        <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[var(--neo-ink)]/55">
+                            panelmint
+                        </p>
+                        <h1 className="max-w-md text-5xl font-black uppercase leading-[0.92] tracking-tighter md:text-7xl">
+                            Start creating instantly.
+                        </h1>
+                        <p className="max-w-lg text-lg font-medium leading-8 text-[var(--neo-ink)]/80">
+                            Create your account, review AI output before rendering, and keep the cost of every chapter visible from day one.
+                        </p>
+                    </div>
 
-                    <div className="mt-10 space-y-4">
-                        <NeoCard highlight="none" noHover className="p-5 border-2 border-black shadow-[var(--neo-shadow-button)]">
-                            <span className="flex items-center gap-2 text-sm font-bold text-black uppercase tracking-wider">
-                                <Icon name="coins" size={18} className="text-[var(--neo-accent-green)] stroke-[3]" />
+                    <div className="space-y-4">
+                        <NeoCard noHover>
+                            <span className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]">
+                                <Icon name="coins" size={18} className="text-[var(--neo-accent-lime)]" />
                                 {FREE_SIGNUP_CREDITS} starter credits
                             </span>
-                            <p className="mt-3 text-sm text-gray-600">
+                            <p className="mt-3 text-sm leading-7 text-[var(--neo-ink)]/75">
                                 Enough to explore the workflow before your first top-up.
                             </p>
                         </NeoCard>
-                        <NeoCard highlight="none" noHover className="p-5 border-2 border-black shadow-[var(--neo-shadow-button)]">
-                            <span className="flex items-center gap-2 text-sm font-bold text-black uppercase tracking-wider">
-                                <Icon name="badge-check" size={18} className="text-[#63c7f9] stroke-[3]" />
+                        <NeoCard noHover>
+                            <span className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]">
+                                <Icon name="badge-check" size={18} className="text-[var(--neo-accent-cyan)]" />
                                 Premium unlock path
                             </span>
-                            <p className="mt-3 text-sm text-gray-600">
+                            <p className="mt-3 text-sm leading-7 text-[var(--neo-ink)]/75">
                                 Premium rendering unlocks automatically after your first successful purchase.
                             </p>
                         </NeoCard>
                     </div>
-                </div>
+                </section>
 
-                {/* Signup Form */}
-                <NeoCard className="p-8 md:p-10">
-                    <div className="mb-8">
-                        <div className="inline-flex items-center gap-2 rounded-[var(--neo-radius-full)] border-2 border-black bg-[var(--neo-bg-canvas)] px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-black">
-                            <Icon name="user" size={14} />
-                            Create account
+                <NeoCard noHover className="p-0">
+                    <div className="flex items-center justify-between border-b-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-bg-panel)] px-6 py-3">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--neo-ink)]/60">
+                            Security Protocol v4.0.1
+                        </span>
+                        <div className="flex gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full bg-[var(--neo-ink)]" />
+                            <span className="h-2.5 w-2.5 rounded-full bg-[var(--neo-ink)]" />
                         </div>
-                        <h2 className="mt-6 text-4xl font-bold font-display uppercase text-black tracking-tight">
-                            Join us
-                        </h2>
-                        <p className="mt-3 text-sm font-bold text-gray-600">
-                            You&apos;ll receive {FREE_SIGNUP_CREDITS} starter credits right after signup.
-                        </p>
                     </div>
+                    <div className="px-6 pt-10 pb-8 md:px-8">
+                        <div className="text-center">
+                            <h2 className="text-4xl font-black uppercase leading-none tracking-tighter text-[var(--neo-ink)] md:text-5xl">
+                                Join us
+                            </h2>
+                            <div className="mt-4 flex justify-center">
+                                <div className="h-1 w-12 bg-[var(--neo-accent-yellow)]" />
+                            </div>
+                            <p className="mt-5 text-sm font-medium text-[var(--neo-ink)]/70">
+                                You&apos;ll receive {FREE_SIGNUP_CREDITS} starter credits right after signup.
+                            </p>
+                        </div>
 
-                    <form onSubmit={needsVerification ? handleVerify : handleSubmit} className="space-y-5">
-                        <NeoInput
-                            id="name"
-                            type="text"
-                            label="Name"
-                            placeholder="Your name (optional)"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            autoComplete="name"
-                            autoFocus
-                            disabled={needsVerification || loading || fetchStatus === 'fetching'}
-                        />
-
-                        <NeoInput
-                            id="email"
-                            type="email"
-                            label="Email"
-                            placeholder="you@example.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            autoComplete="email"
-                            required
-                            disabled={needsVerification || loading || fetchStatus === 'fetching'}
-                        />
-
-                        {!needsVerification ? (
+                        <form onSubmit={needsVerification ? handleVerify : handleSubmit} className="mt-8 space-y-5">
                             <NeoInput
-                                id="password"
-                                type="password"
-                                label="Password"
-                                placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                autoComplete="new-password"
-                                required
-                                disabled={loading || fetchStatus === 'fetching'}
-                            />
-                        ) : (
-                            <NeoInput
-                                id="code"
+                                id="name"
                                 type="text"
-                                label="Verification code"
-                                placeholder="6-digit code"
-                                value={code}
-                                onChange={(e) => setCode(e.target.value)}
-                                autoComplete="one-time-code"
-                                required
+                                label="Name"
+                                placeholder="Your name (optional)"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                autoComplete="name"
                                 autoFocus
-                                disabled={loading || fetchStatus === 'fetching'}
+                                disabled={needsVerification || loading || fetchStatus === 'fetching'}
                             />
-                        )}
 
-                        {error && (
-                            <div className="flex items-start gap-3 rounded-[var(--neo-radius)] border-2 border-black bg-[var(--neo-accent-danger)] px-4 py-3 text-sm font-bold text-white shadow-[var(--neo-shadow-button)]">
-                                <Icon name="alert" size={18} className="mt-0.5 shrink-0" />
-                                {error}
-                            </div>
-                        )}
+                            <NeoInput
+                                id="email"
+                                type="email"
+                                label="Email"
+                                placeholder="you@example.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                autoComplete="email"
+                                required
+                                disabled={needsVerification || loading || fetchStatus === 'fetching'}
+                            />
 
-                        {notice && (
-                            <div className="flex items-start gap-3 rounded-[var(--neo-radius)] border-2 border-black bg-[var(--neo-accent-green)] px-4 py-3 text-sm font-bold text-black shadow-[var(--neo-shadow-button)]">
-                                <Icon name="badge-check" size={18} className="mt-0.5 shrink-0" />
-                                {notice}
-                            </div>
-                        )}
+                            {!needsVerification ? (
+                                <NeoInput
+                                    id="password"
+                                    type="password"
+                                    label="Password"
+                                    placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    autoComplete="new-password"
+                                    required
+                                    disabled={loading || fetchStatus === 'fetching'}
+                                />
+                            ) : (
+                                <NeoInput
+                                    id="code"
+                                    type="text"
+                                    label="Verification code"
+                                    placeholder="6-digit code"
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value)}
+                                    autoComplete="one-time-code"
+                                    required
+                                    autoFocus
+                                    disabled={loading || fetchStatus === 'fetching'}
+                                />
+                            )}
 
-                        <NeoButton
-                            type="submit"
-                            variant="primary"
-                            size="lg"
-                            disabled={loading || fetchStatus === 'fetching'}
-                            className="w-full mt-4"
-                        >
-                            {loading ? <div className="weo-spinner mr-2 border-white border-t-transparent" /> : null}
-                            {needsVerification ? 'Verify Email' : 'Create Account'}
-                        </NeoButton>
-                    </form>
+                            {error && (
+                                <div className="flex items-start gap-3 border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-pink)] px-4 py-3 text-sm font-bold text-[var(--neo-ink)] shadow-[var(--neo-shadow-button)]">
+                                    <Icon name="alert" size={18} className="mt-0.5 shrink-0" />
+                                    {error}
+                                </div>
+                            )}
 
-                    <div className="mt-8 rounded-[var(--neo-radius)] border-2 border-black bg-[var(--neo-bg-canvas)] px-4 py-4 text-center text-sm font-bold text-gray-600">
-                        Already have an account?{' '}
-                        <Link
-                            href="/auth/signin"
-                            className="text-black underline hover:text-[var(--neo-accent-green)] transition-colors"
-                        >
-                            Sign in here.
-                        </Link>
+                            {notice && (
+                                <div className="flex items-start gap-3 border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-lime)] px-4 py-3 text-sm font-bold text-[var(--neo-ink)] shadow-[var(--neo-shadow-button)]">
+                                    <Icon name="badge-check" size={18} className="mt-0.5 shrink-0" />
+                                    {notice}
+                                </div>
+                            )}
+
+                            <NeoButton
+                                type="submit"
+                                variant="primary"
+                                size="lg"
+                                disabled={loading || fetchStatus === 'fetching'}
+                                className="w-full"
+                            >
+                                {loading ? <div className="weo-spinner mr-2 border-black border-t-transparent" /> : null}
+                                {needsVerification ? 'Verify Email' : 'Create Account'}
+                            </NeoButton>
+                        </form>
+
+                        <div className="mt-8 border-[var(--neo-border-width-sm)] border-[var(--neo-ink)] bg-[var(--neo-bg-panel)] px-4 py-4 text-center text-sm font-medium text-[var(--neo-ink)]/70">
+                            Already have an account?{' '}
+                            <Link
+                                href="/auth/signin"
+                                className="font-bold text-[var(--neo-ink)] underline decoration-[var(--neo-accent-yellow)] decoration-2 underline-offset-4"
+                            >
+                                Sign in here.
+                            </Link>
+                        </div>
                     </div>
                 </NeoCard>
             </div>

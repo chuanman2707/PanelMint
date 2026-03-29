@@ -1,193 +1,330 @@
-/* WEO-OH Semantic Component Classes — Soft Brutalism
- * Prefix: .neo-
- */
+/* NeoComic Ink semantic classes */
 
-/* ─── Surfaces ─── */
-.neo-surface {
-    background: var(--neo-bg-surface);
-    border: var(--neo-border);
-    border-radius: var(--neo-radius);
-    padding: var(--neo-space-6);
-    box-shadow: var(--neo-shadow-card);
-}
-
-.neo-card {
-    background: var(--neo-bg-surface);
-    border: var(--neo-border);
-    border-radius: var(--neo-radius-lg);
-    box-shadow: var(--neo-shadow-card);
-    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease;
-}
-
-/* ─── Legacy compatibility classes (redirected to neo styling) ─── */
-
+.neo-surface,
 .weo-surface,
 .weo-surface-card {
     background: var(--neo-bg-surface);
     border: var(--neo-border);
-    border-radius: var(--neo-radius);
-    padding: var(--neo-space-6);
+    border-radius: var(--neo-radius-lg);
     box-shadow: var(--neo-shadow-card);
 }
 
+.neo-panel,
 .weo-surface-elevated,
 .weo-surface-modal {
-    background: var(--neo-bg-surface);
+    background: var(--neo-bg-panel);
     border: var(--neo-border);
     border-radius: var(--neo-radius-lg);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--neo-shadow-card);
 }
 
-.weo-ghost-border {
-    border-color: rgba(0, 0, 0, 0.1);
+.neo-pressable {
+    transition:
+        transform 120ms steps(2, jump-none),
+        box-shadow 120ms steps(2, jump-none),
+        background-color 120ms linear,
+        color 120ms linear;
 }
 
-.weo-surface-footer {
-    background: var(--neo-bg-canvas);
-    border-top: var(--neo-border);
-    border-radius: 0 0 var(--neo-radius-lg) var(--neo-radius-lg);
+.neo-pressable:hover:not(:disabled),
+.neo-pressable:active:not(:disabled) {
+    transform: translate(4px, 4px);
+    box-shadow: none;
 }
 
-/* ─── Buttons (Legacy mappings, will be replaced by NeoButton) ─── */
+.neo-focus-ring:focus-visible,
+.weo-input:focus-visible,
+.weo-textarea:focus-visible,
+.weo-select:focus-visible,
+.weo-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--neo-shadow-focus);
+}
+
+.neo-scanlines {
+    position: relative;
+}
+
+.neo-scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.16;
+    background:
+        linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.08) 51%),
+        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+    background-size: 100% 4px, 3px 100%;
+}
+
+.neo-grid-paper {
+    background-color: var(--neo-bg-canvas);
+    background-image: radial-gradient(var(--neo-ink) 0.65px, transparent 0.65px);
+    background-size: 24px 24px;
+}
+
+.neo-terminal-bar {
+    background: var(--neo-ink);
+    color: var(--neo-accent-lime);
+    border-bottom: var(--neo-border);
+}
+
+.neo-anchor-target {
+    scroll-margin-top: 104px;
+}
+
+.neo-motion-scope [data-neo-reveal] {
+    transition:
+        opacity 280ms steps(6, jump-none),
+        transform 280ms steps(6, jump-none),
+        box-shadow 280ms steps(6, jump-none);
+    transition-delay: var(--neo-reveal-delay, 0ms);
+    will-change: opacity, transform, box-shadow;
+}
+
+.neo-motion-scope[data-motion-ready="true"] [data-neo-reveal][data-visible="false"] {
+    opacity: 0;
+}
+
+.neo-motion-scope[data-motion-ready="true"] [data-neo-reveal="panel"][data-visible="false"] {
+    transform: translateY(24px) rotate(-2deg);
+}
+
+.neo-motion-scope[data-motion-ready="true"] [data-neo-reveal="drop"][data-visible="false"] {
+    transform: translateY(-18px);
+}
+
+.neo-motion-scope[data-motion-ready="true"] [data-neo-reveal="stamp"][data-visible="false"] {
+    transform: scale(0.92);
+    box-shadow: 0 0 0 transparent;
+}
+
+.neo-motion-scope[data-motion-ready="true"] [data-neo-reveal][data-visible="true"] {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+}
+
+.neo-scanline-pulse::after {
+    opacity: 0.16;
+}
+
+.neo-motion-scope[data-motion-ready="true"] .neo-scanline-pulse[data-visible="true"]::after {
+    animation: neo-scanline-pulse 420ms steps(4, jump-none) 1 both;
+}
+
+@keyframes neo-scanline-pulse {
+    0% {
+        opacity: 0.08;
+    }
+
+    35% {
+        opacity: 0.34;
+    }
+
+    100% {
+        opacity: 0.16;
+    }
+}
+
 .weo-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    cursor: pointer;
-    font-family: var(--neo-font-body);
-    font-weight: 600;
-    font-size: 16px;
-    border-radius: var(--neo-radius-full);
+    padding: 12px 20px;
+    font-family: var(--neo-font-display);
+    font-size: 0.875rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
     border: var(--neo-border);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-    white-space: nowrap;
-    padding: 12px 24px;
+    background: var(--neo-accent-yellow);
+    color: var(--neo-ink);
     box-shadow: var(--neo-shadow-button);
+    transition:
+        transform 120ms steps(2, jump-none),
+        box-shadow 120ms steps(2, jump-none),
+        background-color 120ms linear,
+        color 120ms linear;
 }
 
-.weo-btn:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--neo-bg-canvas), 0 0 0 4px var(--neo-ink);
-}
-
-.weo-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
+.weo-btn:hover:not(:disabled),
+.weo-btn:active:not(:disabled) {
+    transform: translate(4px, 4px);
     box-shadow: none;
 }
 
+.weo-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 .weo-btn-primary {
-    background: var(--neo-ink);
-    color: var(--neo-bg-surface);
-}
-
-.weo-btn-primary:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-}
-
-.weo-btn-primary:active:not(:disabled) {
-    transform: scale(0.98);
+    background: var(--neo-accent-yellow);
 }
 
 .weo-btn-secondary {
     background: var(--neo-bg-surface);
-    color: var(--neo-ink);
 }
 
-.weo-btn-secondary:hover:not(:disabled) {
-    background: var(--neo-bg-canvas);
-    transform: translateY(-2px);
+.weo-btn-danger {
+    background: var(--neo-accent-pink);
 }
 
 .weo-btn-ghost {
     background: transparent;
-    color: var(--neo-ink);
-    border-color: transparent;
     box-shadow: none;
-}
-
-.weo-btn-ghost:hover:not(:disabled) {
-    background: rgba(0, 0, 0, 0.05);
-}
-
-.weo-btn-danger {
-    background: var(--neo-accent-danger);
-    color: #fff;
-    border-color: var(--neo-ink);
+    border-color: transparent;
 }
 
 .weo-btn-sm {
-    padding: 8px 16px;
-    font-size: 14px;
+    padding: 8px 14px;
+    font-size: 0.75rem;
 }
 
 .weo-btn-md {
-    padding: 12px 24px;
-    font-size: 16px;
+    padding: 12px 20px;
 }
 
 .weo-btn-lg {
-    padding: 16px 32px;
-    font-size: 18px;
+    padding: 16px 28px;
+    font-size: 1rem;
 }
 
-/* ─── Inputs (Legacy mappings, will be replaced by NeoInput) ─── */
 .weo-input,
 .weo-textarea,
 .weo-select {
     width: 100%;
-    border-radius: var(--neo-radius);
     border: var(--neo-border);
+    border-radius: var(--neo-radius);
     background: var(--neo-bg-surface);
     color: var(--neo-ink);
     font-family: var(--neo-font-body);
-    font-size: 16px;
-    outline: none;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    font-size: 0.9375rem;
+    transition:
+        background-color 120ms linear,
+        box-shadow 120ms steps(2, jump-none);
 }
 
 .weo-input::placeholder,
 .weo-textarea::placeholder {
-    color: rgba(0, 0, 0, 0.4);
+    color: rgba(9, 9, 11, 0.45);
 }
 
 .weo-input:focus-visible,
 .weo-textarea:focus-visible,
 .weo-select:focus-visible {
-    box-shadow: 0 0 0 2px var(--neo-bg-canvas), 0 0 0 4px var(--neo-ink);
+    background: var(--neo-bg-panel-soft);
 }
 
 .weo-field-label {
-    font-family: var(--neo-font-display);
-    font-size: 14px;
+    font-family: var(--neo-font-mono);
+    font-size: 0.75rem;
     font-weight: 700;
-    color: var(--neo-ink);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    color: var(--neo-ink);
 }
 
 .weo-field-hint {
-    font-size: 14px;
-    color: rgba(0, 0, 0, 0.6);
+    font-size: 0.75rem;
+    color: rgba(9, 9, 11, 0.6);
 }
 
-/* ─── Overlays ─── */
-.weo-overlay,
-.weo-overlay-soft {
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-}
-
-.weo-divider {
-    border-top: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-/* Base utility for components */
+.weo-divider,
 .neo-divider {
+    border-top: var(--neo-border-sm);
+}
+
+.weo-ghost-border {
+    border-color: rgba(9, 9, 11, 0.16);
+}
+
+.weo-surface-footer {
+    background: var(--neo-bg-panel);
     border-top: var(--neo-border);
-    border-top-width: 1px;
+}
+
+.weo-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.5rem 1rem;
+    border: var(--neo-border-sm);
+    border-color: transparent;
+    background: transparent;
+    font-family: var(--neo-font-display);
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--neo-ink);
+    transition:
+        transform 120ms steps(2, jump-none),
+        box-shadow 120ms steps(2, jump-none),
+        background-color 120ms linear,
+        border-color 120ms linear;
+}
+
+.weo-pill:hover {
+    border-color: var(--neo-ink);
+    background: var(--neo-bg-surface);
+}
+
+.weo-pill-active {
+    border-color: var(--neo-ink);
+    background: var(--neo-accent-yellow);
+    box-shadow: var(--neo-shadow-button);
+}
+
+.weo-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: var(--neo-border-sm);
+    border-radius: var(--neo-radius-full);
+    padding: 0.3rem 0.7rem;
+    font-family: var(--neo-font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--neo-ink);
+}
+
+.weo-chip-neutral {
+    background: var(--neo-bg-panel);
+}
+
+.weo-chip-info {
+    background: rgba(99, 199, 249, 0.2);
+}
+
+.weo-chip-success {
+    background: rgba(123, 228, 149, 0.24);
+}
+
+.weo-chip-warning {
+    background: rgba(255, 213, 0, 0.24);
+}
+
+.weo-chip-danger {
+    background: rgba(255, 107, 107, 0.24);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .neo-motion-scope[data-motion-ready="true"] [data-neo-reveal],
+    .neo-motion-scope[data-motion-ready="true"] [data-neo-reveal="panel"],
+    .neo-motion-scope[data-motion-ready="true"] [data-neo-reveal="drop"],
+    .neo-motion-scope[data-motion-ready="true"] [data-neo-reveal="stamp"] {
+        opacity: 1;
+        transform: none;
+        box-shadow: inherit;
+        transition: none;
+    }
+
+    .neo-motion-scope[data-motion-ready="true"] .neo-scanline-pulse[data-visible="true"]::after {
+        animation: none;
+    }
 }

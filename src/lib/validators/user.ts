@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { MIN_PASSWORD_LENGTH } from '@/lib/security-policy'
 
-export const validApiProviders = ['openrouter', 'nvidia', 'wavespeed'] as const
+export const validApiProviders = ['wavespeed'] as const
 
 const emailSchema = z.email('Email must be valid')
     .trim()
@@ -20,7 +20,7 @@ const nameSchema = z.string()
 export const apiKeyRequestSchema = z.object({
     apiKey: z.string().trim().min(1, 'API key is required'),
     provider: z.enum(validApiProviders, {
-        message: 'Provider must be one of: openrouter, nvidia, wavespeed',
+        message: 'Provider must be: wavespeed',
     }),
 })
 

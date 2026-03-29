@@ -41,7 +41,6 @@ describe('GET /api/health', () => {
                 R2_BUCKET_NAME: 'optional',
                 R2_PUBLIC_URL: 'optional',
                 ALLOWED_ORIGINS: 'configured',
-                OPENROUTER_API_KEY: 'optional',
             },
         })
     })
@@ -88,7 +87,6 @@ describe('GET /api/health', () => {
                 R2_BUCKET_NAME: 'optional',
                 R2_PUBLIC_URL: 'optional',
                 ALLOWED_ORIGINS: 'optional',
-                OPENROUTER_API_KEY: 'optional',
             },
         })
 

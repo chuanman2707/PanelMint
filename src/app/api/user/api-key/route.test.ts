@@ -108,14 +108,14 @@ describe('/api/user/api-key', () => {
         const response = await POST(
             new NextRequest('http://localhost/api/user/api-key', {
                 method: 'POST',
-                body: JSON.stringify({ apiKey: '  sk-live-1234  ', provider: 'wavespeed' }),
+                body: JSON.stringify({ apiKey: '  ws-live-1234  ', provider: 'wavespeed' }),
                 headers: { 'content-type': 'application/json' },
             }),
             { params: Promise.resolve({}) },
         )
 
         expect(response.status).toBe(200)
-        expect(mocks.setUserApiKey).toHaveBeenCalledWith('user-1', 'sk-live-1234', 'wavespeed')
+        expect(mocks.setUserApiKey).toHaveBeenCalledWith('user-1', 'ws-live-1234', 'wavespeed')
         await expect(response.json()).resolves.toMatchObject({
             ok: true,
             provider: 'wavespeed',

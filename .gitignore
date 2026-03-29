@@ -53,3 +53,6 @@ public/generated/
 .claude
 .codex.worktrees
 .worktrees
+
+# clerk configuration (can include secrets)
+/.clerk/

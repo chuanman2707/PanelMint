@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { NeoCard } from '@/components/ui/NeoCard'
@@ -79,18 +79,19 @@ function formatTransactionTime(value: string) {
 }
 
 export default function SettingsPage() {
-    const { user } = useAuth()
+    const { user, refresh } = useAuth()
     const searchParams = useSearchParams()
     const router = useRouter()
     const pathname = usePathname()
     const packagesRef = useRef<HTMLDivElement | null>(null)
+    const mountedRef = useRef(true)
 
     const initialTab = searchParams.get('tab') === 'advanced' ? 'advanced' : 'credits'
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab)
     const [creditsData, setCreditsData] = useState<CreditsResponse | null>(null)
     const [creditsLoading, setCreditsLoading] = useState(true)
     const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null)
-    const [selectedProvider, setSelectedProvider] = useState<Provider>('wavespeed')
+    const [selectedProvider] = useState<Provider>('wavespeed')
     const [apiKey, setApiKey] = useState('')
     const [maskedKey, setMaskedKey] = useState('')
     const [hasKey, setHasKey] = useState(false)
@@ -99,48 +100,65 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false)
     const [validating, setValidating] = useState(false)
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+    const [topUpLoading, setTopUpLoading] = useState(false)
+    const [creditMessage, setCreditMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+    const isDevCreditToolsEnabled = process.env.NODE_ENV !== 'production'
 
     useEffect(() => {
         setActiveTab(searchParams.get('tab') === 'advanced' ? 'advanced' : 'credits')
     }, [searchParams])
 
     useEffect(() => {
-        let active = true
-
-        const loadCredits = async () => {
-            try {
-                const res = await fetch('/api/user/credits')
-                if (!res.ok) throw new Error('Failed to load credits')
-                const data = await res.json() as CreditsResponse
-                if (!active) return
-                setCreditsData(data)
-                setSelectedPackageId((current) => current ?? data.packages[1]?.id ?? data.packages[0]?.id ?? null)
-            } catch {
-                if (active) setCreditsData(null)
-            } finally {
-                if (active) setCreditsLoading(false)
-            }
-        }
-
-        const loadApiKey = async () => {
-            try {
-                const res = await fetch('/api/user/api-key')
-                const data = await res.json()
-                if (!active) return
-                setHasKey(!!data.hasKey)
-                setMaskedKey(data.maskedKey || '')
-                setCurrentProvider(data.provider ?? 'wavespeed')
-            } catch {
-                if (active) setHasKey(false)
-            }
-        }
-
-        void Promise.all([loadCredits(), loadApiKey()])
-
+        mountedRef.current = true
         return () => {
-            active = false
+            mountedRef.current = false
         }
     }, [])
+
+    const loadCredits = useCallback(async () => {
+        const res = await fetch('/api/user/credits')
+        if (!res.ok) throw new Error('Failed to load credits')
+
+        const data = await res.json() as CreditsResponse
+        if (!mountedRef.current) return
+
+        setCreditsData(data)
+        setSelectedPackageId((current) => {
+            if (current && data.packages.some((pkg) => pkg.id === current)) {
+                return current
+            }
+
+            return data.packages[1]?.id ?? data.packages[0]?.id ?? null
+        })
+    }, [])
+
+    const loadApiKey = useCallback(async () => {
+        const res = await fetch('/api/user/api-key')
+        const data = await res.json()
+
+        if (!mountedRef.current) return
+
+        setHasKey(!!data.hasKey)
+        setMaskedKey(data.maskedKey || '')
+        setCurrentProvider(data.provider ?? 'wavespeed')
+    }, [])
+
+    useEffect(() => {
+        setCreditsLoading(true)
+
+        void Promise.all([
+            loadCredits().catch(() => {
+                if (mountedRef.current) setCreditsData(null)
+            }),
+            loadApiKey().catch(() => {
+                if (mountedRef.current) setHasKey(false)
+            }),
+        ]).finally(() => {
+            if (mountedRef.current) {
+                setCreditsLoading(false)
+            }
+        })
+    }, [loadApiKey, loadCredits])
 
     const switchTab = (tab: SettingsTab) => {
         setActiveTab(tab)
@@ -214,6 +232,39 @@ export default function SettingsPage() {
             setMessage({ type: 'error', text: 'Failed to remove API key.' })
         }
     }
+
+    const handleDevTopUp = useCallback(async () => {
+        if (!selectedPackage) return
+
+        setTopUpLoading(true)
+        setCreditMessage(null)
+
+        try {
+            const res = await fetch('/api/user/credits/dev-topup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ packageId: selectedPackage.id }),
+            })
+            const data = await res.json().catch(() => ({}))
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to add credits for testing.')
+            }
+
+            await Promise.all([loadCredits(), refresh()])
+            setCreditMessage({
+                type: 'success',
+                text: `Added ${formatCredits(selectedPackage.credits)} credits and unlocked paid tier for testing.`,
+            })
+        } catch (err) {
+            setCreditMessage({
+                type: 'error',
+                text: err instanceof Error ? err.message : 'Failed to add credits for testing.',
+            })
+        } finally {
+            setTopUpLoading(false)
+        }
+    }, [loadCredits, refresh, selectedPackage])
 
     const activeProviderInfo = PROVIDERS.find((provider) => provider.id === selectedProvider) ?? PROVIDERS[0]
     const accountTier = (creditsData?.accountTier ?? user?.accountTier ?? 'free') === 'paid' ? 'Executive' : 'Free'
@@ -409,7 +460,24 @@ export default function SettingsPage() {
                                                 This UI is ready for payment wiring. The selected package becomes the checkout payload and upgrades the account to paid on success.
                                             </p>
                                         </div>
-                                        <NeoButton className="w-full">Initialize purchase</NeoButton>
+                                        <NeoButton className="w-full" disabled>
+                                            Checkout wiring pending
+                                        </NeoButton>
+                                        {isDevCreditToolsEnabled ? (
+                                            <>
+                                                <NeoButton variant="secondary" className="w-full" onClick={handleDevTopUp} disabled={topUpLoading}>
+                                                    {topUpLoading ? 'Applying dev credits...' : 'Dev: apply selected package'}
+                                                </NeoButton>
+                                                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-black/55">
+                                                    Local/testing only. This instantly adds the selected credits and unlocks the paid tier.
+                                                </p>
+                                                {creditMessage ? (
+                                                    <div className={`border-[var(--neo-border-width)] border-[var(--neo-ink)] px-4 py-4 ${creditMessage.type === 'success' ? 'bg-[var(--neo-accent-lime)]' : 'bg-[var(--neo-accent-pink)]'}`}>
+                                                        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em]">{creditMessage.text}</p>
+                                                    </div>
+                                                ) : null}
+                                            </>
+                                        ) : null}
                                     </div>
                                 ) : (
                                     <p className="mt-4 text-sm text-black/70">
@@ -477,7 +545,7 @@ export default function SettingsPage() {
                             <div>
                                 <h2 className="text-3xl font-black uppercase tracking-tight">Access Protocols (API)</h2>
                                 <p className="mt-3 max-w-2xl text-sm text-black/70">
-                                    Manage the provider key used for text generation and multi-reference image generation in the engine.
+                                    Manage the optional provider override key. If you leave this empty, the engine falls back to the platform-managed WaveSpeed key.
                                 </p>
                             </div>
                             <NeoTag tone="lime">{activeProviderInfo.name}</NeoTag>
@@ -506,7 +574,7 @@ export default function SettingsPage() {
                                 value={apiKey}
                                 onChange={(event) => setApiKey(event.target.value)}
                                 placeholder={`${activeProviderInfo.keyPrefix}...`}
-                                hint={`Get your key from ${activeProviderInfo.setupUrl}`}
+                                hint={`Optional override. Get your key from ${activeProviderInfo.setupUrl}`}
                             />
 
                             <div className="flex flex-wrap gap-3">
@@ -531,12 +599,18 @@ export default function SettingsPage() {
                         <div className="mt-6 space-y-4">
                             <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-bg-panel)] px-4 py-4">
                                 <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-black/55">Stored key</p>
-                                <p className="mt-3 break-all font-mono text-sm">{hasKey ? maskedKey : 'No key stored'}</p>
+                                <p className="mt-3 break-all font-mono text-sm">{hasKey ? maskedKey : 'No custom key stored'}</p>
                             </div>
                             <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-bg-panel)] px-4 py-4">
                                 <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-black/55">Provider</p>
                                 <p className="mt-3 font-display text-lg font-bold uppercase tracking-tight">
-                                    {currentProvider || 'Not configured'}
+                                    {currentProvider || 'Platform default'}
+                                </p>
+                            </div>
+                            <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-cyan)] px-4 py-4">
+                                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">Fallback mode</p>
+                                <p className="mt-3 text-sm text-black/80">
+                                    When no custom key is stored, generation uses the server-side WaveSpeed key configured for the app.
                                 </p>
                             </div>
                             <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-yellow)] px-4 py-4">

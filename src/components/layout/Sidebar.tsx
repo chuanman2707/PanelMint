@@ -11,7 +11,7 @@ const NAV_ITEMS = [
     { href: '/dashboard', icon: 'layout-grid', label: 'Dashboard' },
     { href: '/create', icon: 'sparkles', label: 'Create' },
     { href: '/library', icon: 'book', label: 'My Library' },
-    { href: '/pricing', icon: 'wallet', label: 'Pricing' },
+    { href: '/dashboard/pricing', icon: 'wallet', label: 'Pricing' },
     { href: '/settings', icon: 'settings', label: 'Settings' },
 ] as const
 
@@ -19,6 +19,19 @@ export function Sidebar() {
     const pathname = usePathname()
     const { user, signout } = useAuth()
     const creditBalance = (user?.credits ?? 0).toLocaleString()
+    const activeHref = NAV_ITEMS.reduce<string | null>((bestMatch, item) => {
+        const matches = pathname === item.href || pathname.startsWith(`${item.href}/`)
+
+        if (!matches) {
+            return bestMatch
+        }
+
+        if (!bestMatch || item.href.length > bestMatch.length) {
+            return item.href
+        }
+
+        return bestMatch
+    }, null)
 
     return (
         <aside className="hidden md:fixed md:inset-y-0 md:left-0 md:z-40 md:flex md:w-64 md:flex-col md:border-r-[var(--neo-border-width)] md:border-[var(--neo-ink)] md:bg-[var(--neo-bg-canvas)] md:p-4">
@@ -34,7 +47,7 @@ export function Sidebar() {
 
                 <nav className="flex flex-1 flex-col gap-3">
                     {NAV_ITEMS.map((item) => {
-                        const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
+                        const active = activeHref === item.href
 
                         return (
                             <Link

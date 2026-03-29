@@ -5,9 +5,9 @@ import { Sidebar } from './Sidebar'
 import { NeoTerminalHeader } from '@/components/ui/NeoTerminalHeader'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-    const { loading } = useAuth()
+    const { loading, user } = useAuth()
 
-    if (loading) {
+    if (loading && !user) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-[var(--neo-bg-canvas)]">
                 <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-yellow)] px-6 py-4 shadow-[var(--neo-shadow-card)]">

@@ -5,6 +5,7 @@ import {
     useCallback,
     useContext,
     useEffect,
+    useRef,
     useState,
     type ReactNode,
 } from 'react'
@@ -32,20 +33,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { signOut } = useClerk()
     const [user, setUser] = useState<AuthUser | null>(null)
     const [loading, setLoading] = useState(true)
+    const userRef = useRef<AuthUser | null>(null)
+    const clerkUserId = clerkUser?.id ?? null
+
+    useEffect(() => {
+        userRef.current = user
+    }, [user])
 
     const refresh = useCallback(async () => {
         if (!isLoaded) {
-            setLoading(true)
+            if (!userRef.current) {
+                setLoading(true)
+            }
             return
         }
 
-        if (!isSignedIn || !clerkUser) {
+        if (!isSignedIn || !clerkUserId) {
             setUser(null)
             setLoading(false)
             return
         }
 
-        setLoading(true)
+        const shouldBlockUi = !userRef.current
+        if (shouldBlockUi) {
+            setLoading(true)
+        }
 
         try {
             const res = await fetch('/api/auth/me', {
@@ -55,15 +67,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (res.ok) {
                 const data = await res.json()
                 setUser(data.user)
-            } else {
+            } else if (shouldBlockUi) {
                 setUser(null)
             }
         } catch {
-            setUser(null)
+            if (shouldBlockUi) {
+                setUser(null)
+            }
         } finally {
             setLoading(false)
         }
-    }, [clerkUser, isLoaded, isSignedIn])
+    }, [clerkUserId, isLoaded, isSignedIn])
 
     useEffect(() => {
         void refresh()

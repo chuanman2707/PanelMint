@@ -93,7 +93,7 @@ npx prisma generate      # Regenerate Prisma client
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **panelmint** (664 symbols, 1622 relationships, 46 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **weoweo** (701 symbols, 1690 relationships, 49 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -109,7 +109,7 @@ This project is indexed by GitNexus as **panelmint** (664 symbols, 1622 relation
 
 1. `gitnexus_query({query: "<error or symptom>"})` — find execution flows related to the issue
 2. `gitnexus_context({name: "<suspect function>"})` — see all callers, callees, and process participation
-3. `READ gitnexus://repo/panelmint/process/{processName}` — trace the full execution flow step by step
+3. `READ gitnexus://repo/weoweo/process/{processName}` — trace the full execution flow step by step
 4. For regressions: `gitnexus_detect_changes({scope: "compare", base_ref: "main"})` — see what your branch changed
 
 ## When Refactoring
@@ -148,10 +148,10 @@ This project is indexed by GitNexus as **panelmint** (664 symbols, 1622 relation
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/panelmint/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/panelmint/clusters` | All functional areas |
-| `gitnexus://repo/panelmint/processes` | All execution flows |
-| `gitnexus://repo/panelmint/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/weoweo/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/weoweo/clusters` | All functional areas |
+| `gitnexus://repo/weoweo/processes` | All execution flows |
+| `gitnexus://repo/weoweo/process/{name}` | Step-by-step execution trace |
 
 ## Self-Check Before Finishing
 

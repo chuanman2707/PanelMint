@@ -1,15 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Icon } from './ui/icons'
 import { NeoButton } from './ui/NeoButton'
-import { NeoCard } from './ui/NeoCard'
 import {
     ACTION_CREDIT_COSTS,
     estimateGenerationCredits,
     type ImageModelTier,
 } from '@/lib/credit-catalog'
+
+const CREATE_DRAFT_STORAGE_KEY = 'panelmint:create-draft:v1'
 
 const ART_STYLES = [
     { value: 'manga', label: 'Manga' },
@@ -32,6 +33,62 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
     const [artStyle, setArtStyle] = useState('manga')
     const [pageCount, setPageCount] = useState(15)
     const [imageModelTier, setImageModelTier] = useState<ImageModelTier>('standard')
+    const hasHydratedDraft = useRef(false)
+
+    useEffect(() => {
+        try {
+            const savedDraft = window.localStorage.getItem(CREATE_DRAFT_STORAGE_KEY)
+            if (!savedDraft) return
+
+            const parsed = JSON.parse(savedDraft) as {
+                text?: string
+                artStyle?: string
+                pageCount?: number
+                imageModelTier?: ImageModelTier
+            }
+
+            if (typeof parsed.text === 'string') {
+                setText(parsed.text)
+            }
+
+            if (ART_STYLES.some((style) => style.value === parsed.artStyle)) {
+                setArtStyle(parsed.artStyle as string)
+            }
+
+            if (typeof parsed.pageCount === 'number' && parsed.pageCount >= 5 && parsed.pageCount <= 30) {
+                setPageCount(parsed.pageCount)
+            }
+
+            if (parsed.imageModelTier === 'standard' || parsed.imageModelTier === 'premium') {
+                setImageModelTier(parsed.imageModelTier)
+            }
+        } catch {
+            window.localStorage.removeItem(CREATE_DRAFT_STORAGE_KEY)
+        } finally {
+            hasHydratedDraft.current = true
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!hasHydratedDraft.current) return
+
+        const isDefaultDraft = !text && artStyle === 'manga' && pageCount === 15 && imageModelTier === 'standard'
+
+        if (isDefaultDraft) {
+            window.localStorage.removeItem(CREATE_DRAFT_STORAGE_KEY)
+            return
+        }
+
+        window.localStorage.setItem(
+            CREATE_DRAFT_STORAGE_KEY,
+            JSON.stringify({
+                text,
+                artStyle,
+                pageCount,
+                imageModelTier,
+            }),
+        )
+    }, [artStyle, imageModelTier, pageCount, text])
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()

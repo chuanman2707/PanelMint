@@ -8,6 +8,7 @@ import { NeoButton } from '@/components/ui/NeoButton'
 import { NeoInput } from '@/components/ui/NeoInput'
 import { NeoTag } from '@/components/ui/NeoTag'
 import { Icon } from '@/components/ui/icons'
+import { CREDIT_PACKAGES } from '@/lib/credit-catalog'
 
 type Provider = 'wavespeed'
 type SettingsTab = 'credits' | 'advanced'
@@ -103,6 +104,7 @@ export default function SettingsPage() {
     const [topUpLoading, setTopUpLoading] = useState(false)
     const [creditMessage, setCreditMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
     const isDevCreditToolsEnabled = process.env.NODE_ENV !== 'production'
+    const fallbackPackages = useMemo(() => Object.values(CREDIT_PACKAGES), [])
 
     useEffect(() => {
         setActiveTab(searchParams.get('tab') === 'advanced' ? 'advanced' : 'credits')
@@ -160,6 +162,12 @@ export default function SettingsPage() {
         })
     }, [loadApiKey, loadCredits])
 
+    const availablePackages = creditsData?.packages?.length ? creditsData.packages : fallbackPackages
+
+    useEffect(() => {
+        setSelectedPackageId((current) => current ?? availablePackages[1]?.id ?? availablePackages[0]?.id ?? null)
+    }, [availablePackages])
+
     const switchTab = (tab: SettingsTab) => {
         setActiveTab(tab)
         const params = new URLSearchParams(searchParams.toString())
@@ -168,8 +176,8 @@ export default function SettingsPage() {
     }
 
     const selectedPackage = useMemo(
-        () => creditsData?.packages.find((pkg) => pkg.id === selectedPackageId) ?? null,
-        [creditsData?.packages, selectedPackageId],
+        () => availablePackages.find((pkg) => pkg.id === selectedPackageId) ?? null,
+        [availablePackages, selectedPackageId],
     )
 
     const handleSaveKey = async () => {
@@ -403,7 +411,7 @@ export default function SettingsPage() {
                         </div>
                         <div className="grid gap-6 lg:grid-cols-[1.45fr_0.9fr]">
                             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                                {(creditsData?.packages ?? []).map((pkg) => {
+                                {availablePackages.map((pkg) => {
                                     const selected = pkg.id === selectedPackageId
                                     return (
                                         <NeoCard

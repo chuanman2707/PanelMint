@@ -43,9 +43,9 @@ export default function CreatePage() {
         <div className="grid min-h-[calc(100vh-64px)] lg:grid-cols-[minmax(360px,480px)_1fr]">
             <aside className="border-b-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-bg-canvas)] p-6 shadow-[4px_0_0_var(--neo-ink)] lg:min-h-[calc(100vh-64px)] lg:border-b-0 lg:border-r-[var(--neo-border-width)] md:p-8">
                 <NeoTag tone="cyan">Creator Engine</NeoTag>
-                <h1 className="mt-5 flex flex-col items-start gap-2 text-[clamp(2.35rem,4vw,4.25rem)] font-black uppercase leading-[0.9] tracking-[-0.045em]">
-                    <span className="whitespace-nowrap">PANEL_GEN_01</span>
-                    <span className="inline-block whitespace-nowrap bg-[var(--neo-ink)] px-3 text-[var(--neo-accent-cyan)]">
+                <h1 className="mt-5 flex max-w-full flex-col items-start gap-2 text-[clamp(2rem,3.3vw,3.8rem)] font-black uppercase leading-[0.92] tracking-[-0.04em]">
+                    <span className="block whitespace-nowrap">PANEL_GEN</span>
+                    <span className="inline-block max-w-full whitespace-nowrap bg-[var(--neo-ink)] px-3 text-[var(--neo-accent-cyan)]">
                         Workspace
                     </span>
                 </h1>

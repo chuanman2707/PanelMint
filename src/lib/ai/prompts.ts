@@ -1,28 +1,40 @@
-export const ART_STYLES: Record<string, { label: string; promptEn: string }> = {
-  'manga': {
-    label: 'Manga',
-    promptEn: 'Japanese manga illustration style, hand-drawn 2D art, clean black ink linework, cel-shaded coloring, large expressive anime eyes, stylized proportions. This is a DRAWN ILLUSTRATION, NOT a photograph. No photorealism, no real human faces.',
-  },
-  'webtoon': {
-    label: 'Webtoon',
-    promptEn: 'Korean webtoon digital illustration style, soft gradient coloring, smooth 2D digital painting, beautiful diffused lighting, semi-realistic anime proportions. This is a DIGITAL ILLUSTRATION, NOT a photograph. No photorealism.',
-  },
-  'chinese-comic': {
-    label: 'Manhua',
-    promptEn: 'Chinese manhua illustration style, 2D hand-drawn art, traditional ink wash painting influence, elegant flowing linework, detailed character designs with traditional East Asian aesthetics, muted watercolor palette. This is a DRAWN ILLUSTRATION in manhua comic style, NOT a photograph. No photorealism, no real human faces, no 3D rendering.',
-  },
-  'realistic': {
-    label: 'Realistic',
-    promptEn: 'Realistic cinematic look, real-world scene fidelity, rich colors, clean and refined image quality, dramatic cinematic lighting',
-  },
-  'american-comic': {
-    label: 'American Comic',
-    promptEn: 'American comic book illustration style, bold flat colors, heavy black ink outlines, dynamic action poses, strong shadows, halftone dot patterns. This is a DRAWN COMIC ILLUSTRATION, NOT a photograph. No photorealism.',
-  },
+import { normalizeArtStyle, type ArtStyle } from '@/lib/art-styles'
+
+const ART_STYLE_PROMPTS: Record<ArtStyle, { label: string; promptEn: string }> = {
+    manga: {
+        label: 'Manga',
+        promptEn: 'Japanese manga illustration style, hand-drawn 2D art, clean black ink linework, cel-shaded coloring, large expressive anime eyes, stylized proportions. This is a DRAWN ILLUSTRATION, NOT a photograph. No photorealism, no real human faces.',
+    },
+    manhua: {
+        label: 'Manhua',
+        promptEn: 'Chinese manhua illustration style, 2D hand-drawn art, traditional ink wash painting influence, elegant flowing linework, detailed character designs with traditional East Asian aesthetics, muted watercolor palette. This is a DRAWN ILLUSTRATION in manhua comic style, NOT a photograph. No photorealism, no real human faces, no 3D rendering.',
+    },
+    manhwa: {
+        label: 'Manhwa',
+        promptEn: 'Korean manhwa illustration style, polished 2D digital line art, clean contour work, expressive character acting, luminous colors, and dramatic cinematic staging. This is a DIGITAL ILLUSTRATION, NOT a photograph. No photorealism, no real human faces.',
+    },
+    comic: {
+        label: 'Comic',
+        promptEn: 'American comic book illustration style, bold flat colors, heavy black ink outlines, dynamic action poses, strong shadows, halftone dot patterns. This is a DRAWN COMIC ILLUSTRATION, NOT a photograph. No photorealism.',
+    },
+    webtoon: {
+        label: 'Webtoon',
+        promptEn: 'Korean webtoon digital illustration style, soft gradient coloring, smooth 2D digital painting, beautiful diffused lighting, semi-realistic anime proportions. This is a DIGITAL ILLUSTRATION, NOT a photograph. No photorealism.',
+    },
+}
+
+const LEGACY_ART_STYLE_PROMPTS: Record<string, string> = {
+    realistic: 'Realistic cinematic look, real-world scene fidelity, rich colors, clean and refined image quality, dramatic cinematic lighting',
 }
 
 export function getArtStylePrompt(artStyle: string): string {
-  return ART_STYLES[artStyle]?.promptEn ?? ART_STYLES['manga'].promptEn
+    const normalizedArtStyle = normalizeArtStyle(artStyle)
+
+    if (normalizedArtStyle) {
+        return ART_STYLE_PROMPTS[normalizedArtStyle].promptEn
+    }
+
+    return LEGACY_ART_STYLE_PROMPTS[artStyle] ?? ART_STYLE_PROMPTS.manga.promptEn
 }
 
 export const PROMPTS = {

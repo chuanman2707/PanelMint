@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Icon } from './ui/icons'
 import { NeoButton } from './ui/NeoButton'
+import { artStyleOptions, normalizeArtStyle, type ArtStyle } from '@/lib/art-styles'
 import {
     ACTION_CREDIT_COSTS,
     estimateGenerationCredits,
@@ -11,14 +12,6 @@ import {
 } from '@/lib/credit-catalog'
 
 const CREATE_DRAFT_STORAGE_KEY = 'panelmint:create-draft:v1'
-
-const ART_STYLES = [
-    { value: 'manga', label: 'Manga' },
-    { value: 'webtoon', label: 'Webtoon' },
-    { value: 'chinese-comic', label: 'Manhua' },
-    { value: 'realistic', label: 'Realistic' },
-    { value: 'american-comic', label: 'Comic' },
-]
 
 interface GenerateFormProps {
     onGenerate: (text: string, artStyle: string, pageCount: number, imageModelTier: ImageModelTier) => void
@@ -30,7 +23,7 @@ interface GenerateFormProps {
 
 export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disabled = false }: GenerateFormProps) {
     const [text, setText] = useState('')
-    const [artStyle, setArtStyle] = useState('manga')
+    const [artStyle, setArtStyle] = useState<ArtStyle>('manga')
     const [pageCount, setPageCount] = useState(15)
     const [imageModelTier, setImageModelTier] = useState<ImageModelTier>('standard')
     const hasHydratedDraft = useRef(false)
@@ -51,8 +44,9 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
                 setText(parsed.text)
             }
 
-            if (ART_STYLES.some((style) => style.value === parsed.artStyle)) {
-                setArtStyle(parsed.artStyle as string)
+            const normalizedArtStyle = normalizeArtStyle(parsed.artStyle)
+            if (normalizedArtStyle) {
+                setArtStyle(normalizedArtStyle)
             }
 
             if (typeof parsed.pageCount === 'number' && parsed.pageCount >= 5 && parsed.pageCount <= 30) {
@@ -160,7 +154,7 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
                         Art Style
                     </label>
                     <div className="flex flex-wrap gap-2">
-                        {ART_STYLES.map((style) => (
+                        {artStyleOptions.map((style) => (
                             <button
                                 key={style.value}
                                 type="button"

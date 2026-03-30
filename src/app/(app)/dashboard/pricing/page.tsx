@@ -10,6 +10,7 @@ const DASHBOARD_PACKAGES = [
         unit: '/credit_drop',
         credits: '500 credits',
         accent: 'cyan' as const,
+        highlight: null,
         features: [
             'Standard AI model access',
             '720p panel resolution',
@@ -42,6 +43,7 @@ const DASHBOARD_PACKAGES = [
         unit: '/drop',
         credits: '10,000 credits',
         accent: 'lime' as const,
+        highlight: null,
         features: [
             'Dedicated GPU core',
             'Unmasked engine controls',

@@ -98,4 +98,30 @@ describe('POST /api/generate/[runId]/approve-storyboard', () => {
         expect(response.status).toBe(404)
         expect(mocks.prisma.panel.update).not.toHaveBeenCalled()
     })
+
+    it('rejects edited prompts that exceed the API limit', async () => {
+        const response = await POST(
+            new NextRequest('http://localhost/api/generate/ep-1/approve-storyboard', {
+                method: 'POST',
+                body: JSON.stringify({
+                    panels: [
+                        {
+                            id: 'panel-1',
+                            approved: true,
+                            editedPrompt: 'x'.repeat(3_001),
+                        },
+                    ],
+                }),
+                headers: { 'content-type': 'application/json' },
+            }),
+            { params: Promise.resolve({ runId: 'ep-1' }) },
+        )
+
+        expect(response.status).toBe(400)
+        await expect(response.json()).resolves.toMatchObject({
+            error: 'panels.0.editedPrompt: editedPrompt must be 3000 characters or fewer',
+        })
+        expect(mocks.prisma.panel.findMany).not.toHaveBeenCalled()
+        expect(mocks.prisma.panel.update).not.toHaveBeenCalled()
+    })
 })

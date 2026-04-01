@@ -169,4 +169,44 @@ describe('generatePanelImage', () => {
         expect(submitBody.prompt).toContain('Generate ONLY the visual scene.')
         expect(submitBody.prompt.endsWith('The image must contain ONLY visual elements.')).toBe(true)
     })
+
+    it('keeps the intermediary wavespeed LLM prompt under the provider limit', async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                code: 0,
+                data: { id: 'task-3' },
+            }), { status: 200, headers: { 'content-type': 'application/json' } }))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                data: { status: 'completed', outputs: ['https://cdn.example.com/panel.png'] },
+            }), { status: 200, headers: { 'content-type': 'application/json' } }))
+            .mockResolvedValueOnce(new Response(Buffer.from('image-bytes'), { status: 200 }))
+        vi.stubGlobal('fetch', fetchMock)
+
+        const longText = 'A'.repeat(6_000)
+        const longCanon = ['Hero: ' + 'B'.repeat(2_500), 'Mentor: ' + 'C'.repeat(2_500)].join('\n\n')
+        const longMustKeep = ['D'.repeat(1_500), 'E'.repeat(1_500), 'F'.repeat(1_500)]
+
+        await generatePanelImage({
+            panelId: 'panel-4',
+            description: longText,
+            characters: ['Hero', 'Mentor'],
+            shotType: 'wide',
+            location: 'ancient temple',
+            sourceExcerpt: longText,
+            mustKeep: longMustKeep,
+            artStyle: 'webtoon',
+            characterCanon: longCanon,
+            providerConfig: {
+                provider: 'wavespeed',
+                apiKey: 'wavespeed-key',
+                llmModel: 'bytedance-seed/seed-1.6-flash',
+                imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
+                imageFallbackModel: 'bytedance/seedream-v4',
+                baseUrl: 'https://api.wavespeed.ai/api/v3',
+            },
+        })
+
+        const llmPrompt = String(mocks.callLLM.mock.calls.at(-1)?.[0] ?? '')
+        expect(llmPrompt.length).toBeLessThanOrEqual(9_000)
+    })
 })

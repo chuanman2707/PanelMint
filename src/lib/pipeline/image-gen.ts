@@ -37,6 +37,8 @@ export interface StoredImageAsset {
 // ─── Constants ──────────────────────────────────────────
 
 const MAX_PROMPT_CHARS = 1500
+const WAVESPEED_LLM_MAX_PROMPT_CHARS = 10_000
+const WAVESPEED_LLM_TARGET_PROMPT_CHARS = 9_000
 const WAVESPEED_MAX_RETRIES = 3
 const WAVESPEED_BASE_DELAY_MS = 3_000
 const WAVESPEED_POLL_INTERVAL_MS = 2_000
@@ -75,6 +77,112 @@ export function trimPromptToBudget(prompt: string, maxChars: number = MAX_PROMPT
     if (prompt.length <= maxChars) return prompt
     console.warn(`[ImageGen] Prompt too long (${prompt.length} chars), trimming to ${maxChars}`)
     return prompt.slice(0, maxChars - 3) + '...'
+}
+
+function trimSectionToBudget(
+    value: string | null | undefined,
+    maxChars: number,
+    fallback: string,
+    label: string,
+): string {
+    const normalized = value?.trim() || fallback
+    if (normalized.length <= maxChars) return normalized
+    console.warn(`[ImageGen] ${label} too long (${normalized.length} chars), trimming to ${maxChars}`)
+    return normalized.slice(0, maxChars - 3) + '...'
+}
+
+function buildPromptFromSections(
+    stylePrompt: string,
+    sceneContext: string,
+    charContext: string,
+    enrichedPanelBlocks: string,
+): string {
+    return PROMPTS.buildPageImagePrompt
+        .replace('{style}', stylePrompt)
+        .replace('{scene_context}', sceneContext)
+        .replace('{character_canon}', charContext)
+        .replace('{enriched_panel_blocks}', enrichedPanelBlocks)
+}
+
+function buildCompactPrompt(
+    stylePrompt: string,
+    sceneContext: string,
+    charContext: string,
+    enrichedPanelBlocks: string,
+): string {
+    return [
+        'Write one concise English prompt for a single webtoon panel image.',
+        `Art style: ${stylePrompt}`,
+        sceneContext,
+        `Character canon:\n${charContext}`,
+        `Panel data:\n${enrichedPanelBlocks}`,
+        'Return only the final image prompt. Keep it factual, grounded in the source excerpt, and do not include text, captions, speech bubbles, or written words in the image. Max 1500 characters.',
+    ].join('\n\n')
+}
+
+function ensureLLMPromptBudget(
+    stylePrompt: string,
+    sceneContext: string,
+    charContext: string,
+    enrichedPanelBlocks: string,
+): string {
+    const fullPrompt = buildPromptFromSections(stylePrompt, sceneContext, charContext, enrichedPanelBlocks)
+    if (fullPrompt.length <= WAVESPEED_LLM_TARGET_PROMPT_CHARS) {
+        return fullPrompt
+    }
+
+    console.warn(
+        `[ImageGen] LLM image prompt input too long (${fullPrompt.length} chars), switching to compact prompt budget`,
+    )
+
+    let compactCharContext = trimSectionToBudget(charContext, 1_600, 'No recurring characters in this panel.', 'character canon')
+    let compactPanelBlocks = trimSectionToBudget(
+        enrichedPanelBlocks,
+        3_800,
+        'Description: No panel description provided.',
+        'panel data',
+    )
+    let compactPrompt = buildCompactPrompt(stylePrompt, sceneContext, compactCharContext, compactPanelBlocks)
+
+    if (compactPrompt.length > WAVESPEED_LLM_TARGET_PROMPT_CHARS) {
+        const overflow = compactPrompt.length - WAVESPEED_LLM_TARGET_PROMPT_CHARS
+        compactPanelBlocks = trimSectionToBudget(
+            compactPanelBlocks,
+            Math.max(1_200, compactPanelBlocks.length - overflow),
+            'Description: No panel description provided.',
+            'panel data',
+        )
+        compactPrompt = buildCompactPrompt(stylePrompt, sceneContext, compactCharContext, compactPanelBlocks)
+    }
+
+    if (compactPrompt.length > WAVESPEED_LLM_TARGET_PROMPT_CHARS) {
+        const overflow = compactPrompt.length - WAVESPEED_LLM_TARGET_PROMPT_CHARS
+        compactCharContext = trimSectionToBudget(
+            compactCharContext,
+            Math.max(400, compactCharContext.length - overflow),
+            'No recurring characters in this panel.',
+            'character canon',
+        )
+        compactPrompt = buildCompactPrompt(stylePrompt, sceneContext, compactCharContext, compactPanelBlocks)
+    }
+
+    if (compactPrompt.length > WAVESPEED_LLM_MAX_PROMPT_CHARS) {
+        compactPanelBlocks = trimSectionToBudget(
+            compactPanelBlocks,
+            1_200,
+            'Description: No panel description provided.',
+            'panel data',
+        )
+        compactCharContext = trimSectionToBudget(
+            compactCharContext,
+            400,
+            'No recurring characters in this panel.',
+            'character canon',
+        )
+        compactPrompt = buildCompactPrompt(stylePrompt, sceneContext, compactCharContext, compactPanelBlocks)
+    }
+
+    return compactPrompt
 }
 
 // ─── Main Export ────────────────────────────────────────
@@ -129,28 +237,42 @@ async function buildSinglePanelPrompt(input: PanelImageInput): Promise<string> {
         characterCanon, mood, lighting,
     } = input
 
-    const charContext = characterCanon || characterDescriptions || characters.join(', ') || 'No recurring characters in this panel.'
+    const stylePrompt = trimSectionToBudget(getArtStylePrompt(artStyle), 600, 'manga illustration', 'art style')
+    const charContext = trimSectionToBudget(
+        characterCanon || characterDescriptions || characters.join(', '),
+        3_200,
+        'No recurring characters in this panel.',
+        'character canon',
+    )
     const sceneContext = [
-        `Shot type: ${shotType}`,
-        `Location: ${location || 'unspecified'}`,
-        `Mood: ${mood || 'neutral'}`,
-        `Lighting: ${lighting || 'natural'}`,
+        `Shot type: ${trimSectionToBudget(shotType, 80, 'medium', 'shot type')}`,
+        `Location: ${trimSectionToBudget(location, 200, 'unspecified', 'location')}`,
+        `Mood: ${trimSectionToBudget(mood, 120, 'neutral', 'mood')}`,
+        `Lighting: ${trimSectionToBudget(lighting, 160, 'natural', 'lighting')}`,
     ].join('\n')
     const enrichedPanelBlocks = [
-        `Description: ${description}`,
-        `Source excerpt: ${sourceExcerpt?.trim() || 'No source excerpt provided. Stay conservative and grounded in the scene description.'}`,
-        `Must keep: ${mustKeep?.length ? mustKeep.join('; ') : 'No explicit must-keep constraints provided.'}`,
-        `Visible characters: ${characters.length ? characters.join(', ') : 'None'}`,
-        `Location: ${location || 'unspecified'}`,
-        `Mood: ${mood || 'neutral'}`,
-        `Lighting: ${lighting || 'natural'}`,
+        `Description: ${trimSectionToBudget(description, 3_000, 'No panel description provided.', 'panel description')}`,
+        `Source excerpt: ${trimSectionToBudget(
+            sourceExcerpt,
+            2_400,
+            'No source excerpt provided. Stay conservative and grounded in the scene description.',
+            'source excerpt',
+        )}`,
+        `Must keep: ${trimSectionToBudget(
+            mustKeep?.length ? mustKeep.join('; ') : null,
+            800,
+            'No explicit must-keep constraints provided.',
+            'must-keep constraints',
+        )}`,
+        `Visible characters: ${trimSectionToBudget(
+            characters.length ? characters.join(', ') : null,
+            240,
+            'None',
+            'visible characters',
+        )}`,
     ].join('\n')
 
-    const prompt = PROMPTS.buildPageImagePrompt
-        .replace('{style}', getArtStylePrompt(artStyle))
-        .replace('{scene_context}', sceneContext)
-        .replace('{character_canon}', charContext)
-        .replace('{enriched_panel_blocks}', enrichedPanelBlocks)
+    const prompt = ensureLLMPromptBudget(stylePrompt, sceneContext, charContext, enrichedPanelBlocks)
 
     const result = await callLLM(prompt, {
         temperature: 0.6,

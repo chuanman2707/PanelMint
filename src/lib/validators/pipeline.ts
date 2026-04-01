@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+const MAX_STORYBOARD_EDITED_PROMPT_CHARS = 3_000
+
 export const generateImagesRequestSchema = z.object({
     panelIds: z.array(z.string().min(1)).max(200).optional(),
 })
@@ -9,7 +11,17 @@ export const approveStoryboardRequestSchema = z.object({
         z.object({
             id: z.string().min(1),
             approved: z.boolean(),
-            editedPrompt: z.string().nullable().optional(),
+            editedPrompt: z.preprocess((value) => {
+                if (typeof value !== 'string') return value
+                const trimmed = value.trim()
+                return trimmed === '' ? null : trimmed
+            }, z.string()
+                .max(
+                    MAX_STORYBOARD_EDITED_PROMPT_CHARS,
+                    `editedPrompt must be ${MAX_STORYBOARD_EDITED_PROMPT_CHARS} characters or fewer`,
+                )
+                .nullable()
+                .optional()),
         }),
     ).min(1, 'panels array is required'),
 })

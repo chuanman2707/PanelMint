@@ -2,6 +2,10 @@ import { callLLM } from '@/lib/ai/llm'
 import { PROMPTS } from '@/lib/ai/prompts'
 import { safeParseJsonObject, safeParseJsonArray } from '@/lib/utils/json-repair'
 import type { ProviderConfig } from '@/lib/api-config'
+import {
+    MAX_STORYBOARD_CHARACTER_CONTEXT_CHARS,
+    MAX_STORYBOARD_CHARACTER_LINE_CHARS,
+} from '@/lib/prompt-budget'
 
 // ─── Character Identity Anchor ──────────────────────────
 
@@ -71,6 +75,33 @@ const MAX_RETRIES = 3
 
 function wrapStoryText(text: string): string {
     return `<story_text>\n${text}\n</story_text>`
+}
+
+function trimWithEllipsis(value: string, maxChars: number): string {
+    if (value.length <= maxChars) return value
+    return `${value.slice(0, maxChars - 3)}...`
+}
+
+function buildStoryboardCharacterContext(characters: AnalyzedCharacter[]): string {
+    if (characters.length === 0) return 'None'
+
+    const lines = characters.map((character) =>
+        trimWithEllipsis(
+            `${character.name}: ${character.description || 'No description'}`,
+            MAX_STORYBOARD_CHARACTER_LINE_CHARS,
+        ),
+    )
+
+    const joined = lines.join('\n')
+    if (joined.length <= MAX_STORYBOARD_CHARACTER_CONTEXT_CHARS) {
+        return joined
+    }
+
+    console.warn(
+        `[Pipeline] Storyboard character context too long (${joined.length} chars), trimming to ${MAX_STORYBOARD_CHARACTER_CONTEXT_CHARS}`,
+    )
+
+    return trimWithEllipsis(joined, MAX_STORYBOARD_CHARACTER_CONTEXT_CHARS)
 }
 
 async function callLLMWithJsonRetry<T>(
@@ -169,7 +200,7 @@ export async function splitIntoPagesWithPanels(
 ): Promise<AnalyzedPage[]> {
     console.log(`[Pipeline] Step 2: Splitting into ${pageCount} pages with enriched panels...`)
 
-    const characterNames = characters.map((c) => `${c.name}: ${c.description}`).join('\n')
+    const characterNames = buildStoryboardCharacterContext(characters)
     const systemPrompt = PROMPTS.splitToPagesWithPanels
         .replace(/{page_count}/g, String(pageCount))
         .replace('{characters}', characterNames)

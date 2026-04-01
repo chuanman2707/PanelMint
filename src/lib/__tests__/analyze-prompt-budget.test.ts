@@ -13,6 +13,7 @@ import {
     splitIntoPagesWithPanels,
     type AnalyzedCharacter,
 } from '@/lib/pipeline/analyze'
+import { MAX_STORYBOARD_CHARACTER_CONTEXT_CHARS } from '@/lib/prompt-budget'
 
 describe('analyze prompt budgeting', () => {
     beforeEach(() => {
@@ -112,5 +113,8 @@ describe('analyze prompt budgeting', () => {
         expect(prompt).toContain('<story_text>')
         expect(options.systemPrompt).toContain('Given a story text, split it into EXACTLY 5 sequential pages suitable for a comic.')
         expect(options.systemPrompt).toContain('Lăng Tiêu: ')
+        expect(options.systemPrompt?.length ?? 0).toBeLessThan(10_000)
+        expect(options.systemPrompt).toContain('...')
+        expect(options.systemPrompt).toMatch(new RegExp(`.{0,${MAX_STORYBOARD_CHARACTER_CONTEXT_CHARS + 5000}}`, 's'))
     })
 })

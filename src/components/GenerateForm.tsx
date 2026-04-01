@@ -10,6 +10,7 @@ import {
     estimateGenerationCredits,
     type ImageModelTier,
 } from '@/lib/credit-catalog'
+import { MAX_STORY_MANUSCRIPT_CHARS } from '@/lib/prompt-budget'
 
 const CREATE_DRAFT_STORAGE_KEY = 'panelmint:create-draft:v1'
 
@@ -41,7 +42,7 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
             }
 
             if (typeof parsed.text === 'string') {
-                setText(parsed.text)
+                setText(parsed.text.slice(0, MAX_STORY_MANUSCRIPT_CHARS))
             }
 
             const normalizedArtStyle = normalizeArtStyle(parsed.artStyle)
@@ -86,11 +87,12 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        if (!text.trim() || isLoading || disabled) return
+        if (!text.trim() || isLoading || disabled || text.length > MAX_STORY_MANUSCRIPT_CHARS) return
         onGenerate(text.trim(), artStyle, pageCount, imageModelTier)
     }
 
     const charCount = text.length
+    const isAtCharLimit = charCount >= MAX_STORY_MANUSCRIPT_CHARS
     const estimatedCredits = estimateGenerationCredits(pageCount, imageModelTier)
     const canAffordEstimate = credits >= estimatedCredits
 
@@ -125,7 +127,7 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
                         Story Manuscript
                     </label>
                     <span className="rounded-[var(--neo-radius-full)] border-2 border-black bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest shadow-sm font-mono">
-                        {charCount} chars
+                        {charCount} / {MAX_STORY_MANUSCRIPT_CHARS} chars
                     </span>
                 </div>
                 <div className="relative">
@@ -134,6 +136,7 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
                         onChange={(e) => setText(e.target.value)}
                         placeholder="Paste your story or novel text here... The engine will analyze scene by scene."
                         rows={12}
+                        maxLength={MAX_STORY_MANUSCRIPT_CHARS}
                         disabled={isLoading || disabled}
                         className="w-full resize-none rounded-[var(--neo-radius)] border-4 border-black bg-white p-5 font-mono text-sm leading-relaxed text-black shadow-inner outline-none transition-colors focus:border-[var(--neo-accent-green)] focus:ring-4 focus:ring-[var(--neo-accent-green)] disabled:opacity-50"
                     />
@@ -143,6 +146,9 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
                         </div>
                     )}
                 </div>
+                <p className={`font-mono text-[10px] uppercase tracking-[0.14em] ${isAtCharLimit ? 'text-[var(--neo-accent-danger)]' : 'text-black/55'}`}>
+                    Keep each manuscript to {MAX_STORY_MANUSCRIPT_CHARS} characters or fewer so generation stays within safe provider limits.
+                </p>
             </div>
 
             {/* Configuration */}

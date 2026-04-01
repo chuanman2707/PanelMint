@@ -1,8 +1,7 @@
 import { z } from 'zod'
 import { IMAGE_MODEL_TIERS } from '@/lib/credit-catalog'
 import { normalizeArtStyle, validArtStyles } from '@/lib/art-styles'
-
-const MAX_GENERATE_TEXT_CHARS = 9_500
+import { MAX_STORY_MANUSCRIPT_CHARS } from '@/lib/prompt-budget'
 
 const artStyleSchema = z.preprocess(
     (value) => normalizeArtStyle(value) ?? value,
@@ -14,8 +13,8 @@ export const generateRequestSchema = z.object({
         .trim()
         .min(1, 'Text is required')
         .max(
-            MAX_GENERATE_TEXT_CHARS,
-            `Text exceeds WaveSpeed prompt limit of ${MAX_GENERATE_TEXT_CHARS} characters`,
+            MAX_STORY_MANUSCRIPT_CHARS,
+            `Text must be ${MAX_STORY_MANUSCRIPT_CHARS} characters or fewer. Split longer chapters before generating.`,
         ),
     artStyle: artStyleSchema.optional().default('manga'),
     pageCount: z.coerce.number().int().min(5, 'pageCount must be between 5 and 30').max(30, 'pageCount must be between 5 and 30').optional().default(15),

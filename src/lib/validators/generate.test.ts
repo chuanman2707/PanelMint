@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { generateRequestSchema } from './generate'
+import { MAX_STORY_MANUSCRIPT_CHARS } from '@/lib/prompt-budget'
 
 describe('generateRequestSchema', () => {
     it('normalizes legacy art style aliases before validation', () => {
@@ -29,7 +30,7 @@ describe('generateRequestSchema', () => {
 
     it('rejects manuscripts that exceed the WaveSpeed prompt limit', () => {
         expect(() => generateRequestSchema.parse({
-            text: 'x'.repeat(9_501),
-        })).toThrowError(/WaveSpeed prompt limit of 9500 characters/)
+            text: 'x'.repeat(MAX_STORY_MANUSCRIPT_CHARS + 1),
+        })).toThrowError(new RegExp(`Text must be ${MAX_STORY_MANUSCRIPT_CHARS} characters or fewer`))
     })
 })

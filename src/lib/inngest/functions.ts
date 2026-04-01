@@ -5,6 +5,10 @@ import {
     runImageGenStep,
     runStoryboardStep,
 } from '@/lib/pipeline/orchestrator'
+import {
+    getCharacterSheetDispatchPayloads,
+    runCharacterSheetStep,
+} from '@/lib/pipeline/character-sheet-step'
 import type { PipelineJobData } from '@/lib/queue'
 
 type AnalyzePayload = Omit<Extract<PipelineJobData, { type: 'analyze' }>, 'type'>
@@ -22,6 +26,14 @@ type ImagePanelPayload = {
     panelId: string
     userId: string
     attempt: number
+}
+type CharacterSheetParentPayload = {
+    episodeId: string
+}
+type CharacterSheetPayload = {
+    episodeId: string
+    userId: string
+    characterId: string
 }
 
 async function linkRunToInngestExecution(episodeId: string, inngestRunId: string) {
@@ -149,9 +161,71 @@ export const imagePanelFunction = inngest.createFunction(
     },
 )
 
+export const characterSheetParentFunction = inngest.createFunction(
+    {
+        id: 'episode-character-sheet-parent',
+        cancelOn: cancellation,
+        triggers: [{ event: 'episode/character-sheets.requested' }],
+    },
+    async ({ event, step }) => {
+        const payload = event.data as CharacterSheetParentPayload
+
+        const dispatchPayload = await step.run('fan-out-character-sheets', async () => {
+            return getCharacterSheetDispatchPayloads(payload.episodeId)
+        })
+
+        const characterEvents = dispatchPayload.characterIds.map((characterId) => ({
+            id: `character-sheet:${payload.episodeId}:${characterId}`,
+            name: 'episode/character-sheet.requested',
+            data: {
+                episodeId: payload.episodeId,
+                userId: dispatchPayload.userId,
+                characterId,
+            },
+        }))
+
+        if (characterEvents.length > 0) {
+            await step.run('send-character-sheet-events', async () => {
+                await inngest.send(characterEvents)
+            })
+        }
+
+        return {
+            episodeId: payload.episodeId,
+            scheduledCharacters: characterEvents.length,
+        }
+    },
+)
+
+export const characterSheetFunction = inngest.createFunction(
+    {
+        id: 'episode-character-sheet',
+        cancelOn: cancellation,
+        concurrency: {
+            key: 'event.data.userId',
+            limit: 1,
+        },
+        triggers: [{ event: 'episode/character-sheet.requested' }],
+    },
+    async ({ event, step, attempt }) => {
+        const payload = event.data as CharacterSheetPayload
+
+        await step.run(`run-character-sheet-${payload.characterId}`, async () => {
+            await runCharacterSheetStep({
+                ...payload,
+                attempt: attempt + 1,
+            })
+        })
+
+        return { ok: true }
+    },
+)
+
 export const inngestFunctions = [
     analyzeEpisodeFunction,
     storyboardEpisodeFunction,
+    characterSheetParentFunction,
+    characterSheetFunction,
     imageGenerationParentFunction,
     imagePanelFunction,
 ]

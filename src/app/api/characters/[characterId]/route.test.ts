@@ -4,6 +4,8 @@ import { NextRequest } from 'next/server'
 const mocks = vi.hoisted(() => ({
     requireAuth: vi.fn(),
     requireCharacterOwner: vi.fn(),
+    getProviderConfig: vi.fn(),
+    generateCharacterDescription: vi.fn(),
     prisma: {
         character: {
             findUnique: vi.fn(),
@@ -22,6 +24,14 @@ vi.mock('@/lib/prisma', () => ({
     prisma: mocks.prisma,
 }))
 
+vi.mock('@/lib/api-config', () => ({
+    getProviderConfig: mocks.getProviderConfig,
+}))
+
+vi.mock('@/lib/ai/character-design', () => ({
+    generateCharacterDescription: mocks.generateCharacterDescription,
+}))
+
 import { PUT } from './route'
 
 describe('PUT /api/characters/[characterId]', () => {
@@ -29,6 +39,35 @@ describe('PUT /api/characters/[characterId]', () => {
         vi.clearAllMocks()
         mocks.requireAuth.mockResolvedValue({ user: { id: 'user-1' }, error: null })
         mocks.requireCharacterOwner.mockResolvedValue({ character: { id: 'char-1' }, error: null })
+        mocks.prisma.character.findUnique.mockResolvedValue({
+            id: 'char-1',
+            name: 'Aoi',
+            description: 'Old description',
+        })
+        mocks.getProviderConfig.mockResolvedValue({
+            provider: 'wavespeed',
+            apiKey: 'key',
+            llmModel: 'seed',
+            imageModel: 'flux',
+            imageFallbackModel: 'seedream',
+            baseUrl: 'https://api.wavespeed.ai/api/v3',
+        })
+        mocks.generateCharacterDescription.mockResolvedValue({
+            description: 'Hero',
+            identityJson: {
+                name: 'Aoi',
+                ageRange: '20-25',
+                gender: 'female',
+                bodyBuild: 'lean',
+                hairColor: 'black',
+                hairStyle: 'long',
+                eyeColor: 'brown',
+                skinTone: 'fair',
+                clothing: 'combat suit',
+                distinctiveFeatures: ['scar'],
+                visualPrompt: 'Hero',
+            },
+        })
         mocks.prisma.character.update.mockResolvedValue({
             id: 'char-1',
             name: 'Aoi',
@@ -80,6 +119,19 @@ describe('PUT /api/characters/[characterId]', () => {
             data: {
                 name: 'Aoi',
                 description: 'Hero',
+                identityJson: JSON.stringify({
+                    name: 'Aoi',
+                    ageRange: '20-25',
+                    gender: 'female',
+                    bodyBuild: 'lean',
+                    hairColor: 'black',
+                    hairStyle: 'long',
+                    eyeColor: 'brown',
+                    skinTone: 'fair',
+                    clothing: 'combat suit',
+                    distinctiveFeatures: ['scar'],
+                    visualPrompt: 'Hero',
+                }),
             },
         })
     })

@@ -7,13 +7,13 @@ const PROD_PLATFORM_REQUIRED = [
     'INNGEST_EVENT_KEY',
     'INNGEST_SIGNING_KEY',
 ] as const
-const OPTIONAL_R2_GROUP = [
+const OPTIONAL_R2_REQUIRED = [
     'R2_ACCOUNT_ID',
     'R2_ACCESS_KEY_ID',
     'R2_SECRET_ACCESS_KEY',
     'R2_BUCKET_NAME',
-    'R2_PUBLIC_URL',
 ] as const
+const OPTIONAL_R2_OPTIONAL = ['R2_PUBLIC_URL'] as const
 
 export interface EnvValidationReport {
     ready: boolean
@@ -34,9 +34,9 @@ export function getEnvValidationReport(): EnvValidationReport {
         requiredMissing.push(...PROD_PLATFORM_REQUIRED.filter((key) => !hasValue(key)))
     }
 
-    const anyR2Configured = OPTIONAL_R2_GROUP.some((key) => hasValue(key))
+    const anyR2Configured = [...OPTIONAL_R2_REQUIRED, ...OPTIONAL_R2_OPTIONAL].some((key) => hasValue(key))
     if (anyR2Configured) {
-        requiredMissing.push(...OPTIONAL_R2_GROUP.filter((key) => !hasValue(key)))
+        requiredMissing.push(...OPTIONAL_R2_REQUIRED.filter((key) => !hasValue(key)))
     }
 
     const warnings: string[] = []
@@ -51,7 +51,10 @@ export function getEnvValidationReport(): EnvValidationReport {
     for (const key of PROD_PLATFORM_REQUIRED) {
         checks[key] = hasValue(key) ? 'configured' : 'missing'
     }
-    for (const key of OPTIONAL_R2_GROUP) {
+    for (const key of OPTIONAL_R2_REQUIRED) {
+        checks[key] = hasValue(key) ? 'configured' : 'optional'
+    }
+    for (const key of OPTIONAL_R2_OPTIONAL) {
         checks[key] = hasValue(key) ? 'configured' : 'optional'
     }
     checks.ALLOWED_ORIGINS = hasValue('ALLOWED_ORIGINS') ? 'configured' : 'optional'

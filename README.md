@@ -75,8 +75,8 @@ cp .env.example .env
 
 | Variable | Where to get it | What to paste |
 | --- | --- | --- |
-| `DATABASE_URL` | Neon Dashboard -> your project -> `Connect` | The pooled connection string. Prefer the host with `-pooler` in it. |
-| `DIRECT_URL` | Neon Dashboard -> your project -> `Connect` | The direct Postgres connection string for Prisma migrations. |
+| `DATABASE_URL` | Neon Dashboard -> your project -> `Connect` | The pooled connection string. Prefer the host with `-pooler` in it. Keep the database name aligned with the actual Neon database, which is usually `neondb` by default. |
+| `DIRECT_URL` | Neon Dashboard -> your project -> `Connect` | The direct Postgres connection string for Prisma migrations. Prisma CLI in this repo prefers this value when it is set. Do not use the `-pooler` host here. |
 | `ENCRYPTION_SECRET` | Generate locally | A long random secret, for example `openssl rand -base64 32`. |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk Dashboard -> `API Keys` | The publishable key, usually prefixed with `pk_test_` or `pk_live_`. |
 | `CLERK_SECRET_KEY` | Clerk Dashboard -> `API Keys` | The secret key, usually prefixed with `sk_test_` or `sk_live_`. |
@@ -91,6 +91,7 @@ cp .env.example .env
 - `ALLOWED_ORIGINS=http://localhost:3000`
 - For local Inngest dev server, leave `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` blank and uncomment `INNGEST_DEV=1`.
 - If you use local Docker Postgres instead of Neon during development, swap `DATABASE_URL` and `DIRECT_URL` to the commented localhost examples in `.env.example`.
+- If you use the current Neon setup for this repo, the database name is `neondb` even though the Neon project is called `panelmint`.
 
 4. Exact endpoints for this repo:
 

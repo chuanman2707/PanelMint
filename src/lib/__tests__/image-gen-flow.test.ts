@@ -14,6 +14,15 @@ vi.mock('@/lib/ai/llm', () => ({
 
 vi.mock('@/lib/ai/prompts', () => ({
     getArtStylePrompt: mocks.getArtStylePrompt,
+    PROMPTS: {
+        buildPageImagePrompt: `Style: {style}
+Scene Context:
+{scene_context}
+Characters:
+{character_canon}
+Panel:
+{enriched_panel_blocks}`,
+    },
 }))
 
 vi.mock('@/lib/utils/rate-limiter', () => ({
@@ -61,12 +70,14 @@ describe('generatePanelImage', () => {
             .mockResolvedValueOnce(new Response(Buffer.from('image-bytes'), { status: 200 }))
         vi.stubGlobal('fetch', fetchMock)
 
-        const imageUrl = await generatePanelImage({
+        const imageAsset = await generatePanelImage({
             panelId: 'panel-2',
             description: 'Hero reveal',
             characters: ['Thanh Thu'],
             shotType: 'medium',
             location: 'forest',
+            sourceExcerpt: 'Thanh Thu steps into the forest clearing.',
+            mustKeep: ['No text', 'Single character only'],
             artStyle: 'webtoon',
             referenceImages: ['https://cdn.example.com/ref.png'],
             providerConfig: {
@@ -81,9 +92,16 @@ describe('generatePanelImage', () => {
             episodeId: 'episode-1',
         })
 
-        expect(imageUrl).toBe('/generated/panel.png')
+        expect(imageAsset).toEqual({
+            imageUrl: '/generated/panel.png',
+            storageKey: 'user-1/episode-1/panel-2.png',
+        })
         expect(fetchMock).toHaveBeenCalledTimes(3)
         expect(mocks.upload).toHaveBeenCalled()
+        expect(mocks.callLLM).toHaveBeenCalledWith(
+            expect.stringContaining('Source excerpt: Thanh Thu steps into the forest clearing.'),
+            expect.any(Object),
+        )
     })
 
     it('throws ContentFilterError when wavespeed reports content filtering', async () => {
@@ -113,5 +131,42 @@ describe('generatePanelImage', () => {
                 baseUrl: 'https://api.wavespeed.ai/api/v3',
             },
         })).rejects.toBeInstanceOf(ContentFilterError)
+    })
+
+    it('keeps the no-text rule after trimming long prompts', async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                code: 0,
+                data: { id: 'task-2' },
+            }), { status: 200, headers: { 'content-type': 'application/json' } }))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                data: { status: 'completed', outputs: ['https://cdn.example.com/panel.png'] },
+            }), { status: 200, headers: { 'content-type': 'application/json' } }))
+            .mockResolvedValueOnce(new Response(Buffer.from('image-bytes'), { status: 200 }))
+        vi.stubGlobal('fetch', fetchMock)
+        mocks.callLLM.mockResolvedValue('A'.repeat(1800))
+
+        await generatePanelImage({
+            panelId: 'panel-3',
+            description: 'Crowded city street',
+            characters: ['Aoi'],
+            shotType: 'wide',
+            location: 'city',
+            sourceExcerpt: 'Aoi walks through the city at sunset.',
+            mustKeep: ['No speech bubbles', 'Keep sunset lighting'],
+            artStyle: 'webtoon',
+            providerConfig: {
+                provider: 'wavespeed',
+                apiKey: 'wavespeed-key',
+                llmModel: 'bytedance-seed/seed-1.6-flash',
+                imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
+                imageFallbackModel: 'bytedance/seedream-v4',
+                baseUrl: 'https://api.wavespeed.ai/api/v3',
+            },
+        })
+
+        const submitBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as { prompt: string }
+        expect(submitBody.prompt).toContain('Generate ONLY the visual scene.')
+        expect(submitBody.prompt.endsWith('The image must contain ONLY visual elements.')).toBe(true)
     })
 })

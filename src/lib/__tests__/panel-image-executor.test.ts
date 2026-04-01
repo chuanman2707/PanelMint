@@ -105,15 +105,18 @@ describe('executePanelImageGeneration', () => {
         mocks.prisma.panel.findUnique.mockResolvedValue({ generationAttempt: 1 })
         mocks.prisma.panel.update.mockResolvedValue({})
         mocks.prisma.panel.updateMany.mockResolvedValue({ count: 1 })
-        mocks.deductCredits.mockResolvedValue(undefined)
+        mocks.deductCredits.mockResolvedValue(true)
         mocks.refundCredits.mockResolvedValue(undefined)
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
-        mocks.collectPanelReferenceImages.mockReturnValue(['/refs/aoi.png'])
+        mocks.collectPanelReferenceImages.mockResolvedValue(['/refs/aoi.png'])
         mocks.buildCharacterCanon.mockReturnValue('Aoi: Lead hero')
     })
 
     it('marks the panel done after a successful generation', async () => {
-        mocks.generatePanelImage.mockResolvedValue('/generated/panel-1.png')
+        mocks.generatePanelImage.mockResolvedValue({
+            imageUrl: '/generated/panel-1.png',
+            storageKey: 'user-1/episode-1/panel-1.png',
+        })
 
         const result = await executePanelImageGeneration({
             panel,
@@ -137,7 +140,7 @@ describe('executePanelImageGeneration', () => {
             where: {
                 id: 'panel-1',
                 imageUrl: null,
-                status: { in: ['pending', 'error', 'queued'] },
+                status: { in: ['pending', 'error', 'queued', 'generating'] },
             },
             data: {
                 status: 'generating',
@@ -146,7 +149,11 @@ describe('executePanelImageGeneration', () => {
         })
         expect(mocks.prisma.panel.update).toHaveBeenNthCalledWith(1, {
             where: { id: 'panel-1' },
-            data: { imageUrl: '/generated/panel-1.png', status: 'done' },
+            data: {
+                imageUrl: '/generated/panel-1.png',
+                storageKey: 'user-1/episode-1/panel-1.png',
+                status: 'done',
+            },
         })
     })
 

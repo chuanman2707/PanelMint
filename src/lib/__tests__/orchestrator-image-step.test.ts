@@ -137,7 +137,7 @@ describe('runImageGenStep', () => {
         mocks.collectPanelReferenceImages.mockReturnValue([])
         mocks.buildCharacterCanon.mockReturnValue([])
         mocks.checkCredits.mockResolvedValue(true)
-        mocks.deductCredits.mockResolvedValue(undefined)
+        mocks.deductCredits.mockResolvedValue(true)
         mocks.refundCredits.mockResolvedValue(undefined)
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
         mocks.syncPipelineRunState.mockResolvedValue(undefined)
@@ -164,6 +164,7 @@ describe('runImageGenStep', () => {
                 },
             },
         ])
+        mocks.collectPanelReferenceImages.mockResolvedValue([])
         mocks.generatePanelImage.mockRejectedValue(
             new mocks.ContentFilterError('blocked by policy'),
         )
@@ -217,6 +218,7 @@ describe('runImageGenStep', () => {
                 },
             },
         ])
+        mocks.collectPanelReferenceImages.mockResolvedValue([])
         mocks.generatePanelImage.mockRejectedValue(new Error('upstream timeout'))
         mocks.prisma.panel.count
             .mockResolvedValueOnce(1)

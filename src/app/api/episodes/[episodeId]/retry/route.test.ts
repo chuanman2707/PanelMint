@@ -142,7 +142,7 @@ describe('POST /api/episodes/[episodeId]/retry', () => {
         expect(mocks.prisma.panel.findMany).toHaveBeenNthCalledWith(2, {
             where: {
                 page: { episodeId: 'ep-1' },
-                status: { in: ['error', 'pending'] },
+                status: { in: ['error', 'pending', 'content_filtered', 'generating'] },
                 approved: true,
                 id: { in: ['panel-2'] },
             },

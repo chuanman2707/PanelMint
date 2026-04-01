@@ -20,7 +20,7 @@ describe('buildCharacterCanon', () => {
                     identityJson: null,
                 },
             ],
-            ['Minh'],
+            ['Anh Minh'],
         )
 
         expect(canon).toContain('Anh Minh [adult, male, lean]: Tall swordsman')
@@ -45,5 +45,20 @@ describe('buildCharacterCanon', () => {
         expect(warnSpy).toHaveBeenCalled()
 
         warnSpy.mockRestore()
+    })
+
+    it('returns an empty canon string when the panel has no characters', () => {
+        const canon = buildCharacterCanon(
+            [
+                {
+                    name: 'Anh Minh',
+                    description: 'Tall swordsman',
+                    identityJson: null,
+                },
+            ],
+            [],
+        )
+
+        expect(canon).toBe('')
     })
 })

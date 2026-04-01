@@ -41,6 +41,7 @@ src/
   workers/          # Web workers
 prisma/
   schema.prisma     # Database schema
+  migrations/       # Prisma migration history
   postgres-baseline.sql
 ```
 
@@ -93,7 +94,7 @@ npx prisma generate      # Regenerate Prisma client
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **weoweo** (947 symbols, 2159 relationships, 71 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **weoweo** (717 symbols, 1736 relationships, 50 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

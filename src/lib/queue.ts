@@ -38,6 +38,14 @@ export async function enqueueStoryboard(episodeId: string) {
     })
 }
 
+export async function enqueueCharacterSheets(episodeId: string) {
+    return inngest.send({
+        id: `character-sheets:${episodeId}`,
+        name: 'episode/character-sheets.requested',
+        data: { episodeId },
+    })
+}
+
 async function getImageFanoutPayload(episodeId: string, panelIds: string[]) {
     const episode = await prisma.episode.findUnique({
         where: { id: episodeId },

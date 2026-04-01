@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { LocalStorageProvider, createStorageProvider, buildStorageKey } from '@/lib/storage'
+import { LocalStorageProvider, buildStorageKey, buildStorageProxyUrl, createStorageProvider } from '@/lib/storage'
 import { writeFile, mkdir, unlink } from 'fs/promises'
-import { join } from 'path'
-import { existsSync } from 'fs'
 
 vi.mock('fs/promises')
 
@@ -33,7 +31,7 @@ describe('LocalStorageProvider', () => {
         const provider = new LocalStorageProvider()
         const url = await provider.getSignedUrl('some/key.png')
 
-        expect(url).toContain('some/key.png')
+        expect(url).toBe('/generated/key.png')
     })
 
     it('delete removes file from filesystem', async () => {
@@ -57,5 +55,11 @@ describe('buildStorageKey', () => {
     it('builds a nested png key using user and episode identifiers', () => {
         const key = buildStorageKey('user-1', 'episode-1', 'panel-1')
         expect(key).toMatch(/^user-1\/episode-1\/panel-1-.+\.png$/)
+    })
+})
+
+describe('buildStorageProxyUrl', () => {
+    it('builds a stable storage proxy URL from a storage key', () => {
+        expect(buildStorageProxyUrl('user-1/episode-1/panel-1.png')).toBe('/api/storage/user-1/episode-1/panel-1.png')
     })
 })

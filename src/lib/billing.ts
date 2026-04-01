@@ -108,9 +108,9 @@ export async function deductCredits(
     options?: {
         operationKey?: string | null
     },
-): Promise<void> {
+): Promise<boolean> {
     try {
-        await prisma.$transaction(async (tx) => {
+        return await prisma.$transaction(async (tx) => {
             const result = await tx.user.updateMany({
                 where: { id: userId, credits: { gte: amount } },
                 data: { credits: { decrement: amount } },
@@ -124,7 +124,7 @@ export async function deductCredits(
                     })
 
                     if (existing) {
-                        return
+                        return false
                     }
                 }
 
@@ -150,10 +150,12 @@ export async function deductCredits(
                     operationKey: options?.operationKey ?? null,
                 },
             })
+
+            return true
         })
     } catch (err) {
         if (options?.operationKey && isUniqueConstraintConflict(err)) {
-            return
+            return false
         }
         throw err
     }

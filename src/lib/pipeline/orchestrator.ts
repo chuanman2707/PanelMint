@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { analyzeCharactersAndLocations, splitIntoPagesWithPanels } from './analyze'
 import { ServiceError } from './image-gen'
-import { generateCharacterDescription, generateCharacterSheet } from '@/lib/ai/character-design'
+import { generateCharacterDescription } from '@/lib/ai/character-design'
 import { executePanelImageGeneration } from './panel-image-executor'
 import { getProviderConfig, type ProviderConfig } from '@/lib/api-config'
 import { recordPipelineEvent, syncPipelineRunState } from './run-state'
@@ -9,7 +9,6 @@ import {
     ACTION_CREDIT_COSTS,
     checkCredits,
     deductCredits,
-    refundCredits,
     InsufficientCreditsError,
     getImageGenerationCreditCost,
     normalizeImageModelTier,
@@ -153,16 +152,13 @@ export async function runAnalyzeStep(input: PipelineInput): Promise<void> {
             })
         }
 
-        // Enhance character descriptions with structured JSON identity anchors + generate reference sheets
-        console.log(`[Pipeline] Enhancing ${savedCharacters.length} character descriptions + generating sheets...`)
+        // Enhance character descriptions with structured JSON identity anchors.
+        // Character sheets are queued after user approval so they do not block analyze.
+        console.log(`[Pipeline] Enhancing ${savedCharacters.length} character descriptions...`)
         await updateEpisode(episodeId, userId, 'analyzing', 15)
 
         for (const char of savedCharacters) {
             try {
-                // Check credits for character sheet
-                const characterSheetCost = ACTION_CREDIT_COSTS.standard_image
-                const hasSheetCredits = await checkCredits(userId, characterSheetCost)
-
                 const { description: detailedDesc, identityJson } = await generateCharacterDescription(
                     char.name,
                     text.slice(0, 2000),
@@ -170,48 +166,16 @@ export async function runAnalyzeStep(input: PipelineInput): Promise<void> {
                     providerConfig,
                 )
 
-                let imageUrl: string | null = null
-                if (hasSheetCredits) {
-                    try {
-                        const characterSheetOperationKey = `character_sheet:${episodeId}:${char.id}`
-                        await deductCredits(
-                            userId,
-                            characterSheetCost,
-                            'character_sheet_generation',
-                            episodeId,
-                            { operationKey: characterSheetOperationKey },
-                        )
-                        const sheet = await generateCharacterSheet(
-                            char.id,
-                            detailedDesc,
-                            input.artStyle,
-                            providerConfig,
-                            userId,
-                            episodeId,
-                        )
-                        imageUrl = sheet.imageUrl
-                    } catch (sheetErr) {
-                        console.warn(`[Pipeline] Character sheet gen failed for ${char.name}:`, sheetErr)
-                        // Refund the character sheet credit
-                        await refundCredits(
-                            userId,
-                            characterSheetCost,
-                            `character sheet failed: ${char.name}`,
-                            episodeId,
-                            { operationKey: `refund:character_sheet:${episodeId}:${char.id}` },
-                        )
-                    }
-                }
-
                 await prisma.character.update({
                     where: { id: char.id },
                     data: {
                         description: detailedDesc,
                         identityJson: JSON.stringify(identityJson),
-                        imageUrl,
                     },
                 })
-                console.log(`[Pipeline] Character "${char.name}": description enhanced${imageUrl ? ' + sheet generated' : ''}`)
+                // Character sheets are generated on demand. Keeping analyze text-only
+                // avoids long image jobs blocking the episode from reaching review.
+                console.log(`[Pipeline] Character "${char.name}": description enhanced`)
             } catch (err) {
                 console.warn(`[Pipeline] Character design failed for ${char.name}:`, err)
             }
@@ -430,7 +394,7 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
                 ...(panelIds?.length ? { id: { in: panelIds } } : {}),
                 approved: true,
                 imageUrl: null,
-                status: { in: ['queued', 'pending', 'error'] },
+                status: { in: ['queued', 'pending', 'error', 'generating'] },
             },
             include: {
                 page: { select: { sceneContext: true, characters: true } },

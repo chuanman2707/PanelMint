@@ -112,7 +112,7 @@ describe('deductCredits', () => {
         mockUser.findUnique.mockResolvedValue({ credits: 260 })
         mockCreditTx.create.mockResolvedValue({})
 
-        await deductCredits('user1', 40, 'standard_image_generation', 'ep1')
+        await expect(deductCredits('user1', 40, 'standard_image_generation', 'ep1')).resolves.toBe(true)
 
         expect(mockUser.updateMany).toHaveBeenCalledWith({
             where: { id: 'user1', credits: { gte: 40 } },
@@ -134,7 +134,7 @@ describe('deductCredits', () => {
         mockUser.findUnique.mockResolvedValue({ credits: 220 })
         mockCreditTx.create.mockResolvedValue({})
 
-        await deductCredits('user1', 80, 'chapter_analysis')
+        await expect(deductCredits('user1', 80, 'chapter_analysis')).resolves.toBe(true)
 
         const call = mockUser.updateMany.mock.calls[0][0]
         expect(call.where.credits).toEqual({ gte: 80 })
@@ -145,6 +145,15 @@ describe('deductCredits', () => {
         mockUser.findUnique.mockResolvedValue({ credits: 12 })
 
         await expect(deductCredits('user1', 80, 'chapter_analysis')).rejects.toThrow(InsufficientCreditsError)
+    })
+
+    it('returns false when the operation key already exists', async () => {
+        mockUser.updateMany.mockResolvedValue({ count: 0 })
+        mockCreditTx.findUnique.mockResolvedValue({ id: 'tx-1' })
+
+        await expect(deductCredits('user1', 40, 'standard_image_generation', 'ep1', {
+            operationKey: 'image:panel-1:1',
+        })).resolves.toBe(false)
     })
 })
 

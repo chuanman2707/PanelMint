@@ -34,6 +34,7 @@ export interface CharacterDesignResult {
 
 export interface CharacterSheetResult {
     imageUrl: string
+    storageKey: string | null
 }
 
 // ─── Generate Structured Character Description ──────────
@@ -143,10 +144,10 @@ export async function generateCharacterSheet(
     episodeId?: string,
 ): Promise<CharacterSheetResult> {
     if (!providerConfig) {
-        return { imageUrl: '' }
+        return { imageUrl: '', storageKey: null }
     }
 
-    const imageUrl = await generatePanelImage({
+    return generatePanelImage({
         panelId: `char-${characterId}`,
         description: `Full-body character reference sheet on clean white background: ${description}`,
         characters: [],
@@ -157,6 +158,4 @@ export async function generateCharacterSheet(
         userId,
         episodeId,
     })
-
-    return { imageUrl }
 }

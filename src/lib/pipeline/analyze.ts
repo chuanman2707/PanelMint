@@ -69,6 +69,10 @@ export interface StoryAnalysis {
 
 const MAX_RETRIES = 3
 
+function wrapStoryText(text: string): string {
+    return `<story_text>\n${text}\n</story_text>`
+}
+
 async function callLLMWithJsonRetry<T>(
     prompt: string,
     parser: (raw: string) => T,
@@ -97,7 +101,7 @@ async function callLLMWithJsonRetry<T>(
 The following text was supposed to be valid JSON but it has syntax errors. Fix it and return ONLY the corrected valid JSON, nothing else.
 
 Broken JSON:
-${response.slice(0, 4000)}`
+${response}`
 
                 const fixed = await callLLM(fixPrompt, { temperature: 0.1, maxTokens: options.maxTokens ?? 4096, providerConfig: options.providerConfig })
                 try {
@@ -117,7 +121,7 @@ export async function analyzeCharactersAndLocations(text: string, providerConfig
     console.log('[Pipeline] Step 1a: Extracting characters and locations (with identity anchors)...')
 
     const analysis = await callLLMWithJsonRetry(
-        PROMPTS.analyzeStory + text,
+        PROMPTS.analyzeStory + wrapStoryText(text),
         (raw) => safeParseJsonObject(raw),
         { temperature: 0.3, maxTokens: 8192, providerConfig },
     )
@@ -164,7 +168,7 @@ export async function splitIntoPagesWithPanels(
     const prompt = PROMPTS.splitToPagesWithPanels
         .replace(/{page_count}/g, String(pageCount))
         .replace('{characters}', characterNames)
-        + text
+        + wrapStoryText(text)
 
     const rawPages = await callLLMWithJsonRetry(
         prompt,

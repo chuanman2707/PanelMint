@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
     requireAuth: vi.fn(),
     requireEpisodeOwner: vi.fn(),
     enqueueStoryboard: vi.fn(),
+    enqueueCharacterSheets: vi.fn(),
     syncPipelineRunState: vi.fn(),
     recordPipelineEvent: vi.fn(),
     prisma: {
@@ -27,6 +28,7 @@ vi.mock('@/lib/api-auth', () => ({
 
 vi.mock('@/lib/queue', () => ({
     enqueueStoryboard: mocks.enqueueStoryboard,
+    enqueueCharacterSheets: mocks.enqueueCharacterSheets,
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -60,6 +62,7 @@ describe('POST /api/generate/[runId]/approve-analysis', () => {
         mocks.prisma.character.update.mockResolvedValue({})
         mocks.prisma.location.update.mockResolvedValue({})
         mocks.enqueueStoryboard.mockResolvedValue({})
+        mocks.enqueueCharacterSheets.mockResolvedValue({})
         mocks.syncPipelineRunState.mockResolvedValue(undefined)
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
     })
@@ -124,6 +127,7 @@ describe('POST /api/generate/[runId]/approve-analysis', () => {
             },
         })
         expect(mocks.enqueueStoryboard).toHaveBeenCalledWith('ep-1')
+        expect(mocks.enqueueCharacterSheets).toHaveBeenCalledWith('ep-1')
     })
 
     it('returns 404 when a child resource does not belong to the verified episode project', async () => {
@@ -150,5 +154,6 @@ describe('POST /api/generate/[runId]/approve-analysis', () => {
         expect(response.status).toBe(404)
         expect(mocks.prisma.character.update).not.toHaveBeenCalled()
         expect(mocks.enqueueStoryboard).not.toHaveBeenCalled()
+        expect(mocks.enqueueCharacterSheets).not.toHaveBeenCalled()
     })
 })

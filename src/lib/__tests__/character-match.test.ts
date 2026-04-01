@@ -11,9 +11,10 @@ describe('matchCharacterName', () => {
         expect(matchCharacterName('Li Qingqiu', 'li qingqiu')).toBe(true)
     })
 
-    it('matches partial name (substring)', () => {
-        expect(matchCharacterName('Anh Minh', 'Minh')).toBe(true)
-        expect(matchCharacterName('Minh', 'Anh Minh')).toBe(true)
+    it('matches multi-token overlap but rejects ambiguous single-token matches', () => {
+        expect(matchCharacterName('Nguyen Anh Minh', 'Anh Minh')).toBe(true)
+        expect(matchCharacterName('Anh Minh', 'Minh')).toBe(false)
+        expect(matchCharacterName('Minh', 'Anh Minh')).toBe(false)
     })
 
     it('returns false for non-matching names', () => {

@@ -29,7 +29,7 @@ export function buildCharacterCanon(
         ? dbCharacters.filter((character) =>
             panelCharNames.some((name) => matchCharacterName(character.name, name))
         )
-        : dbCharacters
+        : []
 
     return filtered.map((character) => {
         const identity = parseIdentityJson(character.identityJson)

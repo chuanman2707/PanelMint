@@ -214,6 +214,10 @@ export async function syncDomainUserFromAuthUser(authUser: ExternalAuthUser): Pr
         })
 
         if (existing) {
+            if (existing.authUserId && existing.authUserId !== authUser.id) {
+                throw new Error('Account takeover prevented: Email linked to another identity.')
+            }
+
             const updated = await tx.user.update({
                 where: { id: existing.id },
                 data: {

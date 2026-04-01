@@ -26,13 +26,18 @@ import { POST } from './route'
 describe('POST /api/user/credits/dev-topup', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        process.env.NODE_ENV = 'development'
+        vi.stubEnv('NODE_ENV', 'development')
         mocks.requireAuth.mockResolvedValue({ user: { id: 'user-1' }, error: null })
         mocks.grantCredits.mockResolvedValue(undefined)
     })
 
     afterEach(() => {
-        process.env.NODE_ENV = ORIGINAL_NODE_ENV
+        if (ORIGINAL_NODE_ENV === undefined) {
+            vi.unstubAllEnvs()
+            return
+        }
+
+        vi.stubEnv('NODE_ENV', ORIGINAL_NODE_ENV)
     })
 
     it('returns 401 when the user is not authenticated', async () => {
@@ -58,7 +63,7 @@ describe('POST /api/user/credits/dev-topup', () => {
     })
 
     it('blocks the helper in production', async () => {
-        process.env.NODE_ENV = 'production'
+        vi.stubEnv('NODE_ENV', 'production')
 
         const response = await POST(
             new NextRequest('http://localhost/api/user/credits/dev-topup', {

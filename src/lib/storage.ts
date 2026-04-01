@@ -1,5 +1,5 @@
 import { writeFile, mkdir, unlink } from 'fs/promises'
-import { join, dirname } from 'path'
+import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
 
 // ─── Interface ─────────────────────────────────────────
@@ -13,6 +13,15 @@ export interface StorageProvider {
 /** Build a storage key: {userId}/{episodeId}/{panelId}-{uuid}.png */
 export function buildStorageKey(userId: string, episodeId: string, panelId: string): string {
     return `${userId}/${episodeId}/${panelId}-${randomUUID()}.png`
+}
+
+export function buildStorageProxyUrl(key: string): string {
+    const encodedKey = key
+        .split('/')
+        .map((segment) => encodeURIComponent(segment))
+        .join('/')
+
+    return `/api/storage/${encodedKey}`
 }
 
 // ─── R2 Storage Provider ───────────────────────────────
@@ -48,10 +57,7 @@ export class R2StorageProvider implements StorageProvider {
             ContentType: 'image/png',
         }))
 
-        // CRITICAL: Return renderable URL, not just the key.
-        // imageUrl is persisted to DB and used directly by <img src=...> in ReviewStoryboard,
-        // CanvasEditor, and as reference images in multi-ref generation.
-        const url = this.publicUrl ? `${this.publicUrl}/${key}` : await this.getSignedUrl(key)
+        const url = this.publicUrl ? `${this.publicUrl}/${key}` : key
         console.log(`[Storage] R2 uploaded: ${key} → ${url}`)
         return url
     }
@@ -100,7 +106,7 @@ export class LocalStorageProvider implements StorageProvider {
 
     async getSignedUrl(key: string): Promise<string> {
         if (key.startsWith('/generated/')) return key
-        return `/generated/${key}`
+        return `/generated/${basename(key)}`
     }
 
     async delete(key: string): Promise<void> {

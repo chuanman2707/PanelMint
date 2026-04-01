@@ -1,0 +1,222 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+    prisma: {
+        episode: {
+            findUnique: vi.fn(),
+        },
+        character: {
+            findMany: vi.fn(),
+            findUnique: vi.fn(),
+            update: vi.fn(),
+        },
+    },
+    getProviderConfig: vi.fn(),
+    generateCharacterSheet: vi.fn(),
+    deductCredits: vi.fn(),
+    refundCredits: vi.fn(),
+    recordPipelineEvent: vi.fn(),
+}))
+
+vi.mock('@/lib/prisma', () => ({
+    prisma: mocks.prisma,
+}))
+
+vi.mock('@/lib/api-config', () => ({
+    getProviderConfig: mocks.getProviderConfig,
+}))
+
+vi.mock('@/lib/ai/character-design', () => ({
+    generateCharacterSheet: mocks.generateCharacterSheet,
+}))
+
+vi.mock('@/lib/billing', () => ({
+    ACTION_CREDIT_COSTS: {
+        standard_image: 40,
+    },
+    deductCredits: mocks.deductCredits,
+    refundCredits: mocks.refundCredits,
+}))
+
+vi.mock('@/lib/pipeline/run-state', () => ({
+    recordPipelineEvent: mocks.recordPipelineEvent,
+}))
+
+import {
+    getCharacterSheetDispatchPayloads,
+    runCharacterSheetStep,
+} from '@/lib/pipeline/character-sheet-step'
+
+describe('character sheet step', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        mocks.recordPipelineEvent.mockResolvedValue(undefined)
+        mocks.deductCredits.mockResolvedValue(true)
+        mocks.refundCredits.mockResolvedValue(undefined)
+        mocks.prisma.character.update.mockResolvedValue({})
+    })
+
+    it('builds dispatch payloads from episode project characters', async () => {
+        mocks.prisma.episode.findUnique.mockResolvedValue({
+            id: 'ep-1',
+            projectId: 'project-1',
+            project: {
+                userId: 'user-1',
+            },
+        })
+        mocks.prisma.character.findMany.mockResolvedValue([
+            { id: 'char-1' },
+            { id: 'char-2' },
+        ])
+
+        await expect(getCharacterSheetDispatchPayloads('ep-1')).resolves.toEqual({
+            userId: 'user-1',
+            characterIds: ['char-1', 'char-2'],
+        })
+    })
+
+    it('updates the character image when sheet generation succeeds', async () => {
+        mocks.prisma.character.findUnique.mockResolvedValue({
+            id: 'char-1',
+            name: 'Aoi',
+            description: 'hero',
+            imageUrl: null,
+            project: {
+                userId: 'user-1',
+                artStyle: 'manhwa',
+            },
+        })
+        mocks.getProviderConfig.mockResolvedValue({
+            provider: 'wavespeed',
+            apiKey: 'key',
+            llmModel: 'seed',
+            imageModel: 'flux',
+            imageFallbackModel: 'seedream',
+            baseUrl: 'https://api.wavespeed.ai/api/v3',
+            userId: 'user-1',
+        })
+        mocks.generateCharacterSheet.mockResolvedValue({
+            imageUrl: '/chars/aoi.png',
+            storageKey: 'characters/aoi.png',
+        })
+
+        await runCharacterSheetStep({
+            episodeId: 'ep-1',
+            userId: 'user-1',
+            characterId: 'char-1',
+        })
+
+        expect(mocks.deductCredits).toHaveBeenCalledWith(
+            'user-1',
+            40,
+            'character_sheet_generation',
+            'ep-1',
+            { operationKey: 'character_sheet:ep-1:char-1:1' },
+        )
+        expect(mocks.prisma.character.update).toHaveBeenCalledWith({
+            where: { id: 'char-1' },
+            data: { imageUrl: '/chars/aoi.png', storageKey: 'characters/aoi.png' },
+        })
+        expect(mocks.refundCredits).not.toHaveBeenCalled()
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'ep-1',
+            userId: 'user-1',
+            step: 'character_sheet:char-1',
+            status: 'completed',
+            metadata: {
+                characterId: 'char-1',
+                characterName: 'Aoi',
+                attempt: 1,
+                imageUrl: '/chars/aoi.png',
+                storageKey: 'characters/aoi.png',
+            },
+            creditOperationKey: 'character_sheet:ep-1:char-1:1',
+        })
+    })
+
+    it('refunds and records failure when sheet generation fails', async () => {
+        mocks.prisma.character.findUnique.mockResolvedValue({
+            id: 'char-1',
+            name: 'Aoi',
+            description: 'hero',
+            imageUrl: null,
+            project: {
+                userId: 'user-1',
+                artStyle: 'manhwa',
+            },
+        })
+        mocks.getProviderConfig.mockResolvedValue({
+            provider: 'wavespeed',
+            apiKey: 'key',
+            llmModel: 'seed',
+            imageModel: 'flux',
+            imageFallbackModel: 'seedream',
+            baseUrl: 'https://api.wavespeed.ai/api/v3',
+            userId: 'user-1',
+        })
+        mocks.generateCharacterSheet.mockRejectedValue(new Error('upstream timeout'))
+
+        await runCharacterSheetStep({
+            episodeId: 'ep-1',
+            userId: 'user-1',
+            characterId: 'char-1',
+        })
+
+        expect(mocks.refundCredits).toHaveBeenCalledWith(
+            'user-1',
+            40,
+            'character sheet failed: Aoi',
+            'ep-1',
+            { operationKey: 'refund:character_sheet:ep-1:char-1:1' },
+        )
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'ep-1',
+            userId: 'user-1',
+            step: 'character_sheet:char-1',
+            status: 'failed',
+            metadata: {
+                characterId: 'char-1',
+                characterName: 'Aoi',
+                attempt: 1,
+                error: 'upstream timeout',
+            },
+            creditOperationKey: 'character_sheet:ep-1:char-1:1',
+        })
+    })
+
+    it('does not refund when the failure happens before charging credits', async () => {
+        mocks.prisma.character.findUnique.mockResolvedValue({
+            id: 'char-1',
+            name: 'Aoi',
+            description: 'hero',
+            imageUrl: null,
+            project: {
+                userId: 'user-1',
+                artStyle: 'manhwa',
+            },
+        })
+        mocks.getProviderConfig.mockRejectedValue(new Error('missing provider key'))
+
+        await runCharacterSheetStep({
+            episodeId: 'ep-1',
+            userId: 'user-1',
+            characterId: 'char-1',
+        })
+
+        expect(mocks.deductCredits).not.toHaveBeenCalled()
+        expect(mocks.refundCredits).not.toHaveBeenCalled()
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'ep-1',
+            userId: 'user-1',
+            step: 'character_sheet:char-1',
+            status: 'failed',
+            metadata: {
+                attempt: 1,
+                characterId: 'char-1',
+                characterName: 'Aoi',
+                error: 'missing provider key',
+            },
+            creditOperationKey: 'character_sheet:ep-1:char-1:1',
+        })
+    })
+})

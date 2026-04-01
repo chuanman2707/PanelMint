@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { enqueueStoryboard } from '@/lib/queue'
+import { enqueueCharacterSheets, enqueueStoryboard } from '@/lib/queue'
 import { requireAuth, requireEpisodeOwner } from '@/lib/api-auth'
 import { apiHandler } from '@/lib/api-handler'
 import { parseJsonBody } from '@/lib/api-validate'
@@ -98,7 +98,18 @@ export const POST = apiHandler(async (request, context) => {
         })
     })
 
-    await enqueueStoryboard(runId)
+    const [storyboardResult, characterSheetResult] = await Promise.allSettled([
+        enqueueStoryboard(runId),
+        enqueueCharacterSheets(runId),
+    ])
+
+    if (storyboardResult.status === 'rejected') {
+        throw storyboardResult.reason
+    }
+
+    if (characterSheetResult.status === 'rejected') {
+        console.error('[Pipeline] Failed to enqueue character sheets:', characterSheetResult.reason)
+    }
 
     return NextResponse.json({ ok: true })
 })

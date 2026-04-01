@@ -1,7 +1,7 @@
 import { callLLM } from '@/lib/ai/llm'
-import { getArtStylePrompt } from '@/lib/ai/prompts'
+import { PROMPTS, getArtStylePrompt } from '@/lib/ai/prompts'
 import { imageRateLimiter } from '@/lib/utils/rate-limiter'
-import { getStorage, buildStorageKey } from '@/lib/storage'
+import { buildStorageKey, buildStorageProxyUrl, getStorage } from '@/lib/storage'
 import type { ProviderConfig } from '@/lib/api-config'
 import { logUsage } from '@/lib/usage'
 
@@ -13,6 +13,8 @@ export interface PanelImageInput {
     characters: string[]
     shotType: string
     location: string
+    sourceExcerpt?: string | null
+    mustKeep?: string[]
     artStyle: string
     characterDescriptions?: string
     /** Character identity anchors as structured JSON context */
@@ -25,6 +27,11 @@ export interface PanelImageInput {
     providerConfig: ProviderConfig
     userId?: string
     episodeId?: string
+}
+
+export interface StoredImageAsset {
+    imageUrl: string
+    storageKey: string | null
 }
 
 // ─── Constants ──────────────────────────────────────────
@@ -76,9 +83,8 @@ export function trimPromptToBudget(prompt: string, maxChars: number = MAX_PROMPT
  * Generate a single panel image. This is the ONLY entry point for image generation.
  * Page-level generation is removed — each panel = 1 image (webtoon format).
  */
-export async function generatePanelImage(input: PanelImageInput): Promise<string> {
+export async function generatePanelImage(input: PanelImageInput): Promise<StoredImageAsset> {
     const imagePrompt = await buildSinglePanelPrompt(input)
-    const trimmedPrompt = trimPromptToBudget(imagePrompt)
     await imageRateLimiter.acquire()
 
     const { provider } = input.providerConfig
@@ -90,7 +96,7 @@ export async function generatePanelImage(input: PanelImageInput): Promise<string
 
     const url = await generateImageWavespeed(
         input.panelId,
-        trimmedPrompt,
+        imagePrompt,
         input.providerConfig,
         input.referenceImages,
         input.userId,
@@ -119,27 +125,32 @@ export async function generatePanelImage(input: PanelImageInput): Promise<string
 async function buildSinglePanelPrompt(input: PanelImageInput): Promise<string> {
     const {
         description, artStyle, characterDescriptions, characters,
-        shotType, location, characterCanon, mood, lighting,
+        shotType, location, sourceExcerpt, mustKeep,
+        characterCanon, mood, lighting,
     } = input
 
-    const charContext = characterCanon || characterDescriptions || characters.join(', ')
+    const charContext = characterCanon || characterDescriptions || characters.join(', ') || 'No recurring characters in this panel.'
+    const sceneContext = [
+        `Shot type: ${shotType}`,
+        `Location: ${location || 'unspecified'}`,
+        `Mood: ${mood || 'neutral'}`,
+        `Lighting: ${lighting || 'natural'}`,
+    ].join('\n')
+    const enrichedPanelBlocks = [
+        `Description: ${description}`,
+        `Source excerpt: ${sourceExcerpt?.trim() || 'No source excerpt provided. Stay conservative and grounded in the scene description.'}`,
+        `Must keep: ${mustKeep?.length ? mustKeep.join('; ') : 'No explicit must-keep constraints provided.'}`,
+        `Visible characters: ${characters.length ? characters.join(', ') : 'None'}`,
+        `Location: ${location || 'unspecified'}`,
+        `Mood: ${mood || 'neutral'}`,
+        `Lighting: ${lighting || 'natural'}`,
+    ].join('\n')
 
-    const prompt = `Create a single webtoon panel image.
-Style: ${getArtStylePrompt(artStyle)}
-Shot type: ${shotType}
-Scene: ${description}
-Characters: ${charContext}
-Location: ${location}
-Mood: ${mood || 'neutral'}
-Lighting: ${lighting || 'natural'}
-
-CRITICAL RULES:
-1. ${NO_TEXT_RULE}
-2. Maintain EXACT character appearances from identity anchors — same hair, eyes, clothing, build.
-3. Use portrait orientation (tall, vertical format suitable for webtoon vertical scrolling).
-4. Include character poses, expressions, environment details matching the mood and lighting.
-
-Output ONLY the prompt text for the image generation model.`
+    const prompt = PROMPTS.buildPageImagePrompt
+        .replace('{style}', getArtStylePrompt(artStyle))
+        .replace('{scene_context}', sceneContext)
+        .replace('{character_canon}', charContext)
+        .replace('{enriched_panel_blocks}', enrichedPanelBlocks)
 
     const result = await callLLM(prompt, {
         temperature: 0.6,
@@ -147,8 +158,9 @@ Output ONLY the prompt text for the image generation model.`
         providerConfig: input.providerConfig,
     })
 
-    // Append NO TEXT rule to the final prompt to double-enforce
-    const finalPrompt = result.trim() + `\n\n${NO_TEXT_RULE}`
+    const promptBudget = MAX_PROMPT_CHARS - NO_TEXT_RULE.length - 2
+    const trimmedPrompt = trimPromptToBudget(result.trim(), promptBudget)
+    const finalPrompt = `${trimmedPrompt}\n\n${NO_TEXT_RULE}`
     console.log(`[ImageGen] Panel prompt: ${finalPrompt.slice(0, 150)}...`)
     return finalPrompt
 }
@@ -163,7 +175,7 @@ async function generateImageWavespeed(
     referenceImages?: string[],
     userId?: string,
     episodeId?: string,
-): Promise<string> {
+): Promise<StoredImageAsset> {
     const hasRefs = referenceImages && referenceImages.length > 0
     // Use multi-ref model when we have reference images, otherwise text-to-image
     const model = hasRefs
@@ -317,15 +329,21 @@ async function pollWavespeedResult(
 // ─── File Storage Helpers ───────────────────────────────
 // Uses StorageProvider (R2 in production, local in dev)
 
-async function downloadAndSave(panelId: string, imageUrl: string, userId?: string, episodeId?: string): Promise<string> {
-    const res = await fetch(imageUrl)
+async function downloadAndSave(panelId: string, sourceImageUrl: string, userId?: string, episodeId?: string): Promise<StoredImageAsset> {
+    const res = await fetch(sourceImageUrl)
     if (!res.ok) throw new Error(`Failed to download image: ${res.status}`)
     const buffer = Buffer.from(await res.arrayBuffer())
     const key = userId && episodeId
         ? buildStorageKey(userId, episodeId, panelId)
         : `${panelId}.png`
     const storage = getStorage()
-    const url = await storage.upload(buffer, key)
+    const storedValue = await storage.upload(buffer, key)
+    const persistedImageUrl = storedValue.startsWith('http://') || storedValue.startsWith('https://') || storedValue.startsWith('/')
+        ? storedValue
+        : buildStorageProxyUrl(key)
     console.log(`[ImageGen] Saved: ${key}`)
-    return url
+    return {
+        imageUrl: persistedImageUrl,
+        storageKey: key,
+    }
 }

@@ -60,7 +60,7 @@ export const POST = apiHandler(async (request, context) => {
     const failedPanels = await prisma.panel.findMany({
         where: {
             page: { episodeId },
-            status: { in: ['error', 'pending'] },
+            status: { in: ['error', 'pending', 'content_filtered', 'generating'] },
             approved: true,
             ...(requestedPanelIds ? { id: { in: requestedPanelIds } } : {}),
         },

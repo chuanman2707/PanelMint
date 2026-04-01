@@ -14,6 +14,7 @@ import { recordPipelineEvent } from './run-state'
 
 interface CharacterAppearance {
     imageUrl: string | null
+    storageKey?: string | null
     isDefault: boolean
 }
 
@@ -23,6 +24,7 @@ interface PanelCharacter {
     description: string | null
     identityJson: string | null
     imageUrl: string | null
+    storageKey?: string | null
     appearances: CharacterAppearance[]
 }
 
@@ -33,6 +35,8 @@ interface PanelRecord {
     shotType: string | null
     characters: string | null
     location: string | null
+    sourceExcerpt?: string | null
+    mustKeep?: string | null
     mood: string | null
     lighting: string | null
 }
@@ -62,6 +66,19 @@ function parsePanelCharacterNames(rawCharacters: string | null): string[] {
     }
 }
 
+function parseMustKeep(rawMustKeep: string | null | undefined): string[] {
+    if (!rawMustKeep) return []
+
+    try {
+        const parsed = JSON.parse(rawMustKeep) as unknown
+        return Array.isArray(parsed)
+            ? parsed.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+            : []
+    } catch {
+        return []
+    }
+}
+
 async function episodeCancellationRequested(episodeId: string): Promise<boolean> {
     const episode = await prisma.episode.findUnique({
         where: { id: episodeId },
@@ -81,8 +98,9 @@ export async function executePanelImageGeneration({
     episodeId,
 }: ExecutePanelImageGenerationInput): Promise<PanelExecutionResult> {
     const panelCharNames = parsePanelCharacterNames(panel.characters)
-    const referenceImages = collectPanelReferenceImages(panelCharNames, dbCharacters)
+    const referenceImages = await collectPanelReferenceImages(panelCharNames, dbCharacters)
     const panelCharCanon = buildCharacterCanon(dbCharacters, panelCharNames)
+    const mustKeep = parseMustKeep(panel.mustKeep)
     const imageCreditCost = getImageGenerationCreditCost(imageModelTier)
     const imageCreditReason = getImageGenerationReason(imageModelTier)
 
@@ -94,7 +112,7 @@ export async function executePanelImageGeneration({
         where: {
             id: panel.id,
             imageUrl: null,
-            status: { in: ['pending', 'error', 'queued'] },
+            status: { in: ['pending', 'error', 'queued', 'generating'] },
         },
         data: {
             status: 'generating',
@@ -127,13 +145,33 @@ export async function executePanelImageGeneration({
     })
 
     try {
-        await deductCredits(
+        const charged = await deductCredits(
             userId,
             imageCreditCost,
             imageCreditReason,
             episodeId,
             { operationKey: imageOperationKey },
         )
+
+        if (!charged) {
+            await prisma.panel.update({
+                where: { id: panel.id },
+                data: { status: 'queued' },
+            })
+            await recordPipelineEvent({
+                episodeId,
+                userId,
+                step: `image_panel:${panel.id}`,
+                status: 'skipped',
+                metadata: {
+                    attempt: generationAttempt,
+                    panelId: panel.id,
+                    reason: 'duplicate_credit_operation',
+                },
+                creditOperationKey: imageOperationKey,
+            })
+            return 'skipped'
+        }
     } catch (err) {
         await prisma.panel.update({
             where: { id: panel.id },
@@ -154,12 +192,14 @@ export async function executePanelImageGeneration({
     }
 
     try {
-        const imageUrl = await generatePanelImage({
+        const imageAsset = await generatePanelImage({
             panelId: panel.id,
             description: panel.approvedPrompt || panel.description || '',
             characters: panelCharNames,
             shotType: panel.shotType || 'medium',
             location: panel.location || '',
+            sourceExcerpt: panel.sourceExcerpt,
+            mustKeep,
             artStyle,
             characterCanon: panelCharCanon,
             referenceImages,
@@ -172,7 +212,11 @@ export async function executePanelImageGeneration({
 
         await prisma.panel.update({
             where: { id: panel.id },
-            data: { imageUrl, status: 'done' },
+            data: {
+                imageUrl: imageAsset.imageUrl,
+                storageKey: imageAsset.storageKey,
+                status: 'done',
+            },
         })
 
         await recordPipelineEvent({
@@ -182,7 +226,8 @@ export async function executePanelImageGeneration({
             status: 'completed',
             metadata: {
                 attempt: generationAttempt,
-                imageUrl,
+                imageUrl: imageAsset.imageUrl,
+                storageKey: imageAsset.storageKey,
                 panelId: panel.id,
             },
             creditOperationKey: imageOperationKey,

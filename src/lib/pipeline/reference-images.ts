@@ -5,11 +5,51 @@
  */
 
 import { matchCharacterName } from '@/lib/utils/character-match'
+import { getStorage } from '@/lib/storage'
+
+interface StoredImageReference {
+    imageUrl: string | null
+    storageKey?: string | null
+}
 
 interface CharacterWithImage {
     name: string
     imageUrl: string | null
-    appearances?: { imageUrl: string | null; isDefault: boolean }[]
+    storageKey?: string | null
+    appearances?: Array<{
+        imageUrl: string | null
+        storageKey?: string | null
+        isDefault: boolean
+    }>
+}
+
+function getReferenceImage(character: CharacterWithImage): StoredImageReference | null {
+    const defaultAppearance = character.appearances
+        ?.find((appearance) => appearance.isDefault && (appearance.imageUrl || appearance.storageKey))
+
+    if (defaultAppearance) {
+        return {
+            imageUrl: defaultAppearance.imageUrl,
+            storageKey: defaultAppearance.storageKey,
+        }
+    }
+
+    if (!character.imageUrl && !character.storageKey) {
+        return null
+    }
+
+    return {
+        imageUrl: character.imageUrl,
+        storageKey: character.storageKey,
+    }
+}
+
+async function resolveReferenceImageUrl(reference: StoredImageReference | null): Promise<string | null> {
+    if (!reference) return null
+    if (reference.storageKey) {
+        return getStorage().getSignedUrl(reference.storageKey)
+    }
+    return reference.imageUrl
 }
 
 /**
@@ -17,10 +57,10 @@ interface CharacterWithImage {
  * Returns URLs for character sheets of characters present in the panel.
  * wavespeed.ai FLUX Kontext Multi supports up to 5 reference images.
  */
-export function collectPanelReferenceImages(
+export async function collectPanelReferenceImages(
     panelCharacterNames: string[],
     projectCharacters: CharacterWithImage[],
-): string[] {
+): Promise<string[]> {
     const refs: string[] = []
 
     for (const charName of panelCharacterNames) {
@@ -29,15 +69,31 @@ export function collectPanelReferenceImages(
         )
         if (!match) continue
 
-        // Prefer default appearance image, fall back to character imageUrl
-        const appearanceUrl = match.appearances
-            ?.find((a) => a.isDefault && a.imageUrl)
-            ?.imageUrl
-        const url = appearanceUrl || match.imageUrl
-
+        const url = await resolveReferenceImageUrl(getReferenceImage(match))
         if (url) refs.push(url)
+        if (refs.length === 5) break
     }
 
     // FLUX Kontext Multi supports up to 5 reference images
     return refs.slice(0, 5)
+}
+
+export function findMissingReferenceCharacters(
+    panelCharacterNames: string[],
+    projectCharacters: CharacterWithImage[],
+): string[] {
+    const missing = new Set<string>()
+
+    for (const charName of panelCharacterNames) {
+        const match = projectCharacters.find((character) =>
+            matchCharacterName(character.name, charName)
+        )
+
+        if (!match) continue
+        if (!getReferenceImage(match)) {
+            missing.add(match.name)
+        }
+    }
+
+    return [...missing]
 }

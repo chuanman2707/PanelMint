@@ -26,4 +26,10 @@ describe('generateRequestSchema', () => {
             artStyle: 'realistic',
         })).toThrowError(/Invalid option/)
     })
+
+    it('rejects manuscripts that exceed the WaveSpeed prompt limit', () => {
+        expect(() => generateRequestSchema.parse({
+            text: 'x'.repeat(9_501),
+        })).toThrowError(/WaveSpeed prompt limit of 9500 characters/)
+    })
 })

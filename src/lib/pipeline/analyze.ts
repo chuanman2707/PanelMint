@@ -76,7 +76,7 @@ function wrapStoryText(text: string): string {
 async function callLLMWithJsonRetry<T>(
     prompt: string,
     parser: (raw: string) => T,
-    options: { temperature?: number; maxTokens?: number; providerConfig?: ProviderConfig },
+    options: { temperature?: number; maxTokens?: number; providerConfig?: ProviderConfig; systemPrompt?: string },
 ): Promise<T> {
     let lastError: Error | null = null
 
@@ -121,9 +121,14 @@ export async function analyzeCharactersAndLocations(text: string, providerConfig
     console.log('[Pipeline] Step 1a: Extracting characters and locations (with identity anchors)...')
 
     const analysis = await callLLMWithJsonRetry(
-        PROMPTS.analyzeStory + wrapStoryText(text),
+        wrapStoryText(text),
         (raw) => safeParseJsonObject(raw),
-        { temperature: 0.3, maxTokens: 8192, providerConfig },
+        {
+            temperature: 0.3,
+            maxTokens: 8192,
+            providerConfig,
+            systemPrompt: PROMPTS.analyzeStory,
+        },
     )
 
     const characters: AnalyzedCharacter[] = (
@@ -165,15 +170,19 @@ export async function splitIntoPagesWithPanels(
     console.log(`[Pipeline] Step 2: Splitting into ${pageCount} pages with enriched panels...`)
 
     const characterNames = characters.map((c) => `${c.name}: ${c.description}`).join('\n')
-    const prompt = PROMPTS.splitToPagesWithPanels
+    const systemPrompt = PROMPTS.splitToPagesWithPanels
         .replace(/{page_count}/g, String(pageCount))
         .replace('{characters}', characterNames)
-        + wrapStoryText(text)
 
     const rawPages = await callLLMWithJsonRetry(
-        prompt,
+        wrapStoryText(text),
         (raw) => safeParseJsonArray(raw, 'pages'),
-        { temperature: 0.4, maxTokens: 16384, providerConfig },
+        {
+            temperature: 0.4,
+            maxTokens: 16384,
+            providerConfig,
+            systemPrompt,
+        },
     )
 
     const pages: AnalyzedPage[] = rawPages.map((raw: Record<string, unknown>) => ({

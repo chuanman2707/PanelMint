@@ -6,6 +6,7 @@ import { apiHandler } from '@/lib/api-handler'
 import { parseJsonBody } from '@/lib/api-validate'
 import { approveAnalysisRequestSchema } from '@/lib/validators/pipeline'
 import { recordPipelineEvent, syncPipelineRunState } from '@/lib/pipeline/run-state'
+import { AppError } from '@/lib/errors'
 
 export const POST = apiHandler(async (request, context) => {
     const auth = await requireAuth()
@@ -104,7 +105,43 @@ export const POST = apiHandler(async (request, context) => {
     ])
 
     if (storyboardResult.status === 'rejected') {
-        throw storyboardResult.reason
+        await prisma.$transaction(async (tx) => {
+            await tx.episode.update({
+                where: { id: runId },
+                data: { status: 'review_analysis', progress: 25 },
+            })
+
+            await syncPipelineRunState({
+                episodeId: runId,
+                userId: auth.user.id,
+                episodeStatus: 'review_analysis',
+                runStatus: 'paused',
+                currentStep: 'review_analysis',
+                error: null,
+                completedAt: null,
+                client: tx,
+            })
+
+            await recordPipelineEvent({
+                episodeId: runId,
+                userId: auth.user.id,
+                step: 'review_analysis',
+                status: 'failed',
+                metadata: {
+                    error: storyboardResult.reason instanceof Error
+                        ? storyboardResult.reason.message
+                        : String(storyboardResult.reason),
+                    failureType: 'storyboard_enqueue',
+                },
+                client: tx,
+            })
+        })
+
+        throw AppError.badRequest(
+            storyboardResult.reason instanceof Error
+                ? storyboardResult.reason.message
+                : 'Failed to start storyboard generation',
+        )
     }
 
     if (characterSheetResult.status === 'rejected') {

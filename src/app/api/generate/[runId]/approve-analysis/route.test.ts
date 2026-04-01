@@ -18,6 +18,9 @@ const mocks = vi.hoisted(() => ({
             findMany: vi.fn(),
             update: vi.fn(),
         },
+        episode: {
+            update: vi.fn(),
+        },
     },
 }))
 
@@ -61,6 +64,7 @@ describe('POST /api/generate/[runId]/approve-analysis', () => {
         mocks.prisma.location.findMany.mockResolvedValue([{ id: 'loc-1' }])
         mocks.prisma.character.update.mockResolvedValue({})
         mocks.prisma.location.update.mockResolvedValue({})
+        mocks.prisma.episode.update.mockResolvedValue({})
         mocks.enqueueStoryboard.mockResolvedValue({})
         mocks.enqueueCharacterSheets.mockResolvedValue({})
         mocks.syncPipelineRunState.mockResolvedValue(undefined)
@@ -155,5 +159,63 @@ describe('POST /api/generate/[runId]/approve-analysis', () => {
         expect(mocks.prisma.character.update).not.toHaveBeenCalled()
         expect(mocks.enqueueStoryboard).not.toHaveBeenCalled()
         expect(mocks.enqueueCharacterSheets).not.toHaveBeenCalled()
+    })
+
+    it('reverts to review_analysis when storyboard enqueue fails after approval updates', async () => {
+        mocks.enqueueStoryboard.mockRejectedValue(new Error('Inngest unavailable'))
+
+        const response = await POST(
+            new NextRequest('http://localhost/api/generate/ep-1/approve-analysis', {
+                method: 'POST',
+                body: JSON.stringify({
+                    characters: [
+                        {
+                            id: 'char-1',
+                            name: 'Aoi',
+                            aliases: null,
+                            description: 'Lead protagonist',
+                        },
+                    ],
+                    locations: [
+                        {
+                            id: 'loc-1',
+                            name: 'Neo City',
+                            description: 'Main setting',
+                        },
+                    ],
+                }),
+                headers: { 'content-type': 'application/json' },
+            }),
+            { params: Promise.resolve({ runId: 'ep-1' }) },
+        )
+
+        expect(response.status).toBe(400)
+        await expect(response.json()).resolves.toMatchObject({
+            error: 'Inngest unavailable',
+        })
+        expect(mocks.prisma.episode.update).toHaveBeenCalledWith({
+            where: { id: 'ep-1' },
+            data: { status: 'review_analysis', progress: 25 },
+        })
+        expect(mocks.syncPipelineRunState).toHaveBeenCalledWith(
+            expect.objectContaining({
+                episodeId: 'ep-1',
+                userId: 'user-1',
+                episodeStatus: 'review_analysis',
+                runStatus: 'paused',
+                currentStep: 'review_analysis',
+            }),
+        )
+        expect(mocks.recordPipelineEvent).toHaveBeenCalledWith(
+            expect.objectContaining({
+                episodeId: 'ep-1',
+                userId: 'user-1',
+                step: 'review_analysis',
+                status: 'failed',
+                metadata: expect.objectContaining({
+                    failureType: 'storyboard_enqueue',
+                }),
+            }),
+        )
     })
 })

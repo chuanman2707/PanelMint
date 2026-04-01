@@ -171,17 +171,33 @@ export function useCreateWorkflow({ resumeId }: UseCreateWorkflowArgs) {
                 body: JSON.stringify({ characters, locations }),
             })
 
-            if (!res.ok) throw new Error('Approve failed')
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                throw new Error(data.error || 'Approve failed')
+            }
 
             setState('storyboarding')
             setStatus((prev) => ({ ...prev, phase: 'storyboarding', progress: 30 }))
             startPolling(runId)
         } catch (err) {
+            try {
+                const statusRes = await fetch(`/api/generate/${runId}/status`)
+                if (statusRes.ok) {
+                    const statusData = await statusRes.json() as GenerationStatus
+                    const shouldContinue = applyStatus(statusData)
+                    if (shouldContinue) {
+                        startPolling(runId)
+                    }
+                }
+            } catch {
+                // Keep the original error if status reconciliation fails.
+            }
+
             setError(err instanceof Error ? err.message : 'Approve failed')
         } finally {
             setIsActionLoading(false)
         }
-    }, [runId, startPolling])
+    }, [applyStatus, runId, startPolling])
 
     const handleApproveStoryboard = useCallback(async (
         panelApprovals: { id: string; approved: boolean; editedPrompt: string | null }[],

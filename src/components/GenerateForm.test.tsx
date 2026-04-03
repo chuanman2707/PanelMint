@@ -1,5 +1,3 @@
-// @vitest-environment jsdom
-
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { GenerateForm } from '@/components/GenerateForm'
 import { render, screen } from '@/test/render'

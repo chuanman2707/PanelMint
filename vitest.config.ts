@@ -3,8 +3,25 @@ import path from 'path'
 
 export default defineConfig({
     test: {
-        include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-        environment: 'node',
+        projects: [
+            {
+                extends: true,
+                test: {
+                    name: 'node',
+                    include: ['src/**/*.test.ts'],
+                    environment: 'node',
+                },
+            },
+            {
+                extends: true,
+                test: {
+                    name: 'dom',
+                    include: ['src/**/*.test.tsx'],
+                    environment: 'jsdom',
+                    setupFiles: ['./src/test/setup-dom.ts'],
+                },
+            },
+        ],
     },
     resolve: {
         alias: {

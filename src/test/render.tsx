@@ -1,5 +1,3 @@
-import '@/test/setup-dom'
-
 import { cleanup, render as rtlRender, renderHook, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactElement } from 'react'

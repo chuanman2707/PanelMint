@@ -10,6 +10,7 @@
     "postinstall": "prisma generate",
     "lint": "eslint",
     "test": "vitest run",
+    "test:critical": "vitest run src/lib/__tests__ src/app/api/generate/route.test.ts src/app/api/user/credits/route.test.ts src/components/GenerateForm.test.tsx src/hooks/useAuth.test.tsx",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },

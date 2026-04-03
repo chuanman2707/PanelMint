@@ -8,7 +8,7 @@ These standards apply to behavior changes in `src/app`, `src/lib`, `src/app/api`
 - Observe the failure before changing implementation.
 - Make the smallest change that satisfies the test.
 - Rerun the targeted test after the fix.
-- Run the owning folder suite before opening a PR.
+- Run the owning-folder suite when it exists, otherwise the closest relevant suite or the full suite.
 - Run broader repo checks when the change crosses multiple areas or needs extra confidence.
 
 ## Workflow
@@ -17,7 +17,7 @@ These standards apply to behavior changes in `src/app`, `src/lib`, `src/app/api`
 2. Confirm the test fails for the expected reason.
 3. Implement the minimal code path.
 4. Rerun the targeted test until it passes.
-5. Run the suite for the folder you changed.
+5. Run the suite for the folder you changed when it exists, otherwise the closest relevant suite or the full suite.
 6. Run broader repo checks when the change crosses multiple areas or needs extra confidence.
 
 ## Folder Ownership
@@ -32,5 +32,5 @@ These standards apply to behavior changes in `src/app`, `src/lib`, `src/app/api`
 
 - Include proof that the test failed before the fix.
 - Include the targeted command used to verify the fix.
-- Include the owning-folder suite command, and broader repo checks when they were run.
+- Include the owning-folder suite command when it exists, otherwise the closest relevant suite or full suite command, and broader repo checks when they were run.
 - Call out any risky folders touched, new mocks added, and follow-up tests deferred.

@@ -45,7 +45,7 @@ Use the local red-green-refactor loop for behavior changes in `src/app`, `src/li
 1. Write or update the failing test first.
 2. Run that targeted test and confirm the failure.
 3. Make the smallest implementation that passes.
-4. Rerun the targeted test, then the owning folder suite.
+4. Rerun the targeted test, then the owning folder suite when it exists, otherwise the closest relevant suite or the full suite.
 5. Run broader repo checks when the change crosses multiple areas or needs extra confidence before opening a PR.
 
 ## Required env vars

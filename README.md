@@ -40,13 +40,13 @@ curl http://localhost:3000/api/health
 
 ## TDD Workflow
 
-Use the local red-green-refactor loop for changes in `src/lib`, `src/app/api`, `src/components`, and `src/hooks`.
+Use the local red-green-refactor loop for behavior changes in `src/app`, `src/lib`, `src/app/api`, `src/components`, and `src/hooks`.
 
 1. Write or update the failing test first.
 2. Run that targeted test and confirm the failure.
 3. Make the smallest implementation that passes.
 4. Rerun the targeted test, then the owning folder suite.
-5. Run the broader repo checks before opening a PR.
+5. Run broader repo checks when the change crosses multiple areas or needs extra confidence before opening a PR.
 
 ## Required env vars
 

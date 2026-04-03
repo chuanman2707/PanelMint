@@ -1,6 +1,6 @@
 # TDD Standards
 
-These standards apply to changes in `src/lib`, `src/app/api`, `src/components`, and `src/hooks`.
+These standards apply to behavior changes in `src/app`, `src/lib`, `src/app/api`, `src/components`, and `src/hooks`.
 
 ## Non-Negotiables
 
@@ -9,6 +9,7 @@ These standards apply to changes in `src/lib`, `src/app/api`, `src/components`, 
 - Make the smallest change that satisfies the test.
 - Rerun the targeted test after the fix.
 - Run the owning folder suite before opening a PR.
+- Run broader repo checks when the change crosses multiple areas or needs extra confidence.
 
 ## Workflow
 
@@ -17,11 +18,12 @@ These standards apply to changes in `src/lib`, `src/app/api`, `src/components`, 
 3. Implement the minimal code path.
 4. Rerun the targeted test until it passes.
 5. Run the suite for the folder you changed.
-6. Run the broader repo checks if the change crosses multiple areas.
+6. Run broader repo checks when the change crosses multiple areas or needs extra confidence.
 
 ## Folder Ownership
 
 - `src/lib`: shared business logic, validation, utilities, and adapters.
+- `src/app`: page/layout behavior, route composition, and app-level UI state.
 - `src/app/api`: API routes, handlers, and server-side request orchestration.
 - `src/components`: reusable UI components and component-level behavior.
 - `src/hooks`: shared React hooks and hook-specific behavior.
@@ -30,5 +32,5 @@ These standards apply to changes in `src/lib`, `src/app/api`, `src/components`, 
 
 - Include proof that the test failed before the fix.
 - Include the targeted command used to verify the fix.
-- Include the full or owning-folder suite command used before review.
+- Include the owning-folder suite command, and broader repo checks when they were run.
 - Call out any risky folders touched, new mocks added, and follow-up tests deferred.

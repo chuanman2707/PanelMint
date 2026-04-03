@@ -34,4 +34,8 @@ describe('GenerateForm', () => {
             'standard',
         )
     })
+
+    it('cleans up the DOM between tests', () => {
+        expect(document.body).toBeEmptyDOMElement()
+    })
 })

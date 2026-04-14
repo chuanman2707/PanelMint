@@ -7,6 +7,20 @@ describe('GenerateForm', () => {
         localStorage.clear()
     })
 
+    it('describes export length in pages instead of panels', () => {
+        render(
+            <GenerateForm
+                onGenerate={vi.fn()}
+                isLoading={false}
+                credits={1000}
+                accountTier="free"
+            />,
+        )
+
+        expect(screen.getByText('15 pages')).toBeInTheDocument()
+        expect(screen.queryByText('15 panels')).not.toBeInTheDocument()
+    })
+
     it('submits trimmed manuscript text with the default generation options', async () => {
         const onGenerate = vi.fn()
         const { user } = render(

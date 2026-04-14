@@ -124,25 +124,9 @@ describe('runAnalyzeStep', () => {
                 },
             ],
         })
-        mocks.generateCharacterDescription.mockResolvedValue({
-            description: 'enhanced description',
-            identityJson: {
-                name: 'Linh',
-                ageRange: '20-25',
-                gender: 'female',
-                bodyBuild: 'lean',
-                hairColor: 'black',
-                hairStyle: 'long',
-                eyeColor: 'brown',
-                skinTone: 'fair',
-                clothing: 'blue robe',
-                distinctiveFeatures: ['sharp eyes'],
-                visualPrompt: 'enhanced description',
-            },
-        })
     })
 
-    it('completes analysis without generating character sheets inline', async () => {
+    it('completes analysis without blocking on extra character enhancement calls', async () => {
         await runAnalyzeStep({
             projectId: 'project-1',
             episodeId: 'episode-1',
@@ -162,25 +146,8 @@ describe('runAnalyzeStep', () => {
             { operationKey: 'analyze:episode-1' },
         )
         expect(mocks.generateCharacterSheet).not.toHaveBeenCalled()
-        expect(mocks.prisma.character.update).toHaveBeenCalledWith({
-            where: { id: 'char-1' },
-            data: {
-                description: 'enhanced description',
-                identityJson: JSON.stringify({
-                    name: 'Linh',
-                    ageRange: '20-25',
-                    gender: 'female',
-                    bodyBuild: 'lean',
-                    hairColor: 'black',
-                    hairStyle: 'long',
-                    eyeColor: 'brown',
-                    skinTone: 'fair',
-                    clothing: 'blue robe',
-                    distinctiveFeatures: ['sharp eyes'],
-                    visualPrompt: 'enhanced description',
-                }),
-            },
-        })
+        expect(mocks.generateCharacterDescription).not.toHaveBeenCalled()
+        expect(mocks.prisma.character.update).not.toHaveBeenCalled()
         expect(mocks.prisma.episode.update).toHaveBeenLastCalledWith({
             where: { id: 'episode-1' },
             data: { status: 'review_analysis', progress: 25 },

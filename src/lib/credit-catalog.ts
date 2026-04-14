@@ -1,6 +1,8 @@
 export const ACCOUNT_TIERS = ['free', 'paid'] as const
 export type AccountTier = (typeof ACCOUNT_TIERS)[number]
 
+import { getStoryboardPanelBudget } from '@/lib/prompt-budget'
+
 export const IMAGE_MODEL_TIERS = ['standard', 'premium'] as const
 export type ImageModelTier = (typeof IMAGE_MODEL_TIERS)[number]
 
@@ -60,6 +62,16 @@ export function getImageGenerationReason(imageTier: ImageModelTier) {
         : 'standard_image_generation'
 }
 
-export function estimateGenerationCredits(panelCount: number, imageTier: ImageModelTier): number {
-    return (ACTION_CREDIT_COSTS.llm_generation * 2) + (panelCount * getImageGenerationCreditCost(imageTier))
+export function estimateGenerationCredits(
+    pageCount: number,
+    imageTier: ImageModelTier,
+    manuscriptChars = 0,
+): number {
+    const { targetTotalPanels } = getStoryboardPanelBudget({
+        manuscriptChars,
+        pageCount,
+    })
+
+    return (ACTION_CREDIT_COSTS.llm_generation * 2)
+        + (targetTotalPanels * getImageGenerationCreditCost(imageTier))
 }

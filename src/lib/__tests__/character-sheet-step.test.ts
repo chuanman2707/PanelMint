@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
     prisma: {
@@ -54,6 +54,10 @@ describe('character sheet step', () => {
         mocks.deductCredits.mockResolvedValue(true)
         mocks.refundCredits.mockResolvedValue(undefined)
         mocks.prisma.character.update.mockResolvedValue({})
+    })
+
+    afterEach(() => {
+        vi.useRealTimers()
     })
 
     it('builds dispatch payloads from episode project characters', async () => {
@@ -129,6 +133,67 @@ describe('character sheet step', () => {
                 attempt: 1,
                 imageUrl: '/chars/aoi.png',
                 storageKey: 'characters/aoi.png',
+            },
+            creditOperationKey: 'character_sheet:ep-1:char-1:1',
+        })
+    })
+
+    it('waits for long-running character sheet generation beyond the old 90s timeout', async () => {
+        vi.useFakeTimers()
+
+        mocks.prisma.character.findUnique.mockResolvedValue({
+            id: 'char-1',
+            name: 'Aoi',
+            description: 'hero',
+            imageUrl: null,
+            project: {
+                userId: 'user-1',
+                artStyle: 'manhwa',
+            },
+        })
+        mocks.getProviderConfig.mockResolvedValue({
+            provider: 'wavespeed',
+            apiKey: 'key',
+            llmModel: 'seed',
+            imageModel: 'flux',
+            imageFallbackModel: 'seedream',
+            baseUrl: 'https://api.wavespeed.ai/api/v3',
+            userId: 'user-1',
+        })
+        mocks.generateCharacterSheet.mockImplementation(() => new Promise((resolve) => {
+            setTimeout(() => {
+                resolve({
+                    imageUrl: '/chars/aoi-delayed.png',
+                    storageKey: 'characters/aoi-delayed.png',
+                })
+            }, 95_000)
+        }))
+
+        const runPromise = runCharacterSheetStep({
+            episodeId: 'ep-1',
+            userId: 'user-1',
+            characterId: 'char-1',
+        })
+
+        await vi.advanceTimersByTimeAsync(95_000)
+        await runPromise
+
+        expect(mocks.prisma.character.update).toHaveBeenCalledWith({
+            where: { id: 'char-1' },
+            data: { imageUrl: '/chars/aoi-delayed.png', storageKey: 'characters/aoi-delayed.png' },
+        })
+        expect(mocks.refundCredits).not.toHaveBeenCalled()
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'ep-1',
+            userId: 'user-1',
+            step: 'character_sheet:char-1',
+            status: 'completed',
+            metadata: {
+                characterId: 'char-1',
+                characterName: 'Aoi',
+                attempt: 1,
+                imageUrl: '/chars/aoi-delayed.png',
+                storageKey: 'characters/aoi-delayed.png',
             },
             creditOperationKey: 'character_sheet:ep-1:char-1:1',
         })

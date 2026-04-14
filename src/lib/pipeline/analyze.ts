@@ -5,6 +5,7 @@ import type { ProviderConfig } from '@/lib/api-config'
 import {
     MAX_STORYBOARD_CHARACTER_CONTEXT_CHARS,
     MAX_STORYBOARD_CHARACTER_LINE_CHARS,
+    getStoryboardPanelBudget,
 } from '@/lib/prompt-budget'
 
 // ─── Character Identity Anchor ──────────────────────────
@@ -107,7 +108,14 @@ function buildStoryboardCharacterContext(characters: AnalyzedCharacter[]): strin
 async function callLLMWithJsonRetry<T>(
     prompt: string,
     parser: (raw: string) => T,
-    options: { temperature?: number; maxTokens?: number; providerConfig?: ProviderConfig; systemPrompt?: string },
+    options: {
+        temperature?: number
+        maxTokens?: number
+        providerConfig?: ProviderConfig
+        systemPrompt?: string
+        priority?: 'latency' | 'throughput'
+        pollTimeoutMs?: number
+    },
 ): Promise<T> {
     let lastError: Error | null = null
 
@@ -134,7 +142,12 @@ The following text was supposed to be valid JSON but it has syntax errors. Fix i
 Broken JSON:
 ${response}`
 
-                const fixed = await callLLM(fixPrompt, { temperature: 0.1, maxTokens: options.maxTokens ?? 4096, providerConfig: options.providerConfig })
+                const fixed = await callLLM(fixPrompt, {
+                    temperature: 0.1,
+                    maxTokens: options.maxTokens ?? 4096,
+                    providerConfig: options.providerConfig,
+                    priority: 'latency',
+                })
                 try {
                     return parser(fixed)
                 } catch {
@@ -201,8 +214,20 @@ export async function splitIntoPagesWithPanels(
     console.log(`[Pipeline] Step 2: Splitting into ${pageCount} pages with enriched panels...`)
 
     const characterNames = buildStoryboardCharacterContext(characters)
+    const panelBudget = getStoryboardPanelBudget({
+        manuscriptChars: text.length,
+        pageCount,
+    })
     const systemPrompt = PROMPTS.splitToPagesWithPanels
         .replace(/{page_count}/g, String(pageCount))
+        .replace(
+            '{panel_budget_line}',
+            `- Each page should have ${panelBudget.minPanelsPerPage}-${panelBudget.maxPanelsPerPage} panels that together tell that page's part of the story.`,
+        )
+        .replace(
+            '{panel_target_line}',
+            `Target about ${panelBudget.targetTotalPanels} total panels across the whole chapter. Default to the minimum number of panels needed to keep pacing clear.`,
+        )
         .replace('{characters}', characterNames)
 
     const rawPages = await callLLMWithJsonRetry(
@@ -213,6 +238,8 @@ export async function splitIntoPagesWithPanels(
             maxTokens: 16384,
             providerConfig,
             systemPrompt,
+            priority: 'throughput',
+            pollTimeoutMs: 5 * 60_000,
         },
     )
 

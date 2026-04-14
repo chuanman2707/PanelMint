@@ -206,6 +206,7 @@ export async function executePanelImageGeneration({
             mood: panel.mood || undefined,
             lighting: panel.lighting || undefined,
             providerConfig,
+            imageModelTier,
             userId,
             episodeId,
         })

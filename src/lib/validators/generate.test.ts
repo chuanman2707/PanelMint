@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { GENERATE_MANUSCRIPT_LIMIT_HELPER_TEXT } from '@/lib/generate-manuscript-guardrails'
 import { generateRequestSchema } from './generate'
 import { MAX_STORY_MANUSCRIPT_CHARS } from '@/lib/prompt-budget'
 
@@ -31,6 +32,6 @@ describe('generateRequestSchema', () => {
     it('rejects manuscripts that exceed the WaveSpeed prompt limit', () => {
         expect(() => generateRequestSchema.parse({
             text: 'x'.repeat(MAX_STORY_MANUSCRIPT_CHARS + 1),
-        })).toThrowError(new RegExp(`Text must be ${MAX_STORY_MANUSCRIPT_CHARS} characters or fewer`))
+        })).toThrowError(GENERATE_MANUSCRIPT_LIMIT_HELPER_TEXT)
     })
 })

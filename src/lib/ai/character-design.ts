@@ -155,6 +155,7 @@ export async function generateCharacterSheet(
         location: 'clean white background, studio lighting',
         artStyle,
         providerConfig,
+        imageModelTier: 'standard',
         userId,
         episodeId,
     })

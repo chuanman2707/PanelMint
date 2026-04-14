@@ -1,8 +1,8 @@
-import { callLLM } from '@/lib/ai/llm'
 import { PROMPTS, getArtStylePrompt } from '@/lib/ai/prompts'
 import { imageRateLimiter } from '@/lib/utils/rate-limiter'
 import { buildStorageKey, buildStorageProxyUrl, getStorage } from '@/lib/storage'
 import type { ProviderConfig } from '@/lib/api-config'
+import type { ImageModelTier } from '@/lib/credit-catalog'
 import { logUsage } from '@/lib/usage'
 
 // ─── Types ──────────────────────────────────────────────
@@ -25,6 +25,7 @@ export interface PanelImageInput {
     mood?: string
     lighting?: string
     providerConfig: ProviderConfig
+    imageModelTier?: ImageModelTier
     userId?: string
     episodeId?: string
 }
@@ -37,12 +38,13 @@ export interface StoredImageAsset {
 // ─── Constants ──────────────────────────────────────────
 
 const MAX_PROMPT_CHARS = 1500
-const WAVESPEED_LLM_MAX_PROMPT_CHARS = 10_000
-const WAVESPEED_LLM_TARGET_PROMPT_CHARS = 9_000
 const WAVESPEED_MAX_RETRIES = 3
 const WAVESPEED_BASE_DELAY_MS = 3_000
-const WAVESPEED_POLL_INTERVAL_MS = 2_000
-const WAVESPEED_POLL_MAX_ATTEMPTS = 60 // 2min max poll
+const WAVESPEED_STANDARD_IMAGE_MODEL = 'wavespeed-ai/z-image/turbo'
+export const WAVESPEED_IMAGE_POLL_TIMEOUT_MS = 12 * 60_000
+const WAVESPEED_POLL_INITIAL_DELAY_MS = 2_000
+const WAVESPEED_POLL_MAX_DELAY_MS = 10_000
+const WAVESPEED_POLL_LOG_INTERVAL_MS = 60_000
 
 /** Webtoon portrait dimensions */
 const WEBTOON_WIDTH = 1024
@@ -64,6 +66,13 @@ export class ServiceError extends Error {
     constructor(message: string) {
         super(message)
         this.name = 'ServiceError'
+    }
+}
+
+export class WaveSpeedTimeoutError extends Error {
+    constructor(message: string) {
+        super(message)
+        this.name = 'WaveSpeedTimeoutError'
     }
 }
 
@@ -91,98 +100,36 @@ function trimSectionToBudget(
     return normalized.slice(0, maxChars - 3) + '...'
 }
 
-function buildPromptFromSections(
-    stylePrompt: string,
-    sceneContext: string,
-    charContext: string,
-    enrichedPanelBlocks: string,
-): string {
-    return PROMPTS.buildPageImagePrompt
-        .replace('{style}', stylePrompt)
-        .replace('{scene_context}', sceneContext)
-        .replace('{character_canon}', charContext)
-        .replace('{enriched_panel_blocks}', enrichedPanelBlocks)
-}
-
-function buildCompactPrompt(
+function buildDeterministicPrompt(
     stylePrompt: string,
     sceneContext: string,
     charContext: string,
     enrichedPanelBlocks: string,
 ): string {
     return [
-        'Write one concise English prompt for a single webtoon panel image.',
-        `Art style: ${stylePrompt}`,
+        `Art style: ${stylePrompt}.`,
         sceneContext,
-        `Character canon:\n${charContext}`,
-        `Panel data:\n${enrichedPanelBlocks}`,
-        'Return only the final image prompt. Keep it factual, grounded in the source excerpt, and do not include text, captions, speech bubbles, or written words in the image. Max 1500 characters.',
-    ].join('\n\n')
+        enrichedPanelBlocks,
+        `Character canon: ${charContext}`,
+    ].join('\n')
 }
 
-function ensureLLMPromptBudget(
-    stylePrompt: string,
-    sceneContext: string,
-    charContext: string,
-    enrichedPanelBlocks: string,
-): string {
-    const fullPrompt = buildPromptFromSections(stylePrompt, sceneContext, charContext, enrichedPanelBlocks)
-    if (fullPrompt.length <= WAVESPEED_LLM_TARGET_PROMPT_CHARS) {
-        return fullPrompt
+function resolveWaveSpeedImageStrategy(input: PanelImageInput): {
+    model: string
+    referenceImages?: string[]
+} {
+    const imageModelTier = input.imageModelTier ?? 'standard'
+
+    if (imageModelTier === 'premium') {
+        return {
+            model: input.providerConfig.imageModel,
+            referenceImages: input.referenceImages,
+        }
     }
 
-    console.warn(
-        `[ImageGen] LLM image prompt input too long (${fullPrompt.length} chars), switching to compact prompt budget`,
-    )
-
-    let compactCharContext = trimSectionToBudget(charContext, 1_600, 'No recurring characters in this panel.', 'character canon')
-    let compactPanelBlocks = trimSectionToBudget(
-        enrichedPanelBlocks,
-        3_800,
-        'Description: No panel description provided.',
-        'panel data',
-    )
-    let compactPrompt = buildCompactPrompt(stylePrompt, sceneContext, compactCharContext, compactPanelBlocks)
-
-    if (compactPrompt.length > WAVESPEED_LLM_TARGET_PROMPT_CHARS) {
-        const overflow = compactPrompt.length - WAVESPEED_LLM_TARGET_PROMPT_CHARS
-        compactPanelBlocks = trimSectionToBudget(
-            compactPanelBlocks,
-            Math.max(1_200, compactPanelBlocks.length - overflow),
-            'Description: No panel description provided.',
-            'panel data',
-        )
-        compactPrompt = buildCompactPrompt(stylePrompt, sceneContext, compactCharContext, compactPanelBlocks)
+    return {
+        model: WAVESPEED_STANDARD_IMAGE_MODEL,
     }
-
-    if (compactPrompt.length > WAVESPEED_LLM_TARGET_PROMPT_CHARS) {
-        const overflow = compactPrompt.length - WAVESPEED_LLM_TARGET_PROMPT_CHARS
-        compactCharContext = trimSectionToBudget(
-            compactCharContext,
-            Math.max(400, compactCharContext.length - overflow),
-            'No recurring characters in this panel.',
-            'character canon',
-        )
-        compactPrompt = buildCompactPrompt(stylePrompt, sceneContext, compactCharContext, compactPanelBlocks)
-    }
-
-    if (compactPrompt.length > WAVESPEED_LLM_MAX_PROMPT_CHARS) {
-        compactPanelBlocks = trimSectionToBudget(
-            compactPanelBlocks,
-            1_200,
-            'Description: No panel description provided.',
-            'panel data',
-        )
-        compactCharContext = trimSectionToBudget(
-            compactCharContext,
-            400,
-            'No recurring characters in this panel.',
-            'character canon',
-        )
-        compactPrompt = buildCompactPrompt(stylePrompt, sceneContext, compactCharContext, compactPanelBlocks)
-    }
-
-    return compactPrompt
 }
 
 // ─── Main Export ────────────────────────────────────────
@@ -196,6 +143,7 @@ export async function generatePanelImage(input: PanelImageInput): Promise<Stored
     await imageRateLimiter.acquire()
 
     const { provider } = input.providerConfig
+    const strategy = resolveWaveSpeedImageStrategy(input)
     console.log(`[ImageGen] Provider: ${provider} | Panel: ${input.panelId}`)
 
     if (provider !== 'wavespeed') {
@@ -204,9 +152,10 @@ export async function generatePanelImage(input: PanelImageInput): Promise<Stored
 
     const url = await generateImageWavespeed(
         input.panelId,
+        strategy.model,
         imagePrompt,
         input.providerConfig,
-        input.referenceImages,
+        strategy.referenceImages,
         input.userId,
         input.episodeId,
     )
@@ -216,7 +165,7 @@ export async function generatePanelImage(input: PanelImageInput): Promise<Stored
         logUsage({
             userId: input.userId,
             type: 'image_gen',
-            model: input.providerConfig.imageModel,
+            model: strategy.model,
             metadata: JSON.stringify({ panelId: input.panelId }),
         })
     }
@@ -240,7 +189,7 @@ async function buildSinglePanelPrompt(input: PanelImageInput): Promise<string> {
     const stylePrompt = trimSectionToBudget(getArtStylePrompt(artStyle), 600, 'manga illustration', 'art style')
     const charContext = trimSectionToBudget(
         characterCanon || characterDescriptions || characters.join(', '),
-        3_200,
+        1_200,
         'No recurring characters in this panel.',
         'character canon',
     )
@@ -251,19 +200,19 @@ async function buildSinglePanelPrompt(input: PanelImageInput): Promise<string> {
         `Lighting: ${trimSectionToBudget(lighting, 160, 'natural', 'lighting')}`,
     ].join('\n')
     const enrichedPanelBlocks = [
-        `Description: ${trimSectionToBudget(description, 3_000, 'No panel description provided.', 'panel description')}`,
         `Source excerpt: ${trimSectionToBudget(
             sourceExcerpt,
-            2_400,
+            1_000,
             'No source excerpt provided. Stay conservative and grounded in the scene description.',
             'source excerpt',
         )}`,
         `Must keep: ${trimSectionToBudget(
             mustKeep?.length ? mustKeep.join('; ') : null,
-            800,
+            400,
             'No explicit must-keep constraints provided.',
             'must-keep constraints',
         )}`,
+        `Description: ${trimSectionToBudget(description, 1_200, 'No panel description provided.', 'panel description')}`,
         `Visible characters: ${trimSectionToBudget(
             characters.length ? characters.join(', ') : null,
             240,
@@ -272,16 +221,14 @@ async function buildSinglePanelPrompt(input: PanelImageInput): Promise<string> {
         )}`,
     ].join('\n')
 
-    const prompt = ensureLLMPromptBudget(stylePrompt, sceneContext, charContext, enrichedPanelBlocks)
-
-    const result = await callLLM(prompt, {
-        temperature: 0.6,
-        maxTokens: 500,
-        providerConfig: input.providerConfig,
-    })
-
     const promptBudget = MAX_PROMPT_CHARS - NO_TEXT_RULE.length - 2
-    const trimmedPrompt = trimPromptToBudget(result.trim(), promptBudget)
+    const deterministicPrompt = buildDeterministicPrompt(
+        stylePrompt,
+        sceneContext,
+        charContext,
+        enrichedPanelBlocks,
+    )
+    const trimmedPrompt = trimPromptToBudget(deterministicPrompt, promptBudget)
     const finalPrompt = `${trimmedPrompt}\n\n${NO_TEXT_RULE}`
     console.log(`[ImageGen] Panel prompt: ${finalPrompt.slice(0, 150)}...`)
     return finalPrompt
@@ -292,18 +239,13 @@ async function buildSinglePanelPrompt(input: PanelImageInput): Promise<string> {
 
 async function generateImageWavespeed(
     panelId: string,
+    model: string,
     prompt: string,
     config: ProviderConfig,
     referenceImages?: string[],
     userId?: string,
     episodeId?: string,
 ): Promise<StoredImageAsset> {
-    const hasRefs = referenceImages && referenceImages.length > 0
-    // Use multi-ref model when we have reference images, otherwise text-to-image
-    const model = hasRefs
-        ? config.imageModel // flux-kontext-pro/multi
-        : (config.imageFallbackModel || 'bytedance/seedream-v4')
-
     console.log(`[ImageGen] wavespeed.ai model: ${model} (refs: ${referenceImages?.length ?? 0})`)
 
     for (let attempt = 1; attempt <= WAVESPEED_MAX_RETRIES; attempt++) {
@@ -314,20 +256,13 @@ async function generateImageWavespeed(
         } catch (err) {
             if (err instanceof ContentFilterError) throw err
             if (err instanceof ServiceError) throw err
+            if (err instanceof WaveSpeedTimeoutError) throw err
 
             const isRetryable = attempt < WAVESPEED_MAX_RETRIES
             if (isRetryable) {
                 const delay = WAVESPEED_BASE_DELAY_MS * Math.pow(2, attempt - 1)
                 console.warn(`[ImageGen] wavespeed.ai attempt ${attempt} failed, retrying in ${delay / 1000}s:`, err)
                 await sleep(delay)
-
-                // If FLUX failed, try fallback model
-                if (hasRefs && attempt === WAVESPEED_MAX_RETRIES - 1 && config.imageFallbackModel) {
-                    console.warn(`[ImageGen] FLUX unavailable, falling back to ${config.imageFallbackModel}`)
-                    const taskId = await submitWavespeedTask(config, config.imageFallbackModel, prompt)
-                    const outputUrl = await pollWavespeedResult(config, taskId)
-                    return downloadAndSave(panelId, outputUrl, userId, episodeId)
-                }
                 continue
             }
 
@@ -399,16 +334,31 @@ async function pollWavespeedResult(
     taskId: string,
 ): Promise<string> {
     const resultUrl = `${config.baseUrl}/predictions/${taskId}`
+    const startedAt = Date.now()
+    let attempt = 0
+    let delayMs = WAVESPEED_POLL_INITIAL_DELAY_MS
+    let lastStatus = 'created'
+    let lastProgressLogAt = startedAt
 
-    for (let i = 0; i < WAVESPEED_POLL_MAX_ATTEMPTS; i++) {
-        await sleep(WAVESPEED_POLL_INTERVAL_MS)
+    while (Date.now() - startedAt <= WAVESPEED_IMAGE_POLL_TIMEOUT_MS) {
+        if (attempt > 0) {
+            await sleep(delayMs)
+            delayMs = Math.min(delayMs + 1_000, WAVESPEED_POLL_MAX_DELAY_MS)
+        }
+        attempt += 1
 
-        const res = await fetch(resultUrl, {
-            headers: { 'Authorization': `Bearer ${config.apiKey}` },
-        })
+        let res: Response
+        try {
+            res = await fetch(resultUrl, {
+                headers: { 'Authorization': `Bearer ${config.apiKey}` },
+            })
+        } catch (error) {
+            console.warn(`[ImageGen] wavespeed.ai poll network error for task ${taskId}, retrying...`, error)
+            continue
+        }
 
         if (!res.ok) {
-            console.warn(`[ImageGen] wavespeed.ai poll error (${res.status}), retrying...`)
+            console.warn(`[ImageGen] wavespeed.ai poll error (${res.status}) for task ${taskId}, retrying...`)
             continue
         }
 
@@ -421,6 +371,10 @@ async function pollWavespeedResult(
         }
 
         const status = data.data?.status
+        if (status && status !== lastStatus) {
+            lastStatus = status
+            console.log(`[ImageGen] wavespeed.ai task ${taskId} status=${status} after ${Date.now() - startedAt}ms`)
+        }
 
         if (status === 'completed') {
             const outputs = data.data?.outputs
@@ -439,13 +393,15 @@ async function pollWavespeedResult(
             throw new Error(`wavespeed.ai task failed: ${error}`)
         }
 
-        // Still processing
-        if (i % 10 === 9) {
-            console.log(`[ImageGen] wavespeed.ai still processing (${i + 1} polls)...`)
+        if (Date.now() - lastProgressLogAt >= WAVESPEED_POLL_LOG_INTERVAL_MS) {
+            console.log(`[ImageGen] wavespeed.ai task ${taskId} still ${status || 'processing'} after ${Date.now() - startedAt}ms (${attempt} polls)`)
+            lastProgressLogAt = Date.now()
         }
     }
 
-    throw new Error(`wavespeed.ai task timed out after ${WAVESPEED_POLL_MAX_ATTEMPTS * WAVESPEED_POLL_INTERVAL_MS / 1000}s`)
+    throw new WaveSpeedTimeoutError(
+        `wavespeed.ai task timed out after ${WAVESPEED_IMAGE_POLL_TIMEOUT_MS}ms while waiting for result (last status: ${lastStatus}, taskId: ${taskId})`,
+    )
 }
 
 // ─── File Storage Helpers ───────────────────────────────

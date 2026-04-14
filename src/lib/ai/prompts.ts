@@ -93,7 +93,8 @@ Given a story text, split it into EXACTLY {page_count} sequential pages suitable
 
 IMPORTANT:
 - You MUST output exactly {page_count} pages. No more, no less.
-- Each page should have 3-7 panels that together tell that page's part of the story.
+{panel_budget_line}
+- {panel_target_line}
 - Each panel description should be detailed enough for image generation.
 - Panel descriptions should describe the VISUAL scene: character poses, expressions, environment, lighting.
 

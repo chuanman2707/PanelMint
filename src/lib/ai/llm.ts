@@ -11,6 +11,13 @@ import { logUsage } from '@/lib/usage'
 
 const WAVESPEED_ANY_LLM_URL = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/any-llm'
 const WAVESPEED_POLL_URL = 'https://api.wavespeed.ai/api/v3/predictions'
+const THROUGHPUT_TOKEN_THRESHOLD = 12_000
+const LATENCY_POLL_TIMEOUT_MS = 2 * 60_000
+const THROUGHPUT_POLL_TIMEOUT_MS = 10 * 60_000
+const POLL_INITIAL_DELAY_MS = 1_000
+const POLL_MAX_DELAY_MS = 5_000
+
+type WaveSpeedPriority = 'latency' | 'throughput'
 
 export async function callLLM(
     prompt: string,
@@ -20,6 +27,8 @@ export async function callLLM(
         maxTokens?: number
         temperature?: number
         providerConfig?: ProviderConfig
+        priority?: WaveSpeedPriority
+        pollTimeoutMs?: number
     }
 ): Promise<string> {
     const providerConfig = options?.providerConfig ?? getPlatformProviderConfig()
@@ -40,7 +49,6 @@ function getPlatformProviderConfig(): ProviderConfig {
         apiKey,
         llmModel: process.env.LLM_MODEL?.trim() || 'bytedance-seed/seed-1.6-flash',
         imageModel: process.env.IMAGE_MODEL?.trim() || 'wavespeed-ai/flux-kontext-pro/multi',
-        imageFallbackModel: 'bytedance/seedream-v4',
         baseUrl: 'https://api.wavespeed.ai/api/v3',
     }
 }
@@ -53,10 +61,17 @@ async function callLLMWaveSpeed(
         maxTokens?: number
         temperature?: number
         providerConfig?: ProviderConfig
+        priority?: WaveSpeedPriority
+        pollTimeoutMs?: number
     }
 ): Promise<string> {
     const config = options.providerConfig!
     const model = options.model ?? config.llmModel
+    const maxTokens = options.maxTokens ?? 8192
+    const priority = options.priority
+        ?? (maxTokens >= THROUGHPUT_TOKEN_THRESHOLD ? 'throughput' : 'latency')
+    const pollTimeoutMs = options.pollTimeoutMs
+        ?? (priority === 'throughput' ? THROUGHPUT_POLL_TIMEOUT_MS : LATENCY_POLL_TIMEOUT_MS)
     console.log(`[LLM] wavespeed/${model} (${prompt.length} chars)`)
 
     const res = await fetch(WAVESPEED_ANY_LLM_URL, {
@@ -70,8 +85,8 @@ async function callLLMWaveSpeed(
             system_prompt: options.systemPrompt,
             model,
             temperature: options.temperature ?? 0.7,
-            max_tokens: options.maxTokens ?? 8192,
-            priority: 'latency',
+            max_tokens: maxTokens,
+            priority,
             reasoning: false,
             enable_sync_mode: false,
         }),
@@ -96,7 +111,9 @@ async function callLLMWaveSpeed(
         throw new Error(`LLM API error (wavespeed): missing task id in response ${JSON.stringify(data).slice(0, 300)}`)
     }
 
-    const text = await pollWaveSpeedTextResult(config.apiKey, taskId)
+    const text = await pollWaveSpeedTextResult(config.apiKey, taskId, {
+        timeoutMs: pollTimeoutMs,
+    })
     console.log(`[LLM] Response: ${text.length} chars`)
 
     if (config.userId) {
@@ -111,11 +128,22 @@ async function callLLMWaveSpeed(
     return text
 }
 
-async function pollWaveSpeedTextResult(apiKey: string, taskId: string): Promise<string> {
-    for (let attempt = 0; attempt < 60; attempt++) {
+async function pollWaveSpeedTextResult(
+    apiKey: string,
+    taskId: string,
+    options: { timeoutMs: number },
+): Promise<string> {
+    const startedAt = Date.now()
+    let attempt = 0
+    let delayMs = POLL_INITIAL_DELAY_MS
+    let lastStatus = 'created'
+
+    while (Date.now() - startedAt <= options.timeoutMs) {
         if (attempt > 0) {
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+            await new Promise((resolve) => setTimeout(resolve, delayMs))
+            delayMs = Math.min(delayMs + 500, POLL_MAX_DELAY_MS)
         }
+        attempt += 1
 
         const res = await fetch(`${WAVESPEED_POLL_URL}/${taskId}/result`, {
             headers: {
@@ -140,6 +168,10 @@ async function pollWaveSpeedTextResult(apiKey: string, taskId: string): Promise<
         }
 
         const status = data.data?.status
+        if (status && status !== lastStatus) {
+            lastStatus = status
+            console.log(`[LLM] Task ${taskId} status=${status} after ${Date.now() - startedAt}ms`)
+        }
         if (status === 'completed') {
             const directText = extractTextOutput(data.data)
             if (!directText) {
@@ -153,7 +185,9 @@ async function pollWaveSpeedTextResult(apiKey: string, taskId: string): Promise<
         }
     }
 
-    throw new Error('LLM task timed out while waiting for WaveSpeed result.')
+    throw new Error(
+        `LLM task timed out after ${options.timeoutMs}ms while waiting for WaveSpeed result (last status: ${lastStatus}, taskId: ${taskId}).`,
+    )
 }
 
 function extractTextOutput(data?: {

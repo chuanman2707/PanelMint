@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { getProviderConfig } from '@/lib/api-config'
 import { generateCharacterSheet } from '@/lib/ai/character-design'
+import { WAVESPEED_IMAGE_POLL_TIMEOUT_MS } from '@/lib/pipeline/image-gen'
 import {
     ACTION_CREDIT_COSTS,
     deductCredits,
@@ -8,7 +9,7 @@ import {
 } from '@/lib/billing'
 import { recordPipelineEvent } from './run-state'
 
-const CHARACTER_SHEET_TIMEOUT_MS = 90_000
+const CHARACTER_SHEET_TIMEOUT_MS = WAVESPEED_IMAGE_POLL_TIMEOUT_MS + (3 * 60_000)
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
     return new Promise((resolve, reject) => {

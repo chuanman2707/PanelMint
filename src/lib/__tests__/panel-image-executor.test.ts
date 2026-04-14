@@ -155,6 +155,10 @@ describe('executePanelImageGeneration', () => {
                 status: 'done',
             },
         })
+        expect(mocks.generatePanelImage).toHaveBeenCalledWith(expect.objectContaining({
+            panelId: 'panel-1',
+            imageModelTier: 'standard',
+        }))
     })
 
     it('marks the panel content_filtered and refunds on content filter errors', async () => {

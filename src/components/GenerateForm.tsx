@@ -10,7 +10,19 @@ import {
     estimateGenerationCredits,
     type ImageModelTier,
 } from '@/lib/credit-catalog'
-import { MAX_STORY_MANUSCRIPT_CHARS } from '@/lib/prompt-budget'
+import {
+    MAX_STORY_MANUSCRIPT_CHARS,
+    getStoryboardPanelBudget,
+} from '@/lib/prompt-budget'
+import {
+    GENERATE_MANUSCRIPT_LIMIT_BLOCK_TEXT,
+    GENERATE_MANUSCRIPT_PASTE_OVERFLOW_NOTICE,
+    GENERATE_MANUSCRIPT_SPLIT_TIP,
+    getGenerateManuscriptHelperText,
+    isGenerateManuscriptAtLimit,
+    isGenerateManuscriptNearLimit,
+    truncateGenerateManuscriptPaste,
+} from '@/lib/generate-manuscript-guardrails'
 
 const CREATE_DRAFT_STORAGE_KEY = 'panelmint:create-draft:v1'
 
@@ -27,7 +39,10 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
     const [artStyle, setArtStyle] = useState<ArtStyle>('manga')
     const [pageCount, setPageCount] = useState(15)
     const [imageModelTier, setImageModelTier] = useState<ImageModelTier>('standard')
+    const [pasteOverflowText, setPasteOverflowText] = useState('')
+    const [pasteOverflowStatus, setPasteOverflowStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
     const hasHydratedDraft = useRef(false)
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
     useEffect(() => {
         try {
@@ -87,14 +102,62 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        if (!text.trim() || isLoading || disabled || text.length > MAX_STORY_MANUSCRIPT_CHARS) return
+        if (!text.trim() || isLoading || disabled || text.length >= MAX_STORY_MANUSCRIPT_CHARS) return
         onGenerate(text.trim(), artStyle, pageCount, imageModelTier)
     }
 
+    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        const pastedText = e.clipboardData.getData('text')
+        const selectionStart = e.currentTarget.selectionStart ?? text.length
+        const selectionEnd = e.currentTarget.selectionEnd ?? text.length
+        const truncatedPaste = truncateGenerateManuscriptPaste({
+            currentText: text,
+            pastedText,
+            selectionStart,
+            selectionEnd,
+        })
+
+        if (!truncatedPaste.didOverflow) {
+            setPasteOverflowText('')
+            setPasteOverflowStatus('idle')
+            return
+        }
+
+        e.preventDefault()
+        setText(truncatedPaste.nextText)
+        setPasteOverflowText(truncatedPaste.overflowText)
+        setPasteOverflowStatus('idle')
+
+        requestAnimationFrame(() => {
+            textareaRef.current?.setSelectionRange(
+                truncatedPaste.caretPosition,
+                truncatedPaste.caretPosition,
+            )
+        })
+    }
+
+    const handleUseOverflowForChapterTwo = async () => {
+        if (!pasteOverflowText) return
+
+        try {
+            await navigator.clipboard.writeText(pasteOverflowText)
+            setPasteOverflowStatus('copied')
+        } catch {
+            setPasteOverflowStatus('failed')
+        }
+    }
+
     const charCount = text.length
-    const isAtCharLimit = charCount >= MAX_STORY_MANUSCRIPT_CHARS
-    const estimatedCredits = estimateGenerationCredits(pageCount, imageModelTier)
+    const isNearCharLimit = isGenerateManuscriptNearLimit(charCount)
+    const isAtCharLimit = isGenerateManuscriptAtLimit(charCount)
+    const manuscriptHelperText = getGenerateManuscriptHelperText(charCount)
+    const storyboardBudget = getStoryboardPanelBudget({
+        manuscriptChars: charCount,
+        pageCount,
+    })
+    const estimatedCredits = estimateGenerationCredits(pageCount, imageModelTier, charCount)
     const canAffordEstimate = credits >= estimatedCredits
+    const isSubmitDisabled = !text.trim() || isLoading || disabled || !canAffordEstimate || isAtCharLimit
 
     return (
         <form onSubmit={handleSubmit} className="w-full space-y-8 pb-10">
@@ -126,14 +189,24 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
                     <label className="text-sm font-bold uppercase tracking-widest text-black">
                         Story Manuscript
                     </label>
-                    <span className="rounded-[var(--neo-radius-full)] border-2 border-black bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest shadow-sm font-mono">
+                    <span
+                        className={`rounded-[var(--neo-radius-full)] border-2 border-black px-3 py-1 text-[10px] font-bold uppercase tracking-widest shadow-sm font-mono ${
+                            isAtCharLimit
+                                ? 'bg-[var(--neo-accent-danger)] text-white'
+                                : isNearCharLimit
+                                    ? 'bg-[var(--neo-accent-yellow)] text-black'
+                                    : 'bg-white text-black'
+                        }`}
+                    >
                         {charCount} / {MAX_STORY_MANUSCRIPT_CHARS} chars
                     </span>
                 </div>
                 <div className="relative">
                     <textarea
+                        ref={textareaRef}
                         value={text}
                         onChange={(e) => setText(e.target.value)}
+                        onPaste={handlePaste}
                         placeholder="Paste your story or novel text here... The engine will analyze scene by scene."
                         rows={12}
                         maxLength={MAX_STORY_MANUSCRIPT_CHARS}
@@ -146,9 +219,43 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
                         </div>
                     )}
                 </div>
-                <p className={`font-mono text-[10px] uppercase tracking-[0.14em] ${isAtCharLimit ? 'text-[var(--neo-accent-danger)]' : 'text-black/55'}`}>
-                    Keep each manuscript to {MAX_STORY_MANUSCRIPT_CHARS} characters or fewer so generation stays within safe provider limits.
+                <p className={`text-sm leading-6 ${isAtCharLimit ? 'font-semibold text-[var(--neo-accent-danger)]' : isNearCharLimit ? 'font-medium text-black' : 'text-black/70'}`}>
+                    {manuscriptHelperText}
                 </p>
+                {pasteOverflowText && (
+                    <div className="rounded-[var(--neo-radius)] border-2 border-black bg-[var(--neo-accent-yellow)] p-4 shadow-sm">
+                        <p className="text-sm font-semibold text-black">
+                            {GENERATE_MANUSCRIPT_PASTE_OVERFLOW_NOTICE}
+                        </p>
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => void handleUseOverflowForChapterTwo()}
+                                className="rounded-[var(--neo-radius-full)] border-2 border-black bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-black transition-transform hover:-translate-y-0.5"
+                            >
+                                Dùng phần này làm Chapter 2
+                            </button>
+                            {pasteOverflowStatus === 'copied' && (
+                                <span className="text-xs font-medium text-black/80">
+                                    Đã copy phần vượt giới hạn. Khi tạo chapter tiếp theo, chỉ cần paste lại.
+                                </span>
+                            )}
+                            {pasteOverflowStatus === 'failed' && (
+                                <span className="text-xs font-medium text-black/80">
+                                    Không thể copy tự động trên trình duyệt này. Hãy giữ lại phần bị cắt để dùng cho chapter tiếp theo.
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
+                <div className="rounded-[var(--neo-radius)] border-2 border-black bg-[var(--neo-bg-canvas)] p-4 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/55">
+                        Mẹo chia chapter
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-black/75">
+                        {GENERATE_MANUSCRIPT_SPLIT_TIP}
+                    </p>
+                </div>
             </div>
 
             {/* Configuration */}
@@ -184,9 +291,12 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
                             Export Length
                         </label>
                         <span className="rounded-[var(--neo-radius-full)] border-2 border-black bg-[var(--neo-accent-rainbow)] px-4 py-1.5 text-sm font-bold font-mono shadow-sm">
-                            {pageCount} panels
+                            {pageCount} pages
                         </span>
                     </div>
+                    <p className="text-xs font-medium text-black/70">
+                        Storyboard target: about {storyboardBudget.targetTotalPanels} panels total
+                    </p>
                     <input
                         type="range"
                         min={5}
@@ -262,9 +372,9 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
 
                 <NeoButton
                     type="submit"
-                    variant={!text.trim() || isLoading || disabled || !canAffordEstimate ? 'secondary' : 'primary'}
+                    variant={isSubmitDisabled ? 'secondary' : 'primary'}
                     size="xl"
-                    disabled={!text.trim() || isLoading || disabled || !canAffordEstimate}
+                    disabled={isSubmitDisabled}
                     className="w-full text-xl py-6"
                 >
                     {isLoading ? (
@@ -279,6 +389,11 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
                         </>
                     )}
                 </NeoButton>
+                {isAtCharLimit && (
+                    <p className="text-center text-sm font-semibold text-[var(--neo-accent-danger)]">
+                        {GENERATE_MANUSCRIPT_LIMIT_BLOCK_TEXT}
+                    </p>
+                )}
             </div>
         </form>
     )

@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { analyzeCharactersAndLocations, splitIntoPagesWithPanels } from './analyze'
 import { ServiceError } from './image-gen'
-import { generateCharacterDescription } from '@/lib/ai/character-design'
 import { executePanelImageGeneration } from './panel-image-executor'
 import { getProviderConfig, type ProviderConfig } from '@/lib/api-config'
 import { recordPipelineEvent, syncPipelineRunState } from './run-state'
@@ -152,36 +151,9 @@ export async function runAnalyzeStep(input: PipelineInput): Promise<void> {
             })
         }
 
-        // Enhance character descriptions with structured JSON identity anchors.
-        // Character sheets are queued after user approval so they do not block analyze.
-        console.log(`[Pipeline] Enhancing ${savedCharacters.length} character descriptions...`)
-        await updateEpisode(episodeId, userId, 'analyzing', 15)
-
-        for (const char of savedCharacters) {
-            try {
-                const { description: detailedDesc, identityJson } = await generateCharacterDescription(
-                    char.name,
-                    text.slice(0, 2000),
-                    char.description ?? undefined,
-                    providerConfig,
-                )
-
-                await prisma.character.update({
-                    where: { id: char.id },
-                    data: {
-                        description: detailedDesc,
-                        identityJson: JSON.stringify(identityJson),
-                    },
-                })
-                // Character sheets are generated on demand. Keeping analyze text-only
-                // avoids long image jobs blocking the episode from reaching review.
-                console.log(`[Pipeline] Character "${char.name}": description enhanced`)
-            } catch (err) {
-                console.warn(`[Pipeline] Character design failed for ${char.name}:`, err)
-            }
-        }
-
-        // STOP -- wait for user to review characters + locations
+        // STOP -- wait for user to review characters + locations.
+        // The initial analyze prompt already returns identity anchors, so extra
+        // per-character LLM refinement should stay off the critical path.
         await updateEpisode(episodeId, userId, 'review_analysis', 25)
         await recordPipelineEvent({
             episodeId,

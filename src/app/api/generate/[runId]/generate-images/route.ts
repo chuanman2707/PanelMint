@@ -103,36 +103,38 @@ export const POST = apiHandler(async (request, context) => {
         }, { status: 400 })
     }
 
-    const projectCharacters = await prisma.character.findMany({
-        where: { projectId: episode.project.id },
-        select: {
-            name: true,
-            imageUrl: true,
-            storageKey: true,
-            appearances: {
-                where: { isDefault: true },
-                select: { imageUrl: true, storageKey: true, isDefault: true },
+    const imageModelTier = normalizeImageModelTier(episode.project?.imageModel)
+    if (imageModelTier === 'premium') {
+        const projectCharacters = await prisma.character.findMany({
+            where: { projectId: episode.project.id },
+            select: {
+                name: true,
+                imageUrl: true,
+                storageKey: true,
+                appearances: {
+                    where: { isDefault: true },
+                    select: { imageUrl: true, storageKey: true, isDefault: true },
+                },
             },
-        },
-    })
+        })
 
-    const missingReferenceCharacters = [...new Set(
-        panels.flatMap((panel) =>
-            findMissingReferenceCharacters(
-                parsePanelCharacterNames(panel.characters),
-                projectCharacters,
-            )
-        ),
-    )]
+        const missingReferenceCharacters = [...new Set(
+            panels.flatMap((panel) =>
+                findMissingReferenceCharacters(
+                    parsePanelCharacterNames(panel.characters),
+                    projectCharacters,
+                )
+            ),
+        )]
 
-    if (missingReferenceCharacters.length > 0) {
-        return NextResponse.json({
-            error: 'Character sheets are still generating. Please wait for reference images before rendering panels.',
-            missingCharacters: missingReferenceCharacters,
-        }, { status: 409 })
+        if (missingReferenceCharacters.length > 0) {
+            return NextResponse.json({
+                error: 'Character sheets are still generating. Please wait for reference images before rendering panels.',
+                missingCharacters: missingReferenceCharacters,
+            }, { status: 409 })
+        }
     }
 
-    const imageModelTier = normalizeImageModelTier(episode.project?.imageModel)
     const totalCreditCost = panels.length * getImageGenerationCreditCost(imageModelTier)
     const hasCredits = await checkCredits(auth.user.id, totalCreditCost)
     if (!hasCredits) {

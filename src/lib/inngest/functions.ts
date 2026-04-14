@@ -142,7 +142,7 @@ export const imagePanelFunction = inngest.createFunction(
         cancelOn: cancellation,
         concurrency: {
             key: 'event.data.userId',
-            limit: 2,
+            limit: 3,
         },
         triggers: [{ event: 'episode/image-panel.requested' }],
     },
@@ -203,7 +203,7 @@ export const characterSheetFunction = inngest.createFunction(
         cancelOn: cancellation,
         concurrency: {
             key: 'event.data.userId',
-            limit: 1,
+            limit: 3,
         },
         triggers: [{ event: 'episode/character-sheet.requested' }],
     },

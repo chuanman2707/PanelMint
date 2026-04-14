@@ -128,22 +128,41 @@ describe('POST /api/generate/[runId]/generate-images', () => {
                 characters: true,
             },
         })
-        expect(mocks.prisma.character.findMany).toHaveBeenCalledWith({
-            where: { projectId: 'project-1' },
-            select: {
-                name: true,
-                imageUrl: true,
-                storageKey: true,
-                appearances: {
-                    where: { isDefault: true },
-                    select: { imageUrl: true, storageKey: true, isDefault: true },
-                },
-            },
-        })
+        expect(mocks.prisma.character.findMany).not.toHaveBeenCalled()
         expect(mocks.enqueueImageGen).toHaveBeenCalledWith('ep-1', ['panel-1'])
     })
 
-    it('returns 409 when required character sheets are not ready', async () => {
+    it('does not block standard rendering on missing character sheets', async () => {
+        mocks.prisma.character.findMany.mockResolvedValue([
+            {
+                name: 'Aoi',
+                imageUrl: null,
+                appearances: [],
+            },
+        ])
+
+        const request = new NextRequest('http://localhost/api/generate/ep-1/generate-images', {
+            method: 'POST',
+            body: JSON.stringify({ panelIds: ['panel-1'] }),
+            headers: { 'content-type': 'application/json' },
+        })
+
+        const response = await POST(
+            request,
+            { params: Promise.resolve({ runId: 'ep-1' }) },
+        )
+
+        expect(response.status).toBe(200)
+        expect(mocks.prisma.character.findMany).not.toHaveBeenCalled()
+        expect(mocks.enqueueImageGen).toHaveBeenCalledWith('ep-1', ['panel-1'])
+    })
+
+    it('returns 409 when premium rendering requires character sheets that are not ready', async () => {
+        mocks.prisma.episode.findUnique.mockResolvedValue({
+            id: 'ep-1',
+            status: 'review_storyboard',
+            project: { id: 'project-1', imageModel: 'premium' },
+        })
         mocks.prisma.character.findMany.mockResolvedValue([
             {
                 name: 'Aoi',

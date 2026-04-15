@@ -159,15 +159,18 @@ export async function checkRateLimit(
 
 /**
  * Extract real client IP from request headers.
- * Defaults to the FIRST x-forwarded-for entry, which is the original client in common proxy setups.
+ * Prefer x-real-ip when present because the hosting platform can set it directly.
+ * Fall back to the first x-forwarded-for entry for environments that only expose that chain.
  */
 export function getClientIp(req: NextRequest): string {
+    const realIp = req.headers.get('x-real-ip')
+    if (realIp) return realIp.trim()
+
     const forwarded = req.headers.get('x-forwarded-for')
     if (forwarded) {
         const parts = forwarded.split(',').map(s => s.trim()).filter(Boolean)
         if (parts.length > 0) return parts[0]
     }
-    const realIp = req.headers.get('x-real-ip')
-    if (realIp) return realIp.trim()
+
     return '127.0.0.1'
 }

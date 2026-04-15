@@ -105,7 +105,18 @@ describe('API Rate Limiter (Postgres)', () => {
         expect(RETRY_LIMIT.maxRequests).toBe(2)
     })
 
-    it('uses the first x-forwarded-for entry as the client IP', () => {
+    it('prefers x-real-ip over x-forwarded-for when both are present', () => {
+        const request = new NextRequest('http://localhost/api/auth/signin', {
+            headers: {
+                'x-forwarded-for': '203.0.113.10, 10.0.0.2',
+                'x-real-ip': '198.51.100.7',
+            },
+        })
+
+        expect(getClientIp(request)).toBe('198.51.100.7')
+    })
+
+    it('falls back to the first x-forwarded-for entry when x-real-ip is absent', () => {
         const request = new NextRequest('http://localhost/api/auth/signin', {
             headers: {
                 'x-forwarded-for': '203.0.113.10, 10.0.0.2',
@@ -113,5 +124,11 @@ describe('API Rate Limiter (Postgres)', () => {
         })
 
         expect(getClientIp(request)).toBe('203.0.113.10')
+    })
+
+    it('returns localhost when no forwarding headers are present', () => {
+        const request = new NextRequest('http://localhost/api/auth/signin')
+
+        expect(getClientIp(request)).toBe('127.0.0.1')
     })
 })

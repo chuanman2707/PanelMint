@@ -3,6 +3,62 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, requireEpisodeOwner } from '@/lib/api-auth'
 import { apiHandler } from '@/lib/api-handler'
 
+type EpisodeStatusSnapshot = {
+    status: string
+    progress: number
+    pages: Array<{
+        panels: Array<{
+            approved: boolean
+            imageUrl: string | null
+            status: string
+            updatedAt?: Date
+        }>
+    }>
+}
+
+const STALE_IMAGING_PANEL_MS = 15 * 60_000
+
+function deriveEffectivePhase(episode: EpisodeStatusSnapshot) {
+    if (episode.status !== 'imaging') {
+        return {
+            phase: episode.status,
+            progress: episode.progress,
+        }
+    }
+
+    const approvedPanels = episode.pages.flatMap((page) => page.panels).filter((panel) => panel.approved)
+    const activePanels = approvedPanels.filter((panel) =>
+        panel.imageUrl === null
+        && ['queued', 'pending', 'generating'].includes(panel.status)
+        && (
+            !(panel.updatedAt instanceof Date)
+            || Date.now() - panel.updatedAt.getTime() < STALE_IMAGING_PANEL_MS
+        )
+    )
+    const remainingPanels = approvedPanels.filter((panel) =>
+        panel.imageUrl === null && !['done', 'content_filtered'].includes(panel.status)
+    )
+
+    if (activePanels.length > 0) {
+        return {
+            phase: episode.status,
+            progress: episode.progress,
+        }
+    }
+
+    if (remainingPanels.length === 0) {
+        return {
+            phase: 'done',
+            progress: 100,
+        }
+    }
+
+    return {
+        phase: 'review_storyboard',
+        progress: 50,
+    }
+}
+
 export const GET = apiHandler(async (_request, context) => {
     const auth = await requireAuth()
     if (auth.error) return auth.error
@@ -35,11 +91,12 @@ export const GET = apiHandler(async (_request, context) => {
         (sum, p) => sum + p.panels.filter((panel) => panel.status === 'done').length,
         0
     )
+    const effectiveState = deriveEffectivePhase(episode)
 
     // Base response
     const response: Record<string, unknown> = {
-        phase: episode.status,
-        progress: episode.progress,
+        phase: effectiveState.phase,
+        progress: effectiveState.progress,
         totalPanels,
         completedPanels,
         error: episode.error,
@@ -47,7 +104,7 @@ export const GET = apiHandler(async (_request, context) => {
     }
 
     // When in review_analysis, include characters + locations + pages
-    if (episode.status === 'review_analysis') {
+    if (effectiveState.phase === 'review_analysis') {
         const characters = await prisma.character.findMany({
             where: { projectId: episode.projectId },
             orderBy: { name: 'asc' },
@@ -81,7 +138,7 @@ export const GET = apiHandler(async (_request, context) => {
     }
 
     // When in review_storyboard, include panels with descriptions
-    if (episode.status === 'review_storyboard') {
+    if (effectiveState.phase === 'review_storyboard') {
         response.panels = episode.pages.flatMap((page) =>
             page.panels.map((panel) => ({
                 id: panel.id,

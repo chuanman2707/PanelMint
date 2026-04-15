@@ -263,7 +263,7 @@ describe('generatePanelImage', () => {
             if (url === 'https://api.wavespeed.ai/api/v3/predictions/task-long-image') {
                 pollCount += 1
 
-                if (pollCount < 70) {
+                if (pollCount < 25) {
                     return new Response(JSON.stringify({
                         data: { status: 'processing' },
                     }), { status: 200, headers: { 'content-type': 'application/json' } })
@@ -304,7 +304,7 @@ describe('generatePanelImage', () => {
             imageUrl: '/generated/panel.png',
             storageKey: 'panel-long.png',
         })
-        expect(pollCount).toBeGreaterThanOrEqual(70)
+        expect(pollCount).toBeGreaterThanOrEqual(25)
         expect(fetchMock.mock.calls.filter(([url]) => String(url) === 'https://api.wavespeed.ai/api/v3/wavespeed-ai/z-image/turbo')).toHaveLength(1)
     })
 

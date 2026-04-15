@@ -41,7 +41,10 @@ const MAX_PROMPT_CHARS = 1500
 const WAVESPEED_MAX_RETRIES = 3
 const WAVESPEED_BASE_DELAY_MS = 3_000
 const WAVESPEED_STANDARD_IMAGE_MODEL = 'wavespeed-ai/z-image/turbo'
-export const WAVESPEED_IMAGE_POLL_TIMEOUT_MS = 12 * 60_000
+// Image polling runs inside an Inngest step on Vercel, so it must resolve
+// comfortably inside the step runtime envelope or the platform can kill the
+// process before we persist panel failure/completion state.
+export const WAVESPEED_IMAGE_POLL_TIMEOUT_MS = 210_000
 const WAVESPEED_POLL_INITIAL_DELAY_MS = 2_000
 const WAVESPEED_POLL_MAX_DELAY_MS = 10_000
 const WAVESPEED_POLL_LOG_INTERVAL_MS = 60_000

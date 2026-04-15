@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { ReviewStoryboard } from '@/components/ReviewStoryboard'
-import { render, screen } from '@/test/render'
+import { render, screen, waitFor } from '@/test/render'
 
 describe('ReviewStoryboard', () => {
     it('approves all panels and saves the review payload', async () => {
@@ -82,7 +82,54 @@ describe('ReviewStoryboard', () => {
         await user.click(screen.getByRole('button', { name: /render approved \(1\)/i }))
 
         expect(onApproveAll).toHaveBeenCalledTimes(1)
-        await new Promise((resolve) => setTimeout(resolve, 550))
-        expect(onGenerateAll).toHaveBeenCalledTimes(1)
+        await waitFor(() => {
+            expect(onGenerateAll).toHaveBeenCalledTimes(1)
+        })
+    })
+
+    it('waits for storyboard save to finish before generating images', async () => {
+        let resolveSave: ((value: boolean) => void) | null = null
+        const onApproveAll = vi.fn(() => new Promise<boolean>((resolve) => {
+            resolveSave = resolve
+        }))
+        const onGenerateAll = vi.fn()
+        const { user } = render(
+            <ReviewStoryboard
+                panels={[
+                    {
+                        id: 'panel-3',
+                        pageIndex: 0,
+                        panelIndex: 0,
+                        description: 'Linh pauses before the gate.',
+                        shotType: 'medium',
+                        characters: JSON.stringify(['Linh']),
+                        location: 'Temple',
+                        approved: true,
+                        approvedPrompt: null,
+                        status: 'draft',
+                        imageUrl: null,
+                        sourceExcerpt: null,
+                        mustKeep: JSON.stringify([]),
+                        mood: null,
+                        lighting: null,
+                    },
+                ]}
+                onApproveAll={onApproveAll}
+                onGenerateAll={onGenerateAll}
+                onGeneratePanel={vi.fn()}
+                isApproving={false}
+                isGenerating={false}
+            />,
+        )
+
+        await user.click(screen.getByRole('button', { name: /render approved \(1\)/i }))
+
+        expect(onApproveAll).toHaveBeenCalledTimes(1)
+        expect(onGenerateAll).not.toHaveBeenCalled()
+
+        resolveSave?.(true)
+        await waitFor(() => {
+            expect(onGenerateAll).toHaveBeenCalledTimes(1)
+        })
     })
 })

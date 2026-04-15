@@ -24,7 +24,7 @@ interface PanelReviewData {
 
 interface ReviewStoryboardProps {
     panels: PanelReviewData[]
-    onApproveAll: (panels: { id: string; approved: boolean; editedPrompt: string | null }[]) => void
+    onApproveAll: (panels: { id: string; approved: boolean; editedPrompt: string | null }[]) => void | Promise<boolean>
     onGenerateAll: () => void
     onGeneratePanel: (panelId: string) => void
     isApproving: boolean
@@ -80,19 +80,22 @@ export function ReviewStoryboard({
         setPanels((prev) => prev.map((p) => ({ ...p, localApproved: true })))
     }
 
-    const handleSaveAndApprove = () => {
-        onApproveAll(
+    const handleSaveAndApprove = async () => {
+        const result = await onApproveAll(
             panels.map((p) => ({
                 id: p.id,
                 approved: p.localApproved,
                 editedPrompt: p.editedPrompt !== (p.description ?? '') ? p.editedPrompt : null,
             }))
         )
+
+        return result !== false
     }
 
-    const handleGenerateAll = () => {
-        handleSaveAndApprove()
-        setTimeout(() => onGenerateAll(), 500)
+    const handleGenerateAll = async () => {
+        const didSave = await handleSaveAndApprove()
+        if (!didSave) return
+        onGenerateAll()
     }
 
     return (
@@ -229,10 +232,11 @@ export function ReviewStoryboard({
                                                         {panel.localApproved && panel.status !== 'generating' && (
                                                             <NeoButton
                                                                 variant="primary"
-                                                                onClick={() => {
-                                                                    handleSaveAndApprove()
-                                                                    setTimeout(() => onGeneratePanel(panel.id), 500)
-                                                                }}
+                                                                onClick={() => void (async () => {
+                                                                    const didSave = await handleSaveAndApprove()
+                                                                    if (!didSave) return
+                                                                    onGeneratePanel(panel.id)
+                                                                })()}
                                                                 disabled={isGenerating}
                                                                 className="w-full"
                                                             >
@@ -288,7 +292,7 @@ export function ReviewStoryboard({
                         </NeoButton>
                         <NeoButton
                             variant="secondary"
-                            onClick={handleSaveAndApprove}
+                            onClick={() => void handleSaveAndApprove()}
                             disabled={isApproving}
                             className="flex-1"
                         >
@@ -299,7 +303,7 @@ export function ReviewStoryboard({
                         <NeoButton
                             variant="primary"
                             size="xl"
-                            onClick={handleGenerateAll}
+                            onClick={() => void handleGenerateAll()}
                             disabled={approvedCount === 0 || isGenerating}
                             className="w-full px-12 py-6 text-xl"
                         >

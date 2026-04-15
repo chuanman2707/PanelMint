@@ -202,7 +202,7 @@ export function useCreateWorkflow({ resumeId }: UseCreateWorkflowArgs) {
     const handleApproveStoryboard = useCallback(async (
         panelApprovals: { id: string; approved: boolean; editedPrompt: string | null }[],
     ) => {
-        if (!runId) return
+        if (!runId) return false
         setIsActionLoading(true)
 
         try {
@@ -219,8 +219,10 @@ export function useCreateWorkflow({ resumeId }: UseCreateWorkflowArgs) {
                 const statusData = await statusRes.json() as GenerationStatus
                 applyStatus(statusData)
             }
+            return true
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Save failed')
+            return false
         } finally {
             setIsActionLoading(false)
         }

@@ -5,7 +5,7 @@ const notFoundMock = vi.hoisted(() => vi.fn(() => {
 }))
 
 const mocks = vi.hoisted(() => ({
-    requirePageSession: vi.fn(),
+    getOrCreateLocalUser: vi.fn(),
     prisma: {
         episode: {
             findFirst: vi.fn(),
@@ -13,8 +13,8 @@ const mocks = vi.hoisted(() => ({
     },
 }))
 
-vi.mock('@/lib/api-auth', () => ({
-    requirePageSession: mocks.requirePageSession,
+vi.mock('@/lib/local-user', () => ({
+    getOrCreateLocalUser: mocks.getOrCreateLocalUser,
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -34,7 +34,7 @@ import EditorPage from './page'
 describe('EditorPage', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.requirePageSession.mockResolvedValue({ id: 'user-1' })
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
         mocks.prisma.episode.findFirst.mockResolvedValue({
             id: 'ep-1',
             name: 'Chapter 1',
@@ -42,12 +42,12 @@ describe('EditorPage', () => {
         })
     })
 
-    it('queries the episode through the verified owner boundary', async () => {
+    it('queries the episode through the local owner boundary', async () => {
         await EditorPage({
             params: Promise.resolve({ episodeId: 'ep-1' }),
         })
 
-        expect(mocks.requirePageSession).toHaveBeenCalledWith('/editor/ep-1')
+        expect(mocks.getOrCreateLocalUser).toHaveBeenCalled()
         expect(mocks.prisma.episode.findFirst).toHaveBeenCalledWith(
             expect.objectContaining({
                 where: {

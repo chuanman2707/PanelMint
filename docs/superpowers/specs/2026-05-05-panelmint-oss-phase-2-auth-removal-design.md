@@ -10,7 +10,7 @@ Phase 2 removes authentication as a product, runtime, and API concept from the l
 
 The intended local user experience is direct: clone the repo, configure local services, start the app, and use PanelMint without login, signup, signout, hosted identity, webhooks, or auth-gated routes.
 
-This phase is more aggressive than only replacing Clerk with a fake session. Clerk must be removed completely from the v1 runtime path and dependency graph, and auth-facing names should be removed from the main code path where practical.
+This phase is more aggressive than only replacing Clerk with a fake session. Clerk must be removed completely from the v1 runtime path and dependency graph, and auth-facing names must be removed from the main runtime path.
 
 ## 2. Current Behavior
 
@@ -65,7 +65,7 @@ Phase 2 should include:
 - Replace `src/hooks/useAuth.tsx` with local workspace/user state, using non-auth naming such as `useLocalUser` or `useWorkspaceUser`.
 - Replace `/api/auth/me` with a local workspace/user endpoint such as `/api/local-user`.
 - Replace server auth resolution with a local owner resolver such as `getOrCreateLocalUser`.
-- Keep API ownership checks, but remove auth wording where implementation can do so safely.
+- Keep API ownership checks, but remove auth wording from runtime helper, type, hook, route, and file names.
 - Remove signout UI and copy from navigation or account surfaces.
 - Update env validation and health output so Clerk is not required or reported as the runtime auth provider.
 - Update `.env.example` to remove Clerk variables entirely.
@@ -105,9 +105,11 @@ The resolver should upsert a stable local owner record with deterministic values
 - account tier: existing default tier
 - credits: existing default credit behavior until Phase 3 removes credit gates
 
-The exact function and type names can be chosen during implementation, but they should not use auth/session/login vocabulary.
+The exact function and type names can be chosen during implementation, but runtime names must use local owner or workspace vocabulary. Phase 2 must replace auth-shaped runtime symbols such as `requireAuth`, `requirePageSession`, `AuthResult`, `SessionUser`, `ExternalAuthUser`, `AuthProvider`, and `useAuth`.
 
-Server routes should consume the resolver through a small compatibility layer only where needed to keep the first implementation safe. The preferred final naming is local ownership language, not `requireAuth`.
+The current `src/lib/api-auth.ts` and `src/hooks/useAuth.tsx` files should be deleted, renamed, or replaced so the v1 runtime no longer carries auth/session file names. Compatibility wrappers using auth names are not acceptable in the final Phase 2 state.
+
+The explicit exception is the transitional data model root: `User`, `users`, and `userId` may remain as ownership schema terms until a later data-model simplification phase.
 
 Ownership helpers should continue to verify that an episode, project, or character belongs to the local owner ID. In a single-user app this is not access control against another logged-in person; it is data consistency and stale-ID protection.
 
@@ -172,7 +174,30 @@ Required focused tests:
 
 Required route coverage:
 
-- Run or update tests for direct `requireAuth` caller equivalents in generation, status/progress, approve-analysis, approve-storyboard, generate-images, retry, characters, episodes, usage, settings API key, and editor save paths.
+- Run or update tests for every direct `requireAuth` caller equivalent from GitNexus impact analysis. The required route set is:
+
+  - `src/app/api/generate/route.ts`
+  - `src/app/api/characters/route.ts`
+  - `src/app/api/episodes/route.ts`
+  - `src/app/api/user/usage/route.ts`
+  - `src/app/api/user/credits/route.ts`
+  - `src/app/api/user/api-key/route.ts`
+  - `src/app/api/characters/[characterId]/route.ts`
+  - `src/app/api/episodes/[episodeId]/route.ts`
+  - replacement for `src/app/api/auth/me/route.ts`
+  - `src/app/api/user/usage/summary/route.ts`
+  - `src/app/api/user/credits/dev-topup/route.ts`
+  - `src/app/api/generate/[runId]/status/route.ts`
+  - `src/app/api/generate/[runId]/result/route.ts`
+  - `src/app/api/generate/[runId]/generate-images/route.ts`
+  - `src/app/api/generate/[runId]/approve-storyboard/route.ts`
+  - `src/app/api/generate/[runId]/approve-analysis/route.ts`
+  - `src/app/api/generate/[runId]/cancel/route.ts`
+  - `src/app/api/editor/[episodeId]/save-bubbles/route.ts`
+  - `src/app/api/characters/[characterId]/generate-sheet/route.ts`
+  - `src/app/api/episodes/[episodeId]/retry/route.ts`
+
+  The implementation plan may group these routes by shared helper changes, but it must not skip any route family.
 - Existing ownership tests should continue to prove stale or wrong episode/project/character IDs return 404.
 
 Required verification:
@@ -180,10 +205,11 @@ Required verification:
 ```bash
 npm test
 npm run build
-rg -n "@clerk/nextjs|ClerkProvider|clerkMiddleware|useClerk|useUser|verifyWebhook|CLERK_|/api/auth|/auth/signin|/auth/signup|signout|sign out" src package.json .env.example README.md
+! (rg --files src | rg "src/app/auth|src/app/api/auth|src/app/api/webhooks/clerk|src/lib/api-auth|src/hooks/useAuth|src/lib/clerk-errors")
+! rg -n "@clerk/nextjs|ClerkProvider|clerkMiddleware|useClerk|useUser|verifyWebhook|CLERK_|requireAuth|requirePageSession|useAuth|AuthProvider|SessionUser|AuthResult|ExternalAuthUser|/api/auth|/auth/|sign[- ]?in|sign[- ]?up|signout|sign out|login|logout" src package.json .env.example
 ```
 
-The `rg` command should return no v1 runtime-path matches. Any remaining matches must be in roadmap/spec/archive docs or intentionally transitional non-runtime text.
+Both negated `rg` commands should exit `0` by finding no matches. Documentation-only mentions are allowed only outside this command's runtime targets and must not describe Clerk or auth as a current local requirement.
 
 Before committing implementation changes, run GitNexus change detection to confirm the affected symbols and flows match the expected auth removal scope.
 
@@ -209,9 +235,10 @@ Expected core changes:
 - `.env.example`
 - `src/app/layout.tsx`
 - `src/proxy.ts`
-- `src/lib/api-auth.ts`
-- `src/lib/auth.ts`
-- `src/hooks/useAuth.tsx`
+- create or replace with local naming: `src/lib/local-user.ts`
+- create or replace with local naming: ownership helper module for episodes, projects, and characters
+- create or replace with local naming: `src/hooks/useLocalUser.tsx` or `src/hooks/useWorkspaceUser.tsx`
+- `src/lib/auth.ts`, only for deleting auth-provider sync code or moving remaining local-owner utilities
 - `src/components/layout/Providers.tsx`
 - `src/components/layout/AppShell.tsx`
 - `src/components/layout/Sidebar.tsx`
@@ -224,20 +251,22 @@ Expected deletions or replacements:
 - `src/app/auth/**`
 - `src/app/api/auth/**`
 - `src/app/api/webhooks/clerk/route.ts`
+- `src/lib/api-auth.ts`
+- `src/hooks/useAuth.tsx`
 - `src/lib/clerk-errors.ts`
 - `src/proxy.test.ts` if proxy is deleted
 - Clerk-specific auth tests
 
 Expected test updates:
 
-- `src/lib/__tests__/api-auth.test.ts`
-- `src/hooks/useAuth.test.tsx`
+- replacement for `src/lib/__tests__/api-auth.test.ts` using local-owner naming
+- replacement for `src/hooks/useAuth.test.tsx` using local-user or workspace-user naming
 - `src/app/(public)/page.test.ts`
 - `src/app/api/health/route.test.ts`
 - Route tests that mock `requireAuth`
 - Component tests that expect signed-out or signout behavior
 
-Names may change during implementation if the plan chooses new local-user file names. The design intent is more important than preserving existing auth file names.
+Names may change during implementation if the plan chooses different local-user file names, but auth/session file names must not remain in the runtime path.
 
 ## 15. Risks
 
@@ -259,6 +288,8 @@ Phase 2 is done when:
 - Auth pages are gone from the local v1 route tree.
 - Auth action APIs and Clerk webhook APIs are gone from the local v1 route tree.
 - Client state uses local workspace/user naming, not `useAuth` or signed-in/signed-out concepts.
+- Runtime helpers and types no longer use auth/session names such as `requireAuth`, `requirePageSession`, `AuthResult`, `SessionUser`, or `ExternalAuthUser`.
+- Runtime file names no longer include auth-specific files such as `src/lib/api-auth.ts`, `src/hooks/useAuth.tsx`, or `src/lib/clerk-errors.ts`.
 - App navigation has no signout action.
 - API routes resolve a stable local owner without session cookies or hosted identity.
 - Existing project, episode, character, generation, retry, progress, reader, and editor flows still use a stable owner ID for data consistency.

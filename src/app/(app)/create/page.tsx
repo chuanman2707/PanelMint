@@ -10,14 +10,14 @@ import { NeoCard } from '@/components/ui/NeoCard'
 import { NeoTag } from '@/components/ui/NeoTag'
 import { NeoButton } from '@/components/ui/NeoButton'
 import { Icon } from '@/components/ui/icons'
-import { useAuth } from '@/hooks/useAuth'
+import { useLocalUser } from '@/hooks/useLocalUser'
 import { useCreateWorkflow } from './useCreateWorkflow'
 
 export default function CreatePage() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const resumeId = searchParams.get('resume')
-    const { user } = useAuth()
+    const { user } = useLocalUser()
     const {
         state,
         runId,

@@ -1,11 +1,11 @@
 'use client'
 
-import { useAuth } from '@/hooks/useAuth'
+import { useLocalUser } from '@/hooks/useLocalUser'
 import { Sidebar } from './Sidebar'
 import { NeoTerminalHeader } from '@/components/ui/NeoTerminalHeader'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-    const { loading, user } = useAuth()
+    const { loading, user } = useLocalUser()
 
     if (loading && !user) {
         return (
@@ -30,4 +30,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
     )
 }
-

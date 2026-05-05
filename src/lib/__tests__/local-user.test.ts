@@ -122,8 +122,10 @@ describe('getOrCreateLocalUser', () => {
                 email: LOCAL_USER_EMAIL,
                 name: 'Local Creator',
                 authUserId: null,
+                passwordHash: '__local_owner__',
                 credits: 300,
                 accountTier: 'free',
+                lifetimePurchasedCredits: 0,
             }),
         }))
         expect(prismaMock.creditTransaction.create).toHaveBeenCalledWith({
@@ -132,8 +134,71 @@ describe('getOrCreateLocalUser', () => {
                 amount: 300,
                 reason: 'starter_bonus',
                 balance: 300,
+                operationKey: 'starter_bonus:local-user-1',
             }),
         })
+    })
+
+    it('creates a deterministic local owner when multiple existing users are present', async () => {
+        prismaMock.user.findUnique.mockResolvedValue(null)
+        prismaMock.user.findMany.mockResolvedValue([
+            {
+                id: 'existing-user-1',
+                email: 'first@example.com',
+                name: 'First Creator',
+                credits: 120,
+                accountTier: 'paid',
+            },
+            {
+                id: 'existing-user-2',
+                email: 'second@example.com',
+                name: 'Second Creator',
+                credits: 80,
+                accountTier: 'free',
+            },
+        ])
+        prismaMock.user.create.mockResolvedValue({
+            id: 'local-user-1',
+            email: LOCAL_USER_EMAIL,
+            name: 'Local Creator',
+            credits: 300,
+            accountTier: 'free',
+        })
+
+        await expect(getOrCreateLocalUser()).resolves.toMatchObject({
+            id: 'local-user-1',
+            email: LOCAL_USER_EMAIL,
+        })
+
+        expect(prismaMock.user.create).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({
+                email: LOCAL_USER_EMAIL,
+                passwordHash: '__local_owner__',
+            }),
+        }))
+    })
+
+    it('returns the deterministic local owner when concurrent creation hits a unique conflict', async () => {
+        prismaMock.$transaction.mockRejectedValueOnce({ code: 'P2002' })
+        prismaMock.user.findUnique.mockResolvedValue({
+            id: 'local-user-1',
+            email: LOCAL_USER_EMAIL,
+            name: 'Local Creator',
+            credits: 300,
+            accountTier: 'free',
+        })
+
+        await expect(getOrCreateLocalUser()).resolves.toEqual({
+            id: 'local-user-1',
+            email: LOCAL_USER_EMAIL,
+            name: 'Local Creator',
+            credits: 300,
+            accountTier: 'free',
+        })
+
+        expect(prismaMock.user.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+            where: { email: LOCAL_USER_EMAIL },
+        }))
     })
 })
 
@@ -160,13 +225,33 @@ describe('local ownership helpers', () => {
             episode: { id: 'ep-1' },
             error: null,
         })
+        expect(prismaMock.episode.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+            where: {
+                id: 'ep-1',
+                project: { userId: 'user-1' },
+            },
+        }))
+
         await expect(getLocalProject('user-1', 'project-1')).resolves.toMatchObject({
             project: { id: 'project-1' },
             error: null,
         })
+        expect(prismaMock.project.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+            where: {
+                id: 'project-1',
+                userId: 'user-1',
+            },
+        }))
+
         await expect(getLocalCharacter('user-1', 'char-1')).resolves.toMatchObject({
             character: { id: 'char-1' },
             error: null,
         })
+        expect(prismaMock.character.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+            where: {
+                id: 'char-1',
+                project: { userId: 'user-1' },
+            },
+        }))
     })
 })

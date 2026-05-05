@@ -30,9 +30,81 @@ function buildNotFoundResponse() {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
 }
 
+function isUniqueConstraintConflict(err: unknown): boolean {
+    return typeof err === 'object' && err !== null && 'code' in err && err.code === 'P2002'
+}
+
 export async function getOrCreateLocalUser(): Promise<LocalUser> {
-    return prisma.$transaction(async (tx) => {
-        const deterministicOwner = await tx.user.findUnique({
+    try {
+        return await prisma.$transaction(async (tx) => {
+            const deterministicOwner = await tx.user.findUnique({
+                where: { email: LOCAL_USER_EMAIL },
+                select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    credits: true,
+                    accountTier: true,
+                },
+            })
+
+            if (deterministicOwner) {
+                return mapLocalUser(deterministicOwner)
+            }
+
+            const existingUsers = await tx.user.findMany({
+                take: 2,
+                orderBy: { createdAt: 'asc' },
+                select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    credits: true,
+                    accountTier: true,
+                },
+            })
+
+            if (existingUsers.length === 1) {
+                return mapLocalUser(existingUsers[0])
+            }
+
+            const created = await tx.user.create({
+                data: {
+                    email: LOCAL_USER_EMAIL,
+                    name: LOCAL_USER_NAME,
+                    authUserId: null,
+                    passwordHash: LOCAL_OWNER_PASSWORD_PLACEHOLDER,
+                    credits: FREE_SIGNUP_CREDITS,
+                    accountTier: 'free',
+                    lifetimePurchasedCredits: 0,
+                },
+                select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    credits: true,
+                    accountTier: true,
+                },
+            })
+
+            await tx.creditTransaction.create({
+                data: {
+                    userId: created.id,
+                    amount: FREE_SIGNUP_CREDITS,
+                    reason: 'starter_bonus',
+                    balance: created.credits,
+                    operationKey: `starter_bonus:${created.id}`,
+                },
+            })
+
+            return mapLocalUser(created)
+        })
+    } catch (err) {
+        if (!isUniqueConstraintConflict(err)) {
+            throw err
+        }
+
+        const deterministicOwner = await prisma.user.findUnique({
             where: { email: LOCAL_USER_EMAIL },
             select: {
                 id: true,
@@ -47,53 +119,8 @@ export async function getOrCreateLocalUser(): Promise<LocalUser> {
             return mapLocalUser(deterministicOwner)
         }
 
-        const existingUsers = await tx.user.findMany({
-            take: 2,
-            orderBy: { createdAt: 'asc' },
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                credits: true,
-                accountTier: true,
-            },
-        })
-
-        if (existingUsers.length === 1) {
-            return mapLocalUser(existingUsers[0])
-        }
-
-        const created = await tx.user.create({
-            data: {
-                email: LOCAL_USER_EMAIL,
-                name: LOCAL_USER_NAME,
-                authUserId: null,
-                passwordHash: LOCAL_OWNER_PASSWORD_PLACEHOLDER,
-                credits: FREE_SIGNUP_CREDITS,
-                accountTier: 'free',
-                lifetimePurchasedCredits: 0,
-            },
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                credits: true,
-                accountTier: true,
-            },
-        })
-
-        await tx.creditTransaction.create({
-            data: {
-                userId: created.id,
-                amount: FREE_SIGNUP_CREDITS,
-                reason: 'starter_bonus',
-                balance: created.credits,
-                operationKey: `starter_bonus:${created.id}`,
-            },
-        })
-
-        return mapLocalUser(created)
-    })
+        throw err
+    }
 }
 
 export async function getLocalEpisode(localUserId: string, episodeId: string) {

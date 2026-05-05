@@ -30,12 +30,15 @@ export function LocalUserProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<LocalUser | null>(null)
     const [loading, setLoading] = useState(true)
     const userRef = useRef<LocalUser | null>(null)
+    const refreshSeqRef = useRef(0)
 
     useEffect(() => {
         userRef.current = user
     }, [user])
 
     const refresh = useCallback(async () => {
+        const refreshSeq = refreshSeqRef.current + 1
+        refreshSeqRef.current = refreshSeq
         const shouldBlockUi = !userRef.current
         if (shouldBlockUi) {
             setLoading(true)
@@ -44,15 +47,17 @@ export function LocalUserProvider({ children }: { children: ReactNode }) {
         try {
             const res = await fetch('/api/local-user', { cache: 'no-store' })
             if (!res.ok) {
-                if (shouldBlockUi) setUser(null)
+                if (refreshSeqRef.current === refreshSeq && shouldBlockUi) setUser(null)
                 return
             }
 
             const data = await res.json() as { user?: LocalUser | null }
+            if (refreshSeqRef.current !== refreshSeq) return
             setUser(data.user ?? null)
         } catch {
-            if (shouldBlockUi) setUser(null)
+            if (refreshSeqRef.current === refreshSeq && shouldBlockUi) setUser(null)
         } finally {
+            if (refreshSeqRef.current !== refreshSeq) return
             setLoading(false)
         }
     }, [])

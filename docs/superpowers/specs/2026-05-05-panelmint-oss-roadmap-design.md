@@ -22,6 +22,7 @@ The project keeps the PanelMint name and moves from a hosted SaaS posture to an 
 - Storage: local generated image files, not R2.
 - Billing: no credits, checkout, pricing gates, or payment flow.
 - Branding: keep PanelMint.
+- SaaS/cloud code should be removed from the v1 main path, not hidden behind runtime flags.
 
 ## 3. Non-Goals
 
@@ -80,13 +81,13 @@ Billing and credits are removed from the local product. The application no longe
 
 ## 7. Error Handling
 
-Missing `WAVESPEED_API_KEY` should be reported clearly in local health/setup surfaces before a user starts generation.
+Missing `WAVESPEED_API_KEY` should be reported clearly in local health/setup surfaces before a user starts generation. The phase specs should identify the exact surfaces, with `/api/health`, README troubleshooting, and the create/generation UI as the expected candidates.
 
-If the worker is not running, queued work should remain visible as queued or stalled, and the UI/docs should tell the user to run `npm run worker`.
+If the worker is not running, queued work should remain visible as queued or stalled through the status endpoint and user-facing generation status UI. Docs should tell the user to run `npm run worker`.
 
-WaveSpeed errors, content filters, and timeouts should be stored on the relevant episode, job, or panel. Retrying failed panel generation should remain possible.
+WaveSpeed errors, content filters, and timeouts should be stored on the relevant episode, job, or panel record. Retrying failed panel generation should remain possible from the existing retry flow or a phase-approved replacement.
 
-Database and storage errors should fail the current job clearly and preserve enough state for the user to retry after fixing local setup.
+Database and storage errors should fail the current job clearly, persist an error message for the status UI, and preserve enough state for the user to retry after fixing local setup.
 
 ## 8. Phase Breakdown
 
@@ -125,7 +126,7 @@ Scope:
 - Replace auth resolution with a default local user.
 - Update page and API session helpers for local mode.
 - Remove Clerk middleware/runtime usage from the v1 path.
-- Remove or hide auth pages/routes from the main user journey.
+- Remove auth pages/routes from the v1 main path. Delete them unless a phase spec explicitly keeps non-runtime archival code.
 - Update tests that currently assume Clerk-backed auth.
 
 Done:
@@ -133,6 +134,8 @@ Done:
 - User can open the app and use protected areas without signing in.
 - API routes resolve ownership through the default local user.
 - Clerk env vars are no longer required to run local v1.
+- `.env.example` no longer requires `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, or `CLERK_WEBHOOK_SIGNING_SECRET`.
+- The v1 app/API/proxy path no longer imports Clerk runtime modules.
 
 ### Phase 3: Billing/Credits Removal
 
@@ -142,7 +145,7 @@ Scope:
 
 - Remove credit checks from generate, analyze, storyboard, character sheet, image generation, and retry paths.
 - Remove credit deduction and refund calls from the pipeline.
-- Remove or hide pricing, payment, checkout, and credit UI.
+- Remove pricing, payment, checkout, and credit UI from the v1 main path.
 - Replace user-facing credit/billing copy with local generation/status copy.
 - Keep schema cleanup conservative unless a phase-specific spec approves removing tables.
 
@@ -151,29 +154,12 @@ Done:
 - No user-facing action is blocked by PanelMint credits.
 - The app no longer asks local users to buy credits.
 - Generation cost responsibility is explained as the user's WaveSpeed API usage.
+- Generation, retry, analyze, storyboard, character sheet, and panel image paths no longer call `checkCredits`, `deductCredits`, or `refundCredits`.
+- Pricing/payment routes are removed from navigation and unavailable from the v1 user journey.
 
-### Phase 4: Local Worker Queue
+### Phase 4: BYOK Provider Simplification
 
-Goal: replace Inngest with a local worker that can handle long-running generation jobs.
-
-Scope:
-
-- Design and implement a DB-backed queue contract.
-- Make `enqueue*` functions write jobs to the database.
-- Add a worker command such as `npm run worker`.
-- Implement job claiming, idempotency, retries, failure recording, and cancellation behavior.
-- Preserve analyze, storyboard, character sheet, image generation, retry, and status flows.
-- Remove Inngest from the primary runtime path after replacement.
-
-Done:
-
-- Comic generation works with `npm run dev` and `npm run worker`.
-- Worker can resume or retry failed work without duplicating completed panels.
-- UI can show queued/running/failed/completed pipeline states without Inngest.
-
-### Phase 5: BYOK Provider Simplification
-
-Goal: make WaveSpeed configuration local and unambiguous.
+Goal: make WaveSpeed configuration local and unambiguous before queue/worker refactoring.
 
 Scope:
 
@@ -189,6 +175,32 @@ Done:
 - `WAVESPEED_API_KEY` is the only key source.
 - The app does not store user API keys in the database.
 - Settings no longer implies a platform-managed key fallback.
+- Runtime provider config no longer reads or writes `user.apiKey` or `user.apiProvider`.
+- `ENCRYPTION_SECRET` is not required unless a remaining non-provider feature explicitly needs it.
+
+### Phase 5: Local Worker Queue
+
+Goal: replace Inngest with a local worker that can handle long-running generation jobs.
+
+Scope:
+
+- Design and implement a DB-backed queue contract.
+- Make `enqueue*` functions write jobs to the database.
+- Add a worker command such as `npm run worker`.
+- Implement job claiming, idempotency, retries, failure recording, and cancellation behavior.
+- Preserve analyze, storyboard, character sheet, image generation, retry, and status flows.
+- Design worker provider usage against the final `.env`-only `WAVESPEED_API_KEY` contract.
+- Ensure generated images use local storage in the worker/runtime path and are served after app restart.
+- Remove Inngest from the primary runtime path after replacement.
+
+Done:
+
+- Comic generation works with `npm run dev` and `npm run worker`.
+- Worker can resume or retry failed work without duplicating completed panels.
+- UI can show queued/running/failed/completed pipeline states without Inngest.
+- The v1 app/worker runtime path no longer imports Inngest modules.
+- The quickstart no longer requires `npm run inngest:dev`.
+- Generated image files survive app restart and load from local storage.
 
 ### Phase 6: Open-Source Polish
 
@@ -215,11 +227,11 @@ Done:
 
 Phase 1 should happen first because it establishes the public contract and avoids documenting stale SaaS assumptions.
 
-Phases 2 and 3 can be done before Phase 4 because auth and billing gates add noise to queue refactoring.
+Phases 2 and 3 can be done before Phase 4 so local user/session and Settings surfaces are reduced before provider simplification.
 
-Phase 4 is the highest-risk phase and should have the most detailed phase spec.
+Phase 4 should happen before the worker replacement so the worker does not inherit DB-stored API key behavior.
 
-Phase 5 should happen after the Settings and auth/billing changes are understood, because it removes stored API key behavior and encryption requirements.
+Phase 5 is the highest-risk phase and should have the most detailed phase spec.
 
 Phase 6 should happen last, after dependency usage is clear.
 

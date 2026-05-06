@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
     getOrCreateLocalUser: vi.fn(),
     getLocalEpisode: vi.fn(),
     checkRateLimit: vi.fn(),
-    checkCredits: vi.fn(),
     enqueueImageGen: vi.fn(),
     syncPipelineRunState: vi.fn(),
     recordPipelineEvent: vi.fn(),
@@ -14,9 +13,6 @@ const mocks = vi.hoisted(() => ({
         episode: {
             findUnique: vi.fn(),
             update: vi.fn(),
-        },
-        character: {
-            findMany: vi.fn(),
         },
         panel: {
             findMany: vi.fn(),
@@ -48,12 +44,6 @@ vi.mock('@/lib/pipeline/run-state', () => ({
     recordPipelineEvent: mocks.recordPipelineEvent,
 }))
 
-vi.mock('@/lib/billing', () => ({
-    checkCredits: mocks.checkCredits,
-    getImageGenerationCreditCost: (tier: 'standard' | 'premium') => tier === 'premium' ? 250 : 40,
-    normalizeImageModelTier: (tier?: string | null) => tier === 'premium' ? 'premium' : 'standard',
-}))
-
 import { POST } from './route'
 
 describe('POST /api/generate/[runId]/generate-images', () => {
@@ -72,24 +62,15 @@ describe('POST /api/generate/[runId]/generate-images', () => {
             error: null,
         })
         mocks.checkRateLimit.mockResolvedValue(null)
-        mocks.checkCredits.mockResolvedValue(true)
         mocks.prisma.episode.findUnique.mockResolvedValue({
             id: 'ep-1',
             status: 'review_storyboard',
-            project: { id: 'project-1', imageModel: 'standard' },
         })
-        mocks.prisma.character.findMany.mockResolvedValue([
-            {
-                name: 'Aoi',
-                imageUrl: '/chars/aoi.png',
-                appearances: [],
-            },
-        ])
         mocks.prisma.episode.update.mockResolvedValue({})
         mocks.prisma.panel.updateMany.mockResolvedValue({ count: 1 })
         mocks.prisma.panel.findMany
             .mockResolvedValueOnce([{ id: 'panel-1' }])
-            .mockResolvedValueOnce([{ id: 'panel-1', characters: JSON.stringify(['Aoi']) }])
+            .mockResolvedValueOnce([{ id: 'panel-1' }])
         mocks.enqueueImageGen.mockResolvedValue([])
         mocks.syncPipelineRunState.mockResolvedValue(undefined)
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
@@ -109,6 +90,9 @@ describe('POST /api/generate/[runId]/generate-images', () => {
 
         expect(response.status).toBe(200)
         expect(mocks.getLocalEpisode).toHaveBeenCalledWith('user-1', 'ep-1')
+        expect(mocks.prisma.episode.findUnique).toHaveBeenCalledWith({
+            where: { id: 'ep-1' },
+        })
         expect(mocks.prisma.panel.findMany).toHaveBeenNthCalledWith(1, {
             where: {
                 id: { in: ['panel-1'] },
@@ -126,21 +110,16 @@ describe('POST /api/generate/[runId]/generate-images', () => {
             },
             select: {
                 id: true,
-                characters: true,
             },
         })
-        expect(mocks.prisma.character.findMany).not.toHaveBeenCalled()
         expect(mocks.enqueueImageGen).toHaveBeenCalledWith('ep-1', ['panel-1'])
     })
 
-    it('does not block standard rendering on missing character sheets', async () => {
-        mocks.prisma.character.findMany.mockResolvedValue([
-            {
-                name: 'Aoi',
-                imageUrl: null,
-                appearances: [],
-            },
-        ])
+    it('queues rendering even when character sheets are missing', async () => {
+        mocks.prisma.episode.findUnique.mockResolvedValue({
+            id: 'ep-1',
+            status: 'review_storyboard',
+        })
 
         const request = new NextRequest('http://localhost/api/generate/ep-1/generate-images', {
             method: 'POST',
@@ -154,40 +133,6 @@ describe('POST /api/generate/[runId]/generate-images', () => {
         )
 
         expect(response.status).toBe(200)
-        expect(mocks.prisma.character.findMany).not.toHaveBeenCalled()
         expect(mocks.enqueueImageGen).toHaveBeenCalledWith('ep-1', ['panel-1'])
-    })
-
-    it('returns 409 when premium rendering requires character sheets that are not ready', async () => {
-        mocks.prisma.episode.findUnique.mockResolvedValue({
-            id: 'ep-1',
-            status: 'review_storyboard',
-            project: { id: 'project-1', imageModel: 'premium' },
-        })
-        mocks.prisma.character.findMany.mockResolvedValue([
-            {
-                name: 'Aoi',
-                imageUrl: null,
-                appearances: [],
-            },
-        ])
-
-        const request = new NextRequest('http://localhost/api/generate/ep-1/generate-images', {
-            method: 'POST',
-            body: JSON.stringify({ panelIds: ['panel-1'] }),
-            headers: { 'content-type': 'application/json' },
-        })
-
-        const response = await POST(
-            request,
-            { params: Promise.resolve({ runId: 'ep-1' }) },
-        )
-
-        expect(response.status).toBe(409)
-        await expect(response.json()).resolves.toMatchObject({
-            error: 'Character sheets are still generating. Please wait for reference images before rendering panels.',
-            missingCharacters: ['Aoi'],
-        })
-        expect(mocks.enqueueImageGen).not.toHaveBeenCalled()
     })
 })

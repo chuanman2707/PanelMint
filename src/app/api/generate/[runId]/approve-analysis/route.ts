@@ -7,7 +7,6 @@ import { parseJsonBody } from '@/lib/api-validate'
 import { approveAnalysisRequestSchema } from '@/lib/validators/pipeline'
 import { recordPipelineEvent, syncPipelineRunState } from '@/lib/pipeline/run-state'
 import { AppError } from '@/lib/errors'
-import { normalizeImageModelTier } from '@/lib/billing'
 
 export const POST = apiHandler(async (request, context) => {
     const localUser = await getOrCreateLocalUser()
@@ -99,17 +98,9 @@ export const POST = apiHandler(async (request, context) => {
         })
     })
 
-    const project = await prisma.project.findUnique({
-        where: { id: episode.projectId },
-        select: { imageModel: true },
-    })
-    const imageModelTier = normalizeImageModelTier(project?.imageModel)
-
     const [storyboardResult, characterSheetResult] = await Promise.allSettled([
         enqueueStoryboard(runId),
-        imageModelTier === 'premium'
-            ? enqueueCharacterSheets(runId)
-            : Promise.resolve(null),
+        enqueueCharacterSheets(runId),
     ])
 
     if (storyboardResult.status === 'rejected') {
@@ -152,7 +143,7 @@ export const POST = apiHandler(async (request, context) => {
         )
     }
 
-    if (imageModelTier === 'premium' && characterSheetResult.status === 'rejected') {
+    if (characterSheetResult.status === 'rejected') {
         console.error('[Pipeline] Failed to enqueue character sheets:', characterSheetResult.reason)
     }
 

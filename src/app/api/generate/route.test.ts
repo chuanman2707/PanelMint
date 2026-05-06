@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
     getOrCreateLocalUser: vi.fn(),
     checkRateLimit: vi.fn(),
     parseJsonBody: vi.fn(),
-    checkCredits: vi.fn(),
     enqueueAnalyze: vi.fn(),
     syncPipelineRunState: vi.fn(),
     recordPipelineEvent: vi.fn(),
@@ -31,11 +30,6 @@ vi.mock('@/lib/api-rate-limit', () => ({
 
 vi.mock('@/lib/api-validate', () => ({
     parseJsonBody: mocks.parseJsonBody,
-}))
-
-vi.mock('@/lib/billing', () => ({
-    ACTION_CREDIT_COSTS: { llm_generation: 80 },
-    checkCredits: mocks.checkCredits,
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -70,7 +64,6 @@ describe('POST /api/generate', () => {
             artStyle: 'webtoon',
             pageCount: 12,
         })
-        mocks.checkCredits.mockResolvedValue(true)
         mocks.prisma.episode.findFirst.mockResolvedValue(null)
         mocks.prisma.project.create.mockResolvedValue({
             id: 'project-1',
@@ -96,10 +89,16 @@ describe('POST /api/generate', () => {
             data: expect.objectContaining({
                 userId: 'user-1',
                 artStyle: 'webtoon',
-                imageModel: 'standard',
             }),
             include: { episodes: true },
         })
+        const projectCreateData = mocks.prisma.project.create.mock.calls[0][0].data
+        expect(projectCreateData).not.toHaveProperty('imageModel')
+        expect(mocks.recordPipelineEvent).toHaveBeenCalledWith(expect.objectContaining({
+            metadata: expect.not.objectContaining({
+                imageModelTier: expect.anything(),
+            }),
+        }))
         expect(mocks.enqueueAnalyze).toHaveBeenCalledWith(expect.objectContaining({
             episodeId: 'episode-1',
             userId: 'user-1',

@@ -6,12 +6,7 @@ import { checkRateLimit, GENERATE_LIMIT } from '@/lib/api-rate-limit'
 import { apiHandler } from '@/lib/api-handler'
 import { parseJsonBody } from '@/lib/api-validate'
 import { generateRequestSchema } from '@/lib/validators/generate'
-import { AppError } from '@/lib/errors'
 import { recordPipelineEvent, syncPipelineRunState } from '@/lib/pipeline/run-state'
-import {
-    ACTION_CREDIT_COSTS,
-    checkCredits,
-} from '@/lib/billing'
 
 export const POST = apiHandler(async (request) => {
     const localUser = await getOrCreateLocalUser()
@@ -39,16 +34,6 @@ export const POST = apiHandler(async (request) => {
         pageCount: clampedPageCount,
     } = await parseJsonBody(request, generateRequestSchema)
 
-    const normalizedImageModelTier = 'standard'
-
-    const hasCreditsForKickoff = await checkCredits(localUser.id, ACTION_CREDIT_COSTS.llm_generation)
-    if (!hasCreditsForKickoff) {
-        throw new AppError(
-            'Insufficient credits. You need at least 80 credits to start generation.',
-            402,
-        )
-    }
-
     // Create project + episode
     const { project, episode } = await prisma.$transaction(async (tx) => {
         const project = await tx.project.create({
@@ -56,7 +41,6 @@ export const POST = apiHandler(async (request) => {
                 userId: localUser.id,
                 name: `Comic ${new Date().toLocaleString('vi-VN')}`,
                 artStyle: normalizedArtStyle,
-                imageModel: normalizedImageModelTier,
                 episodes: {
                     create: {
                         name: 'Chapter 1',
@@ -86,7 +70,6 @@ export const POST = apiHandler(async (request) => {
             metadata: {
                 projectId: project.id,
                 pageCount: clampedPageCount,
-                imageModelTier: normalizedImageModelTier,
             },
             client: tx,
         })

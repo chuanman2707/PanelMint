@@ -6,7 +6,7 @@ import { NeoButton } from '@/components/ui/NeoButton'
 import { NeoCard } from '@/components/ui/NeoCard'
 import { NeoTag } from '@/components/ui/NeoTag'
 import { Icon } from '@/components/ui/icons'
-import { CtaSection, EngineSpecsSection, FeatureSection, PricingSection, SignalStrip } from './PublicSections'
+import { CtaSection, EngineSpecsSection, FeatureSection, SignalStrip } from './PublicSections'
 import { HERO_TERMINAL_LINES } from './public-content'
 import { useRevealScope } from './useRevealScope'
 import { useTypewriterText } from './useTypewriterText'
@@ -87,9 +87,9 @@ export function LandingPageClient() {
                                 </Link>
                             </NeoButton>
                             <NeoButton asChild variant="secondary" size="lg">
-                                <Link href="#pricing">
-                                    <Icon name="wallet" size={18} />
-                                    See pricing
+                                <Link href="#features">
+                                    <Icon name="layout-grid" size={18} />
+                                    View workflow
                                 </Link>
                             </NeoButton>
                         </div>
@@ -179,7 +179,6 @@ export function LandingPageClient() {
             <SignalStrip />
             <FeatureSection />
             <EngineSpecsSection />
-            <PricingSection />
             <CtaSection />
         </main>
     )

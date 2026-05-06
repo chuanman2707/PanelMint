@@ -6,9 +6,9 @@ export const HERO_TERMINAL_LINES = [
 
 export const HERO_SIGNAL_STRIP = [
     'STORYBOARD GATES',
-    'PAYMENT-READY UI',
+    'LOCAL WAVESPEED KEY',
     'LOCAL IMMERSIVE ROUTES',
-    'CREDIT-AWARE GENERATION',
+    'SINGLE RENDER MODE',
 ]
 
 export const FEATURE_ROWS = [
@@ -18,8 +18,8 @@ export const FEATURE_ROWS = [
         tone: 'cyan' as const,
     },
     {
-        title: 'Credit-aware workspace',
-        copy: 'Every package, render tier, and payment handoff is visible before you commit.',
+        title: 'Local WaveSpeed key',
+        copy: 'Use your own WaveSpeed account key so generation runs through the local workspace configuration.',
         tone: 'yellow' as const,
     },
     {
@@ -46,20 +46,8 @@ export const ENGINE_SPECS = [
         copy: 'Ship readable pages first, then refine balloons and pacing without leaving the app.',
     },
     {
-        label: 'Spend control',
-        value: 'Visible credit economics',
-        copy: 'Package pricing and render cost stay honest, surfaced, and easy to inspect.',
+        label: 'Cost clarity',
+        value: 'WaveSpeed account costs',
+        copy: 'Render usage is billed by your WaveSpeed account, outside this local OSS workspace.',
     },
 ]
-
-export const PACKAGES = [
-    { name: 'Starter', credits: '500', price: '$12', highlight: 'default' as const, copy: 'Good for a first chapter and review pass.' },
-    { name: 'Publisher', credits: '2,500', price: '$49', highlight: 'yellow' as const, copy: 'Best value for regular storyboard + render cycles.' },
-    { name: 'Studio', credits: '7,500', price: '$129', highlight: 'cyan' as const, copy: 'For teams iterating across multiple episodes.' },
-]
-
-export const COST_ITEMS = [
-    ['Writing step', '80 credits'],
-    ['Standard image', '40 credits / panel'],
-    ['Premium image', '250 credits / panel'],
-] as const

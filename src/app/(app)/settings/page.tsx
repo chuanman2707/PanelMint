@@ -1,97 +1,30 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocalUser } from '@/hooks/useLocalUser'
 import { NeoCard } from '@/components/ui/NeoCard'
 import { NeoButton } from '@/components/ui/NeoButton'
 import { NeoInput } from '@/components/ui/NeoInput'
 import { NeoTag } from '@/components/ui/NeoTag'
 import { Icon } from '@/components/ui/icons'
-import { CREDIT_PACKAGES } from '@/lib/credit-catalog'
 
 type Provider = 'wavespeed'
-type SettingsTab = 'credits' | 'advanced'
-
-interface CreditPackage {
-    id: string
-    name: string
-    priceUsd: number
-    credits: number
-    savingsLabel: string | null
-}
-
-interface CreditTransactionItem {
-    id: string
-    amount: number
-    balance: number
-    reason: string
-    label: string
-    createdAt: string
-    providerTxId: string | null
-    direction: 'credit' | 'debit'
-}
-
-interface CreditsResponse {
-    balance: number
-    accountTier: string
-    lifetimePurchasedCredits: number
-    priceBook: {
-        llmGeneration: number
-        standardImage: number
-        premiumImage: number
-    }
-    packages: CreditPackage[]
-    transactions: CreditTransactionItem[]
-}
 
 const PROVIDERS = [
     {
         id: 'wavespeed' as const,
         name: 'WaveSpeed AI',
-        description: 'Unified provider for text generation and multi-reference image generation.',
+        description: 'Local provider key for text generation and multi-reference image generation.',
         llm: 'Seed 1.6 Flash',
         imageGen: 'FLUX Kontext Pro Multi',
-        pricing: 'Project configured',
         setupUrl: 'https://wavespeed.ai/accesskey',
         keyPrefix: 'ws_',
     },
 ]
 
-function formatUsd(value: number) {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-    }).format(value)
-}
-
-function formatCredits(value: number) {
-    return new Intl.NumberFormat('en-US').format(value)
-}
-
-function formatTransactionTime(value: string) {
-    return new Intl.DateTimeFormat('en-US', {
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-    }).format(new Date(value))
-}
-
 export default function SettingsPage() {
-    const { user, refresh } = useLocalUser()
-    const searchParams = useSearchParams()
-    const router = useRouter()
-    const pathname = usePathname()
-    const packagesRef = useRef<HTMLDivElement | null>(null)
+    const { user } = useLocalUser()
     const mountedRef = useRef(true)
-
-    const initialTab = searchParams.get('tab') === 'advanced' ? 'advanced' : 'credits'
-    const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab)
-    const [creditsData, setCreditsData] = useState<CreditsResponse | null>(null)
-    const [creditsLoading, setCreditsLoading] = useState(true)
-    const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null)
     const [selectedProvider] = useState<Provider>('wavespeed')
     const [apiKey, setApiKey] = useState('')
     const [maskedKey, setMaskedKey] = useState('')
@@ -100,38 +33,14 @@ export default function SettingsPage() {
     const [showKey, setShowKey] = useState(false)
     const [saving, setSaving] = useState(false)
     const [validating, setValidating] = useState(false)
+    const [loading, setLoading] = useState(true)
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-    const [topUpLoading, setTopUpLoading] = useState(false)
-    const [creditMessage, setCreditMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-    const isDevCreditToolsEnabled = process.env.NODE_ENV !== 'production'
-    const fallbackPackages = useMemo(() => Object.values(CREDIT_PACKAGES), [])
-
-    useEffect(() => {
-        setActiveTab(searchParams.get('tab') === 'advanced' ? 'advanced' : 'credits')
-    }, [searchParams])
 
     useEffect(() => {
         mountedRef.current = true
         return () => {
             mountedRef.current = false
         }
-    }, [])
-
-    const loadCredits = useCallback(async () => {
-        const res = await fetch('/api/user/credits')
-        if (!res.ok) throw new Error('Failed to load credits')
-
-        const data = await res.json() as CreditsResponse
-        if (!mountedRef.current) return
-
-        setCreditsData(data)
-        setSelectedPackageId((current) => {
-            if (current && data.packages.some((pkg) => pkg.id === current)) {
-                return current
-            }
-
-            return data.packages[1]?.id ?? data.packages[0]?.id ?? null
-        })
     }, [])
 
     const loadApiKey = useCallback(async () => {
@@ -146,39 +55,21 @@ export default function SettingsPage() {
     }, [])
 
     useEffect(() => {
-        setCreditsLoading(true)
-
-        void Promise.all([
-            loadCredits().catch(() => {
-                if (mountedRef.current) setCreditsData(null)
-            }),
-            loadApiKey().catch(() => {
-                if (mountedRef.current) setHasKey(false)
-            }),
-        ]).finally(() => {
-            if (mountedRef.current) {
-                setCreditsLoading(false)
-            }
-        })
-    }, [loadApiKey, loadCredits])
-
-    const availablePackages = creditsData?.packages?.length ? creditsData.packages : fallbackPackages
-
-    useEffect(() => {
-        setSelectedPackageId((current) => current ?? availablePackages[1]?.id ?? availablePackages[0]?.id ?? null)
-    }, [availablePackages])
-
-    const switchTab = (tab: SettingsTab) => {
-        setActiveTab(tab)
-        const params = new URLSearchParams(searchParams.toString())
-        params.set('tab', tab)
-        router.replace(`${pathname}?${params.toString()}`)
-    }
-
-    const selectedPackage = useMemo(
-        () => availablePackages.find((pkg) => pkg.id === selectedPackageId) ?? null,
-        [availablePackages, selectedPackageId],
-    )
+        setLoading(true)
+        void loadApiKey()
+            .catch(() => {
+                if (mountedRef.current) {
+                    setHasKey(false)
+                    setMaskedKey('')
+                    setCurrentProvider(null)
+                }
+            })
+            .finally(() => {
+                if (mountedRef.current) {
+                    setLoading(false)
+                }
+            })
+    }, [loadApiKey])
 
     const handleSaveKey = async () => {
         if (!apiKey.trim()) return
@@ -241,42 +132,7 @@ export default function SettingsPage() {
         }
     }
 
-    const handleDevTopUp = useCallback(async () => {
-        if (!selectedPackage) return
-
-        setTopUpLoading(true)
-        setCreditMessage(null)
-
-        try {
-            const res = await fetch('/api/user/credits/dev-topup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ packageId: selectedPackage.id }),
-            })
-            const data = await res.json().catch(() => ({}))
-
-            if (!res.ok) {
-                throw new Error(data.error || 'Failed to add credits for testing.')
-            }
-
-            await Promise.all([loadCredits(), refresh()])
-            setCreditMessage({
-                type: 'success',
-                text: `Added ${formatCredits(selectedPackage.credits)} credits and unlocked paid tier for testing.`,
-            })
-        } catch (err) {
-            setCreditMessage({
-                type: 'error',
-                text: err instanceof Error ? err.message : 'Failed to add credits for testing.',
-            })
-        } finally {
-            setTopUpLoading(false)
-        }
-    }, [loadCredits, refresh, selectedPackage])
-
     const activeProviderInfo = PROVIDERS.find((provider) => provider.id === selectedProvider) ?? PROVIDERS[0]
-    const accountTier = (creditsData?.accountTier ?? user?.accountTier ?? 'free') === 'paid' ? 'Executive' : 'Free'
-    const usagePercent = Math.min(100, Math.round(((creditsData?.balance ?? 0) / 5000) * 100))
 
     return (
         <div className="mx-auto max-w-7xl p-6 md:p-10">
@@ -285,32 +141,23 @@ export default function SettingsPage() {
                     Settings <span className="text-[var(--neo-accent-cyan)]">_Terminal</span>
                 </h1>
                 <p className="mt-4 max-w-3xl font-mono text-[11px] uppercase tracking-[0.18em] text-black/55">
-                    Configure output parameters, manage cryptographic identity keys, and oversee subscription allocations.
+                    Configure the local WaveSpeed provider key used by this workspace.
                 </p>
             </header>
 
-            <div className="mb-10 flex flex-wrap gap-3">
-                <NeoButton variant={activeTab === 'credits' ? 'primary' : 'secondary'} size="sm" onClick={() => switchTab('credits')}>
-                    Credits
-                </NeoButton>
-                <NeoButton variant={activeTab === 'advanced' ? 'primary' : 'secondary'} size="sm" onClick={() => switchTab('advanced')}>
-                    Advanced API
-                </NeoButton>
-            </div>
-
             <div className="grid gap-6 md:grid-cols-12">
-                <NeoCard className="md:col-span-8" noHover>
+                <NeoCard className="md:col-span-5" noHover>
                     <div className="mb-8 flex items-start justify-between gap-6">
                         <div>
-                            <NeoTag tone="lime">SECURE_PROFILE_V3</NeoTag>
-                            <h2 className="mt-3 text-3xl font-black uppercase tracking-tight">Identity Core</h2>
+                            <NeoTag tone="lime">LOCAL_PROFILE</NeoTag>
+                            <h2 className="mt-3 text-3xl font-black uppercase tracking-tight">Workspace Identity</h2>
                         </div>
                         <div className="flex h-16 w-16 items-center justify-center border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-cyan)] shadow-[var(--neo-shadow-button)]">
                             <Icon name="user" size={26} />
                         </div>
                     </div>
 
-                    <div className="grid gap-6 md:grid-cols-2">
+                    <div className="grid gap-6">
                         <div className="space-y-2">
                             <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">Display name</p>
                             <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-white px-4 py-3 font-mono text-sm uppercase">
@@ -323,320 +170,98 @@ export default function SettingsPage() {
                                 {user?.email || 'operator@panelmint.io'}
                             </div>
                         </div>
-                        <div className="space-y-2 md:col-span-2">
-                            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">Bio data</p>
-                            <div className="min-h-[132px] border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-white px-4 py-3 font-mono text-sm leading-6">
-                                Constructing narratives through machine logic, review-first approvals, and consistent character control.
+                        <div className="space-y-2">
+                            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">Render mode</p>
+                            <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-lime)] px-4 py-3 font-display text-sm font-bold uppercase tracking-tight">
+                                Single local WaveSpeed mode
                             </div>
                         </div>
                     </div>
                 </NeoCard>
 
-                <NeoCard className="bg-[#c3c0ff] md:col-span-4" noHover>
-                    <NeoTag>SUBSCRIPTION_LINK</NeoTag>
-                    <h2 className="mt-3 text-3xl font-black uppercase tracking-tight">Plan Status</h2>
-                    <div className="mt-8 space-y-6">
-                        <div className="border-[var(--neo-border-width-sm)] border-[var(--neo-ink)] bg-white/50 px-4 py-4">
-                            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-black/55">Current tier</p>
-                            <p className="mt-2 text-4xl font-black uppercase tracking-tight">{accountTier}</p>
-                        </div>
+                <NeoCard className="bg-[var(--neo-bg-panel)] md:col-span-7" noHover>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                            <div className="mb-2 flex justify-between font-mono text-[11px] font-bold uppercase tracking-[0.14em]">
-                                <span>Engine credits</span>
-                                <span>{formatCredits(creditsData?.balance ?? 0)} / 5,000</span>
-                            </div>
-                            <div className="h-6 overflow-hidden border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-white">
-                                <div className="h-full border-r-[var(--neo-border-width-sm)] border-[var(--neo-ink)] bg-[var(--neo-accent-cyan)]" style={{ width: `${usagePercent}%` }} />
-                            </div>
-                        </div>
-                        <NeoButton variant="secondary" className="w-full" onClick={() => packagesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-                            Upgrade Tier
-                        </NeoButton>
-                    </div>
-                </NeoCard>
-            </div>
-
-            {activeTab === 'credits' ? (
-                <div className="mt-8 space-y-8">
-                    <div className="grid gap-6 lg:grid-cols-[1.35fr_0.95fr]">
-                        <NeoCard className="bg-[var(--neo-accent-yellow)]" noHover>
-                            <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
-                                <div>
-                                    <p className="font-display text-5xl font-black uppercase tracking-tight md:text-7xl">
-                                        {creditsLoading ? '...' : formatCredits(creditsData?.balance ?? 0)}
-                                    </p>
-                                    <p className="mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.16em]">
-                                        Ink_Credits
-                                    </p>
-                                    <div className="mt-6 inline-block bg-[var(--neo-ink)] px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-white">
-                                        READY_FOR_GENERATION: {(creditsData?.accountTier ?? 'free') === 'paid' ? 'HIGH_FIDELITY_ENABLED' : 'STANDARD_ONLY'}
-                                    </div>
-                                </div>
-                                <NeoButton onClick={() => packagesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-                                    Buy Credits
-                                </NeoButton>
-                            </div>
-                        </NeoCard>
-
-                        <NeoCard className="bg-[var(--neo-bg-panel)]" noHover>
-                            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">Usage key</p>
-                            <h2 className="mt-3 text-2xl font-black uppercase tracking-tight">What each action costs</h2>
-                            <div className="mt-6 space-y-3">
-                                {[
-                                    ['LLM writing step', `${creditsData?.priceBook.llmGeneration ?? 80} credits`, 'file-text'],
-                                    ['Standard image', `${creditsData?.priceBook.standardImage ?? 40} credits`, 'image'],
-                                    ['Premium image', `${creditsData?.priceBook.premiumImage ?? 120} credits`, 'crown'],
-                                ].map(([label, value, icon]) => (
-                                    <div key={label} className="flex items-center justify-between border-[var(--neo-border-width-sm)] border-[var(--neo-ink)] bg-white px-4 py-3">
-                                        <div className="flex items-center gap-3">
-                                            <Icon name={icon} size={18} />
-                                            <span className="font-display text-sm font-bold uppercase tracking-tight">{label}</span>
-                                        </div>
-                                        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em]">{value}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </NeoCard>
-                    </div>
-
-                    <section ref={packagesRef}>
-                        <div className="mb-6 flex items-end justify-between gap-4">
-                            <div>
-                                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">Credit packs</p>
-                                <h2 className="mt-2 text-4xl font-black uppercase tracking-tight">Fuel the render farm</h2>
-                            </div>
-                            <NeoTag tone="cyan">
-                                Lifetime purchased: {formatCredits(creditsData?.lifetimePurchasedCredits ?? 0)}
-                            </NeoTag>
-                        </div>
-                        <div className="grid gap-6 lg:grid-cols-[1.45fr_0.9fr]">
-                            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                                {availablePackages.map((pkg) => {
-                                    const selected = pkg.id === selectedPackageId
-                                    return (
-                                        <NeoCard
-                                            key={pkg.id}
-                                            className={selected ? 'bg-[var(--neo-bg-panel)]' : ''}
-                                            noHover
-                                        >
-                                            <div className="flex h-full flex-col justify-between gap-5">
-                                                <div>
-                                                    <NeoTag tone={selected ? 'yellow' : 'default'}>
-                                                        {pkg.savingsLabel || 'ONE_TIME_DEPLOYMENT'}
-                                                    </NeoTag>
-                                                    <h3 className="mt-4 text-3xl font-black uppercase tracking-tight">{pkg.name}</h3>
-                                                    <p className="mt-3 font-display text-5xl font-black tracking-tight">{formatUsd(pkg.priceUsd)}</p>
-                                                    <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-black/60">
-                                                        {formatCredits(pkg.credits)} credits added instantly after checkout
-                                                    </p>
-                                                </div>
-                                                <NeoButton
-                                                    variant={selected ? 'primary' : 'secondary'}
-                                                    onClick={() => setSelectedPackageId(pkg.id)}
-                                                >
-                                                    {selected ? 'Selected' : `Choose ${pkg.name}`}
-                                                </NeoButton>
-                                            </div>
-                                        </NeoCard>
-                                    )
-                                })}
-                            </div>
-
-                            <NeoCard className="bg-[var(--neo-bg-panel)]" noHover>
-                                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">Selected package</p>
-                                <h2 className="mt-3 text-3xl font-black uppercase tracking-tight">
-                                    {selectedPackage ? `${selectedPackage.name} top-up` : 'Pick a package'}
-                                </h2>
-                                {selectedPackage ? (
-                                    <div className="mt-6 space-y-4">
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="border-[var(--neo-border-width-sm)] border-[var(--neo-ink)] bg-white px-4 py-3">
-                                                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-black/55">Price</p>
-                                                <p className="mt-2 text-xl font-black uppercase">{formatUsd(selectedPackage.priceUsd)}</p>
-                                            </div>
-                                            <div className="border-[var(--neo-border-width-sm)] border-[var(--neo-ink)] bg-white px-4 py-3">
-                                                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-black/55">Credits</p>
-                                                <p className="mt-2 text-xl font-black uppercase">{formatCredits(selectedPackage.credits)}</p>
-                                            </div>
-                                        </div>
-                                        <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-white px-4 py-4">
-                                            <p className="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-tight">
-                                                <Icon name="credit-card" size={16} />
-                                                Checkout hook point
-                                            </p>
-                                            <p className="mt-3 text-sm text-black/70">
-                                                This UI is ready for payment wiring. The selected package becomes the checkout payload and upgrades the account to paid on success.
-                                            </p>
-                                        </div>
-                                        <NeoButton className="w-full" disabled>
-                                            Checkout wiring pending
-                                        </NeoButton>
-                                        {isDevCreditToolsEnabled ? (
-                                            <>
-                                                <NeoButton variant="secondary" className="w-full" onClick={handleDevTopUp} disabled={topUpLoading}>
-                                                    {topUpLoading ? 'Applying dev credits...' : 'Dev: apply selected package'}
-                                                </NeoButton>
-                                                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-black/55">
-                                                    Local/testing only. This instantly adds the selected credits and unlocks the paid tier.
-                                                </p>
-                                                {creditMessage ? (
-                                                    <div className={`border-[var(--neo-border-width)] border-[var(--neo-ink)] px-4 py-4 ${creditMessage.type === 'success' ? 'bg-[var(--neo-accent-lime)]' : 'bg-[var(--neo-accent-pink)]'}`}>
-                                                        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em]">{creditMessage.text}</p>
-                                                    </div>
-                                                ) : null}
-                                            </>
-                                        ) : null}
-                                    </div>
-                                ) : (
-                                    <p className="mt-4 text-sm text-black/70">
-                                        Choose a package card to preview the checkout summary.
-                                    </p>
-                                )}
-                            </NeoCard>
-                        </div>
-                    </section>
-
-                    <NeoCard noHover>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                            <div>
-                                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">Transaction history</p>
-                                <h2 className="mt-2 text-3xl font-black uppercase tracking-tight">Every credit movement in one ledger</h2>
-                            </div>
-                            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-black/50">
-                                Credits, refunds, and welcome bonus all land here.
+                            <NeoTag tone="cyan">{activeProviderInfo.name}</NeoTag>
+                            <h2 className="mt-3 text-3xl font-black uppercase tracking-tight">Provider API Key</h2>
+                            <p className="mt-3 max-w-2xl text-sm text-black/70">
+                                {activeProviderInfo.description} Leave the field empty unless you want to replace the stored key.
                             </p>
                         </div>
+                        <NeoTag tone={hasKey ? 'lime' : 'default'}>{loading ? 'Checking' : hasKey ? 'Key stored' : 'No key stored'}</NeoTag>
+                    </div>
 
-                        <div className="mt-6 space-y-3">
-                            {(creditsData?.transactions ?? []).length > 0 ? (
-                                creditsData!.transactions.map((transaction) => (
-                                    <div key={transaction.id} className="grid gap-4 border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-bg-surface)] px-4 py-4 md:grid-cols-[1.1fr_auto_auto]">
-                                        <div>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <NeoTag tone={transaction.direction === 'credit' ? 'lime' : 'default'}>
-                                                    {transaction.direction === 'credit' ? 'Credit' : 'Debit'}
-                                                </NeoTag>
-                                                <p className="font-display text-sm font-bold uppercase tracking-tight">{transaction.label}</p>
-                                            </div>
-                                            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-black/55">
-                                                {formatTransactionTime(transaction.createdAt)}
-                                            </p>
-                                        </div>
-                                        <div className="text-left md:text-right">
-                                            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-black/55">Delta</p>
-                                            <p className="mt-2 font-display text-xl font-black uppercase tracking-tight">
-                                                {transaction.direction === 'credit' ? '+' : '-'}{formatCredits(Math.abs(transaction.amount))}
-                                            </p>
-                                        </div>
-                                        <div className="text-left md:text-right">
-                                            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-black/55">Balance</p>
-                                            <p className="mt-2 font-display text-xl font-black uppercase tracking-tight">
-                                                {formatCredits(transaction.balance)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="border-[var(--neo-border-width)] border-dashed border-[var(--neo-ink)] bg-[var(--neo-bg-panel)] px-4 py-8 text-center">
-                                    <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">No ledger entries yet.</p>
-                                </div>
-                            )}
-                        </div>
-                    </NeoCard>
-                </div>
-            ) : null}
-
-            {activeTab === 'advanced' ? (
-                <div className="mt-8 grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
-                    <NeoCard className="bg-[var(--neo-bg-panel)]" noHover>
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                                <h2 className="text-3xl font-black uppercase tracking-tight">Access Protocols (API)</h2>
-                                <p className="mt-3 max-w-2xl text-sm text-black/70">
-                                    Manage the optional provider override key. If you leave this empty, the engine falls back to the platform-managed WaveSpeed key.
-                                </p>
-                            </div>
-                            <NeoTag tone="lime">{activeProviderInfo.name}</NeoTag>
-                        </div>
-
-                        <div className="mt-8 grid gap-6 md:grid-cols-2">
-                            <div className="space-y-3">
-                                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">LLM protocol</p>
-                                <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-white px-4 py-3 font-display text-sm font-bold uppercase tracking-tight">
-                                    {activeProviderInfo.llm}
-                                </div>
-                            </div>
-                            <div className="space-y-3">
-                                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">Image protocol</p>
-                                <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-white px-4 py-3 font-display text-sm font-bold uppercase tracking-tight">
-                                    {activeProviderInfo.imageGen}
-                                </div>
+                    <div className="mt-8 grid gap-6 md:grid-cols-2">
+                        <div className="space-y-3">
+                            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">LLM protocol</p>
+                            <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-white px-4 py-3 font-display text-sm font-bold uppercase tracking-tight">
+                                {activeProviderInfo.llm}
                             </div>
                         </div>
-
-                        <div className="mt-8 space-y-4">
-                            <NeoInput
-                                id="api-key"
-                                type={showKey ? 'text' : 'password'}
-                                label="Provider API key"
-                                value={apiKey}
-                                onChange={(event) => setApiKey(event.target.value)}
-                                placeholder={`${activeProviderInfo.keyPrefix}...`}
-                                hint={`Optional override. Get your key from ${activeProviderInfo.setupUrl}`}
-                            />
-
-                            <div className="flex flex-wrap gap-3">
-                                <NeoButton onClick={handleSaveKey} disabled={!apiKey.trim() || saving}>
-                                    {saving ? 'Saving...' : 'Commit Key'}
-                                </NeoButton>
-                                <NeoButton variant="secondary" onClick={handleValidateKey} disabled={!hasKey || validating}>
-                                    {validating ? 'Validating...' : 'Validate'}
-                                </NeoButton>
-                                <NeoButton variant="secondary" onClick={() => setShowKey((current) => !current)}>
-                                    {showKey ? 'Hide' : 'Reveal'} Input
-                                </NeoButton>
-                                <NeoButton variant="danger" onClick={handleDeleteKey} disabled={!hasKey}>
-                                    Remove Key
-                                </NeoButton>
+                        <div className="space-y-3">
+                            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">Image protocol</p>
+                            <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-white px-4 py-3 font-display text-sm font-bold uppercase tracking-tight">
+                                {activeProviderInfo.imageGen}
                             </div>
                         </div>
-                    </NeoCard>
+                    </div>
 
-                    <NeoCard noHover>
-                        <h2 className="text-2xl font-black uppercase tracking-tight">Current key status</h2>
-                        <div className="mt-6 space-y-4">
-                            <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-bg-panel)] px-4 py-4">
-                                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-black/55">Stored key</p>
-                                <p className="mt-3 break-all font-mono text-sm">{hasKey ? maskedKey : 'No custom key stored'}</p>
-                            </div>
-                            <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-bg-panel)] px-4 py-4">
-                                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-black/55">Provider</p>
-                                <p className="mt-3 font-display text-lg font-bold uppercase tracking-tight">
-                                    {currentProvider || 'Platform default'}
-                                </p>
-                            </div>
-                            <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-cyan)] px-4 py-4">
-                                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">Fallback mode</p>
-                                <p className="mt-3 text-sm text-black/80">
-                                    When no custom key is stored, generation uses the server-side WaveSpeed key configured for the app.
-                                </p>
-                            </div>
-                            <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-yellow)] px-4 py-4">
-                                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">Setup URL</p>
-                                <a className="mt-3 block break-all font-mono text-sm font-bold underline underline-offset-4" href={activeProviderInfo.setupUrl} target="_blank" rel="noreferrer">
-                                    {activeProviderInfo.setupUrl}
-                                </a>
-                            </div>
+                    <div className="mt-8 space-y-4">
+                        <NeoInput
+                            id="api-key"
+                            type={showKey ? 'text' : 'password'}
+                            label="Provider API key"
+                            value={apiKey}
+                            onChange={(event) => setApiKey(event.target.value)}
+                            placeholder={`${activeProviderInfo.keyPrefix}...`}
+                            hint={`Get your key from ${activeProviderInfo.setupUrl}`}
+                        />
+
+                        <div className="flex flex-wrap gap-3">
+                            <NeoButton onClick={handleSaveKey} disabled={!apiKey.trim() || saving}>
+                                {saving ? 'Saving...' : 'Save Key'}
+                            </NeoButton>
+                            <NeoButton variant="secondary" onClick={handleValidateKey} disabled={!hasKey || validating}>
+                                {validating ? 'Validating...' : 'Validate'}
+                            </NeoButton>
+                            <NeoButton variant="secondary" onClick={() => setShowKey((current) => !current)}>
+                                {showKey ? 'Hide' : 'Reveal'} Input
+                            </NeoButton>
+                            <NeoButton variant="danger" onClick={handleDeleteKey} disabled={!hasKey}>
+                                Remove Key
+                            </NeoButton>
                         </div>
+                    </div>
 
-                        {message ? (
-                            <div className={`mt-6 border-[var(--neo-border-width)] border-[var(--neo-ink)] px-4 py-4 ${message.type === 'success' ? 'bg-[var(--neo-accent-lime)]' : 'bg-[var(--neo-accent-pink)]'}`}>
-                                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em]">{message.text}</p>
-                            </div>
-                        ) : null}
-                    </NeoCard>
-                </div>
-            ) : null}
+                    <div className="mt-8 grid gap-4 md:grid-cols-2">
+                        <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-white px-4 py-4">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-black/55">Stored key</p>
+                            <p className="mt-3 break-all font-mono text-sm">{hasKey ? maskedKey : 'No local key stored'}</p>
+                        </div>
+                        <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-white px-4 py-4">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-black/55">Provider</p>
+                            <p className="mt-3 font-display text-lg font-bold uppercase tracking-tight">
+                                {currentProvider || activeProviderInfo.name}
+                            </p>
+                        </div>
+                        <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-cyan)] px-4 py-4 md:col-span-2">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.16em]">WaveSpeed account</p>
+                            <p className="mt-3 text-sm text-black/80">
+                                Generation usage is handled by the WaveSpeed account behind this key.
+                            </p>
+                            <a className="mt-3 block break-all font-mono text-sm font-bold underline underline-offset-4" href={activeProviderInfo.setupUrl} target="_blank" rel="noreferrer">
+                                {activeProviderInfo.setupUrl}
+                            </a>
+                        </div>
+                    </div>
+
+                    {message ? (
+                        <div className={`mt-6 border-[var(--neo-border-width)] border-[var(--neo-ink)] px-4 py-4 ${message.type === 'success' ? 'bg-[var(--neo-accent-lime)]' : 'bg-[var(--neo-accent-pink)]'}`}>
+                            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em]">{message.text}</p>
+                        </div>
+                    ) : null}
+                </NeoCard>
+            </div>
         </div>
     )
 }

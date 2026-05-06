@@ -1,7 +1,7 @@
 import { NeoCard } from '@/components/ui/NeoCard'
 import { NeoTag } from '@/components/ui/NeoTag'
 
-const SECTIONS = [
+export const LEGAL_SECTIONS = [
     {
         title: 'Service use',
         body: 'You are responsible for the story material and prompts you submit. Do not upload content you do not have the right to process or republish.',
@@ -11,8 +11,8 @@ const SECTIONS = [
         body: 'Generated comic pages may require review and editing before publication. Weoweo exposes approval gates so you can validate narrative and visual direction before rendering.',
     },
     {
-        title: 'Credits and billing',
-        body: 'Credit balances, pricing, and payment-status screens describe the intended product flow. Where checkout is not yet wired, the UI should be treated as informational rather than transactional.',
+        title: 'Provider costs',
+        body: 'Generation requests use the WaveSpeed key configured for this local workspace. Track provider spend in your WaveSpeed account; PanelMint only stores the provider key and generation project data.',
     },
     {
         title: 'Workspace security',
@@ -30,12 +30,12 @@ export default function LegalPage() {
                         Legal protocols.
                     </h1>
                     <p className="mt-4 max-w-2xl text-base leading-8 text-[color:rgba(9,9,11,0.76)]">
-                        This page outlines the current operating assumptions for the MVP UI migration and the responsibilities attached to account use, generated content, and billing surfaces.
+                        This page outlines the current operating assumptions for the MVP UI migration and the responsibilities attached to account use, generated content, and provider-key settings.
                     </p>
                 </div>
 
                 <div className="mt-8 grid gap-5">
-                    {SECTIONS.map((section, index) => (
+                    {LEGAL_SECTIONS.map((section, index) => (
                         <section key={section.title} className="border-[var(--neo-border-width)] border-black bg-white p-6 shadow-[var(--neo-shadow-button)]">
                             <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[color:rgba(9,9,11,0.56)]">
                                 Section 0{index + 1}

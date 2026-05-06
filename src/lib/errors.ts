@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server'
 /** Typed error codes for structured API responses */
 export const ErrorCode = {
     BAD_REQUEST: 'BAD_REQUEST',
-    UNAUTHORIZED: 'UNAUTHORIZED',
     FORBIDDEN: 'FORBIDDEN',
     NOT_FOUND: 'NOT_FOUND',
     CONFLICT: 'CONFLICT',
@@ -27,10 +26,6 @@ export class AppError extends Error {
 
     static badRequest(message: string) {
         return new AppError(message, 400, ErrorCode.BAD_REQUEST)
-    }
-
-    static unauthorized(message = 'Unauthorized') {
-        return new AppError(message, 401, ErrorCode.UNAUTHORIZED)
     }
 
     static forbidden(message = 'Forbidden') {

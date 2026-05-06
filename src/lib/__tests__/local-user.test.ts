@@ -121,8 +121,6 @@ describe('getOrCreateLocalUser', () => {
             data: expect.objectContaining({
                 email: LOCAL_USER_EMAIL,
                 name: 'Local Creator',
-                authUserId: null,
-                passwordHash: '__local_owner__',
                 credits: 300,
                 accountTier: 'free',
                 lifetimePurchasedCredits: 0,
@@ -173,7 +171,7 @@ describe('getOrCreateLocalUser', () => {
         expect(prismaMock.user.create).toHaveBeenCalledWith(expect.objectContaining({
             data: expect.objectContaining({
                 email: LOCAL_USER_EMAIL,
-                passwordHash: '__local_owner__',
+                name: 'Local Creator',
             }),
         }))
     })

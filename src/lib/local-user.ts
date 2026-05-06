@@ -6,8 +6,6 @@ import { prisma } from './prisma'
 export const LOCAL_USER_EMAIL = 'local@panelmint.dev'
 export const LOCAL_USER_NAME = 'Local Creator'
 
-const LOCAL_OWNER_PASSWORD_PLACEHOLDER = '__local_owner__'
-
 export interface LocalUser {
     id: string
     email: string
@@ -72,8 +70,6 @@ export async function getOrCreateLocalUser(): Promise<LocalUser> {
                 data: {
                     email: LOCAL_USER_EMAIL,
                     name: LOCAL_USER_NAME,
-                    authUserId: null,
-                    passwordHash: LOCAL_OWNER_PASSWORD_PLACEHOLDER,
                     credits: STARTER_CREDITS,
                     accountTier: 'free',
                     lifetimePurchasedCredits: 0,

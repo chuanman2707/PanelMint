@@ -8,7 +8,7 @@ vi.mock('@/components/public/LandingPageClient', () => ({
 import LandingPage from './page'
 
 describe('LandingPage', () => {
-    it('renders the public landing page without server auth checks', () => {
+    it('renders the public landing page without server-side identity checks', () => {
         const page = LandingPage()
 
         expect(page).toMatchObject({

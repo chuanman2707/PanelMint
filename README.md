@@ -5,7 +5,7 @@ PanelMint is an AI-assisted text-to-comic generator.
 This repository has been cleaned to center on one production stack:
 
 - Next.js 16 + React 19 frontend
-- Single local workspace owner, with no login or hosted auth in OSS v1
+- Single local workspace owner, with no hosted identity service in OSS v1
 - Neon Postgres via Prisma
 - Inngest background workflows
 - Cloudflare R2 object storage

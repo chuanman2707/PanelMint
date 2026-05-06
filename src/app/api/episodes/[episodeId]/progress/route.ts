@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { requireAuth, requireEpisodeOwner } from '@/lib/api-auth'
+import { getLocalEpisode, getOrCreateLocalUser } from '@/lib/local-user'
 import { getEpisodeProgressSnapshot } from '@/lib/progress/episode-progress-snapshot'
 
 export const dynamic = 'force-dynamic'
@@ -8,11 +8,10 @@ export async function GET(
     _request: NextRequest,
     context: { params: Promise<{ episodeId: string }> },
 ) {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const { episodeId } = await context.params
-    const ownership = await requireEpisodeOwner(auth.user.id, episodeId)
+    const ownership = await getLocalEpisode(localUser.id, episodeId)
     if (ownership.error) return ownership.error
 
     const snapshot = await getEpisodeProgressSnapshot(episodeId)

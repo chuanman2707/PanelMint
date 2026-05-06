@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { enqueueImageGen } from '@/lib/queue'
-import { requireAuth, requireEpisodeOwner } from '@/lib/api-auth'
+import { getLocalEpisode, getOrCreateLocalUser } from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 import { checkRateLimit, RETRY_LIMIT } from '@/lib/api-rate-limit'
 import { AppError } from '@/lib/errors'
@@ -15,14 +15,13 @@ import { retryRequestSchema } from '@/lib/validators/pipeline'
 import { recordPipelineEvent, syncPipelineRunState } from '@/lib/pipeline/run-state'
 
 export const POST = apiHandler(async (request, context) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
-    const rateLimited = await checkRateLimit('retry-images', auth.user.id, RETRY_LIMIT)
+    const rateLimited = await checkRateLimit('retry-images', localUser.id, RETRY_LIMIT)
     if (rateLimited) return rateLimited
 
     const { episodeId } = await context.params
-    const ownership = await requireEpisodeOwner(auth.user.id, episodeId)
+    const ownership = await getLocalEpisode(localUser.id, episodeId)
     if (ownership.error) return ownership.error
 
     const episode = await prisma.episode.findUnique({
@@ -74,7 +73,7 @@ export const POST = apiHandler(async (request, context) => {
 
     const imageModelTier = normalizeImageModelTier(episode.project.imageModel)
     const totalCreditCost = failedPanels.length * getImageGenerationCreditCost(imageModelTier)
-    const hasCredits = await checkCredits(auth.user.id, totalCreditCost)
+    const hasCredits = await checkCredits(localUser.id, totalCreditCost)
     if (!hasCredits) {
         throw new AppError(
             'Insufficient credits. Purchase more credits to retry failed panels.',
@@ -95,7 +94,7 @@ export const POST = apiHandler(async (request, context) => {
 
         await syncPipelineRunState({
             episodeId,
-            userId: auth.user.id,
+            userId: localUser.id,
             episodeStatus: 'imaging',
             runStatus: 'running',
             currentStep: 'image_gen',
@@ -104,7 +103,7 @@ export const POST = apiHandler(async (request, context) => {
 
         await recordPipelineEvent({
             episodeId,
-            userId: auth.user.id,
+            userId: localUser.id,
             step: 'image_gen',
             status: 'queued',
             metadata: {

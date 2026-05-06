@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
-    requireAuth: vi.fn(),
-    requireEpisodeOwner: vi.fn(),
+    getOrCreateLocalUser: vi.fn(),
+    getLocalEpisode: vi.fn(),
     recordPipelineEvent: vi.fn(),
     prisma: {
         episode: {
@@ -16,9 +16,9 @@ const mocks = vi.hoisted(() => ({
     },
 }))
 
-vi.mock('@/lib/api-auth', () => ({
-    requireAuth: mocks.requireAuth,
-    requireEpisodeOwner: mocks.requireEpisodeOwner,
+vi.mock('@/lib/local-user', () => ({
+    getOrCreateLocalUser: mocks.getOrCreateLocalUser,
+    getLocalEpisode: mocks.getLocalEpisode,
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -34,8 +34,8 @@ import { POST } from './route'
 describe('POST /api/generate/[runId]/approve-storyboard', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.requireAuth.mockResolvedValue({ user: { id: 'user-1' }, error: null })
-        mocks.requireEpisodeOwner.mockResolvedValue({
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
+        mocks.getLocalEpisode.mockResolvedValue({
             episode: { id: 'ep-1', projectId: 'project-1', status: 'review_storyboard' },
             error: null,
         })
@@ -69,6 +69,7 @@ describe('POST /api/generate/[runId]/approve-storyboard', () => {
         )
 
         expect(response.status).toBe(200)
+        expect(mocks.getLocalEpisode).toHaveBeenCalledWith('user-1', 'ep-1')
         expect(mocks.prisma.panel.findMany).toHaveBeenCalledWith({
             where: {
                 id: { in: ['panel-1'] },
@@ -135,7 +136,7 @@ describe('POST /api/generate/[runId]/approve-storyboard', () => {
     })
 
     it('allows saving storyboard changes for stranded imaging runs that have fallen back to review', async () => {
-        mocks.requireEpisodeOwner.mockResolvedValue({
+        mocks.getLocalEpisode.mockResolvedValue({
             episode: { id: 'ep-1', projectId: 'project-1', status: 'imaging' },
             error: null,
         })

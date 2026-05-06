@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth, requireEpisodeOwner } from '@/lib/api-auth'
+import { getLocalEpisode, getOrCreateLocalUser } from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 import { parseJsonBody } from '@/lib/api-validate'
 import { approveStoryboardRequestSchema } from '@/lib/validators/pipeline'
@@ -8,11 +8,10 @@ import { recordPipelineEvent } from '@/lib/pipeline/run-state'
 import { deriveEffectiveEpisodePhase } from '@/lib/pipeline/episode-phase'
 
 export const POST = apiHandler(async (request, context) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const { runId } = await context.params
-    const ownership = await requireEpisodeOwner(auth.user.id, runId)
+    const ownership = await getLocalEpisode(localUser.id, runId)
     if (ownership.error) return ownership.error
 
     const episode = ownership.episode
@@ -82,7 +81,7 @@ export const POST = apiHandler(async (request, context) => {
 
     await recordPipelineEvent({
         episodeId: runId,
-        userId: auth.user.id,
+        userId: localUser.id,
         step: 'review_storyboard',
         status: 'completed',
         metadata: {

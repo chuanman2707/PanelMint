@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
-    requireAuth: vi.fn(),
-    requireEpisodeOwner: vi.fn(),
+    getOrCreateLocalUser: vi.fn(),
+    getLocalEpisode: vi.fn(),
     checkRateLimit: vi.fn(),
     checkCredits: vi.fn(),
     enqueueImageGen: vi.fn(),
@@ -22,9 +22,9 @@ const mocks = vi.hoisted(() => ({
     },
 }))
 
-vi.mock('@/lib/api-auth', () => ({
-    requireAuth: mocks.requireAuth,
-    requireEpisodeOwner: mocks.requireEpisodeOwner,
+vi.mock('@/lib/local-user', () => ({
+    getOrCreateLocalUser: mocks.getOrCreateLocalUser,
+    getLocalEpisode: mocks.getLocalEpisode,
 }))
 
 vi.mock('@/lib/api-rate-limit', () => ({
@@ -56,8 +56,8 @@ import { POST } from './route'
 describe('POST /api/episodes/[episodeId]/retry', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.requireAuth.mockResolvedValue({ user: { id: 'user-1' }, error: null })
-        mocks.requireEpisodeOwner.mockResolvedValue({
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
+        mocks.getLocalEpisode.mockResolvedValue({
             episode: { id: 'ep-1', projectId: 'project-1', status: 'review_storyboard' },
             error: null,
         })
@@ -105,6 +105,7 @@ describe('POST /api/episodes/[episodeId]/retry', () => {
         )
 
         expect(response.status).toBe(200)
+        expect(mocks.getLocalEpisode).toHaveBeenCalledWith('user-1', 'ep-1')
         expect(mocks.prisma.episode.update).toHaveBeenCalledWith({
             where: { id: 'ep-1' },
             data: { status: 'imaging', progress: 50, error: null },

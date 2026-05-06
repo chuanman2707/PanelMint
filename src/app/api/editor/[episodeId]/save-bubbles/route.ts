@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth, requireEpisodeOwner } from '@/lib/api-auth'
+import { getLocalEpisode, getOrCreateLocalUser } from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 import { parseJsonBody } from '@/lib/api-validate'
 import { saveBubblesRequestSchema } from '@/lib/validators/pipeline'
@@ -18,11 +18,10 @@ interface BubblePayload {
 }
 
 export const POST = apiHandler(async (request, context) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const { episodeId } = await context.params
-    const ownership = await requireEpisodeOwner(auth.user.id, episodeId)
+    const ownership = await getLocalEpisode(localUser.id, episodeId)
     if (ownership.error) return ownership.error
 
     const { panelId, bubbles } = await parseJsonBody(request, saveBubblesRequestSchema)

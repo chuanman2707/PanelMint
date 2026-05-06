@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { enqueueAnalyze } from '@/lib/queue'
-import { requireAuth } from '@/lib/api-auth'
+import { getOrCreateLocalUser } from '@/lib/local-user'
 import { checkRateLimit, GENERATE_LIMIT } from '@/lib/api-rate-limit'
 import { apiHandler } from '@/lib/api-handler'
 import { parseJsonBody } from '@/lib/api-validate'
@@ -16,16 +16,15 @@ import {
 } from '@/lib/billing'
 
 export const POST = apiHandler(async (request) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
-    const rateLimited = await checkRateLimit('generate', auth.user.id, GENERATE_LIMIT)
+    const rateLimited = await checkRateLimit('generate', localUser.id, GENERATE_LIMIT)
     if (rateLimited) return rateLimited
 
     // Prevent duplicate pipelines — check if user already has an in-progress episode
     const inProgress = await prisma.episode.findFirst({
         where: {
-            project: { userId: auth.user.id },
+            project: { userId: localUser.id },
             status: { in: ['queued', 'analyzing', 'storyboarding', 'imaging'] },
         },
     })
@@ -45,11 +44,11 @@ export const POST = apiHandler(async (request) => {
 
     const normalizedImageModelTier = normalizeImageModelTier(imageModelTier)
 
-    if (normalizedImageModelTier === 'premium' && !canAccessPremium(auth.user.accountTier as 'free' | 'paid')) {
+    if (normalizedImageModelTier === 'premium' && !canAccessPremium(localUser.accountTier as 'free' | 'paid')) {
         throw AppError.forbidden('Premium image generation unlocks after your first credit purchase.')
     }
 
-    const hasCreditsForKickoff = await checkCredits(auth.user.id, ACTION_CREDIT_COSTS.llm_generation)
+    const hasCreditsForKickoff = await checkCredits(localUser.id, ACTION_CREDIT_COSTS.llm_generation)
     if (!hasCreditsForKickoff) {
         throw new AppError(
             'Insufficient credits. You need at least 80 credits to start generation.',
@@ -61,7 +60,7 @@ export const POST = apiHandler(async (request) => {
     const { project, episode } = await prisma.$transaction(async (tx) => {
         const project = await tx.project.create({
             data: {
-                userId: auth.user.id,
+                userId: localUser.id,
                 name: `Comic ${new Date().toLocaleString('vi-VN')}`,
                 artStyle: normalizedArtStyle,
                 imageModel: normalizedImageModelTier,
@@ -81,14 +80,14 @@ export const POST = apiHandler(async (request) => {
 
         await syncPipelineRunState({
             episodeId: episode.id,
-            userId: auth.user.id,
+            userId: localUser.id,
             episodeStatus: 'queued',
             client: tx,
         })
 
         await recordPipelineEvent({
             episodeId: episode.id,
-            userId: auth.user.id,
+            userId: localUser.id,
             step: 'analyze',
             status: 'queued',
             metadata: {
@@ -104,7 +103,7 @@ export const POST = apiHandler(async (request) => {
 
     await enqueueAnalyze({
         episodeId: episode.id,
-        userId: auth.user.id,
+        userId: localUser.id,
         projectId: project.id,
         text: text.trim(),
         artStyle: normalizedArtStyle,

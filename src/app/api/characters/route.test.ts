@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
-    requireAuth: vi.fn(),
-    requireProjectOwner: vi.fn(),
+    getOrCreateLocalUser: vi.fn(),
+    getLocalProject: vi.fn(),
     prisma: {
         character: {
             findMany: vi.fn(),
@@ -12,9 +12,9 @@ const mocks = vi.hoisted(() => ({
     },
 }))
 
-vi.mock('@/lib/api-auth', () => ({
-    requireAuth: mocks.requireAuth,
-    requireProjectOwner: mocks.requireProjectOwner,
+vi.mock('@/lib/local-user', () => ({
+    getOrCreateLocalUser: mocks.getOrCreateLocalUser,
+    getLocalProject: mocks.getLocalProject,
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -26,8 +26,8 @@ import { GET, POST } from './route'
 describe('api/characters', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.requireAuth.mockResolvedValue({ user: { id: 'user-1' }, error: null })
-        mocks.requireProjectOwner.mockResolvedValue({ error: null })
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
+        mocks.getLocalProject.mockResolvedValue({ error: null })
         mocks.prisma.character.findMany.mockResolvedValue([])
         mocks.prisma.character.create.mockResolvedValue({
             id: 'char-1',
@@ -66,7 +66,7 @@ describe('api/characters', () => {
         )
 
         expect(response.status).toBe(200)
-        expect(mocks.requireProjectOwner).toHaveBeenCalledWith('user-1', 'project-1')
+        expect(mocks.getLocalProject).toHaveBeenCalledWith('user-1', 'project-1')
         expect(mocks.prisma.character.create).toHaveBeenCalledWith({
             data: {
                 projectId: 'project-1',
@@ -85,7 +85,7 @@ describe('api/characters', () => {
         )
 
         expect(response.status).toBe(200)
-        expect(mocks.requireProjectOwner).toHaveBeenCalledWith('user-1', 'project-1')
+        expect(mocks.getLocalProject).toHaveBeenCalledWith('user-1', 'project-1')
         expect(mocks.prisma.character.findMany).toHaveBeenCalledWith({
             where: { projectId: 'project-1' },
             include: { appearances: { orderBy: { appearanceIndex: 'asc' } } },

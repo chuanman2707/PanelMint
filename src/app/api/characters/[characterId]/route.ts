@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth, requireCharacterOwner } from '@/lib/api-auth'
+import { getLocalCharacter, getOrCreateLocalUser } from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 import { parseJsonBody } from '@/lib/api-validate'
 import { getProviderConfig } from '@/lib/api-config'
@@ -9,11 +9,10 @@ import { updateCharacterRequestSchema } from '@/lib/validators/characters'
 
 // GET /api/characters/[characterId]
 export const GET = apiHandler(async (_request, context) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const { characterId } = await context.params
-    const ownership = await requireCharacterOwner(auth.user.id, characterId)
+    const ownership = await getLocalCharacter(localUser.id, characterId)
     if (ownership.error) return ownership.error
 
     const character = await prisma.character.findUnique({
@@ -26,11 +25,10 @@ export const GET = apiHandler(async (_request, context) => {
 
 // PUT /api/characters/[characterId] — Update description
 export const PUT = apiHandler(async (request, context) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const { characterId } = await context.params
-    const ownership = await requireCharacterOwner(auth.user.id, characterId)
+    const ownership = await getLocalCharacter(localUser.id, characterId)
     if (ownership.error) return ownership.error
 
     const { description, name } = await parseJsonBody(request, updateCharacterRequestSchema)
@@ -56,7 +54,7 @@ export const PUT = apiHandler(async (request, context) => {
 
         if (nextDescription) {
             try {
-                const providerConfig = await getProviderConfig(auth.user.id)
+                const providerConfig = await getProviderConfig(localUser.id)
                 const generated = await generateCharacterDescription(
                     nextName,
                     nextDescription,
@@ -84,11 +82,10 @@ export const PUT = apiHandler(async (request, context) => {
 
 // DELETE /api/characters/[characterId]
 export const DELETE = apiHandler(async (_request, context) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const { characterId } = await context.params
-    const ownership = await requireCharacterOwner(auth.user.id, characterId)
+    const ownership = await getLocalCharacter(localUser.id, characterId)
     if (ownership.error) return ownership.error
 
     await prisma.character.delete({ where: { id: characterId } })

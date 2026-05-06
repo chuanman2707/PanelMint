@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { enqueueImageGen } from '@/lib/queue'
-import { requireAuth, requireEpisodeOwner } from '@/lib/api-auth'
+import { getLocalEpisode, getOrCreateLocalUser } from '@/lib/local-user'
 import { checkRateLimit, IMAGE_GEN_LIMIT } from '@/lib/api-rate-limit'
 import { apiHandler } from '@/lib/api-handler'
 import { parseJsonBody } from '@/lib/api-validate'
@@ -29,14 +29,13 @@ function parsePanelCharacterNames(rawCharacters: string | null): string[] {
 }
 
 export const POST = apiHandler(async (request, context) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
-    const rateLimited = await checkRateLimit('image-gen', auth.user.id, IMAGE_GEN_LIMIT)
+    const rateLimited = await checkRateLimit('image-gen', localUser.id, IMAGE_GEN_LIMIT)
     if (rateLimited) return rateLimited
 
     const { runId } = await context.params
-    const ownership = await requireEpisodeOwner(auth.user.id, runId)
+    const ownership = await getLocalEpisode(localUser.id, runId)
     if (ownership.error) return ownership.error
 
     const episode = await prisma.episode.findUnique({
@@ -136,7 +135,7 @@ export const POST = apiHandler(async (request, context) => {
     }
 
     const totalCreditCost = panels.length * getImageGenerationCreditCost(imageModelTier)
-    const hasCredits = await checkCredits(auth.user.id, totalCreditCost)
+    const hasCredits = await checkCredits(localUser.id, totalCreditCost)
     if (!hasCredits) {
         throw new AppError(
             'Insufficient credits. Purchase more credits to generate these images.',
@@ -157,7 +156,7 @@ export const POST = apiHandler(async (request, context) => {
 
         await syncPipelineRunState({
             episodeId: runId,
-            userId: auth.user.id,
+            userId: localUser.id,
             episodeStatus: 'imaging',
             runStatus: 'running',
             currentStep: 'image_gen',
@@ -166,7 +165,7 @@ export const POST = apiHandler(async (request, context) => {
 
         await recordPipelineEvent({
             episodeId: runId,
-            userId: auth.user.id,
+            userId: localUser.id,
             step: 'image_gen',
             status: 'queued',
             metadata: {

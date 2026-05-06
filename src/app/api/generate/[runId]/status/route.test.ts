@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-    requireAuth: vi.fn(),
-    requireEpisodeOwner: vi.fn(),
+    getOrCreateLocalUser: vi.fn(),
+    getLocalEpisode: vi.fn(),
     prisma: {
         episode: {
             findUnique: vi.fn(),
@@ -16,9 +16,9 @@ const mocks = vi.hoisted(() => ({
     },
 }))
 
-vi.mock('@/lib/api-auth', () => ({
-    requireAuth: mocks.requireAuth,
-    requireEpisodeOwner: mocks.requireEpisodeOwner,
+vi.mock('@/lib/local-user', () => ({
+    getOrCreateLocalUser: mocks.getOrCreateLocalUser,
+    getLocalEpisode: mocks.getLocalEpisode,
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -32,8 +32,8 @@ describe('GET /api/generate/[runId]/status', () => {
         vi.clearAllMocks()
         vi.useFakeTimers()
         vi.setSystemTime(new Date('2026-04-15T01:30:00.000Z'))
-        mocks.requireAuth.mockResolvedValue({ user: { id: 'user-1' }, error: null })
-        mocks.requireEpisodeOwner.mockResolvedValue({
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
+        mocks.getLocalEpisode.mockResolvedValue({
             episode: { id: 'ep-1', projectId: 'project-1', status: 'imaging' },
             error: null,
         })
@@ -70,6 +70,7 @@ describe('GET /api/generate/[runId]/status', () => {
             params: Promise.resolve({ runId: 'ep-1' }),
         })
 
+        expect(mocks.getLocalEpisode).toHaveBeenCalledWith('user-1', 'ep-1')
         await expect(response.json()).resolves.toMatchObject({
             phase: 'done',
             progress: 100,

@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth, requireEpisodeOwner } from '@/lib/api-auth'
+import { getLocalEpisode, getOrCreateLocalUser } from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 
 export const GET = apiHandler(async (_request, context) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const { runId } = await context.params
-    const ownership = await requireEpisodeOwner(auth.user.id, runId)
+    const ownership = await getLocalEpisode(localUser.id, runId)
     if (ownership.error) return ownership.error
 
     const episode = await prisma.episode.findUnique({

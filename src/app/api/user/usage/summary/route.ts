@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth } from '@/lib/api-auth'
+import { getOrCreateLocalUser } from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 
 export const GET = apiHandler(async () => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
     const records = await prisma.usageRecord.findMany({
         where: {
-            userId: auth.user.id,
+            userId: localUser.id,
             createdAt: { gte: startOfMonth },
         },
         select: { type: true, model: true, tokens: true, cost: true },

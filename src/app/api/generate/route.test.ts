@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
-    requireAuth: vi.fn(),
+    getOrCreateLocalUser: vi.fn(),
     checkRateLimit: vi.fn(),
     parseJsonBody: vi.fn(),
     checkCredits: vi.fn(),
@@ -20,8 +20,8 @@ const mocks = vi.hoisted(() => ({
     },
 }))
 
-vi.mock('@/lib/api-auth', () => ({
-    requireAuth: mocks.requireAuth,
+vi.mock('@/lib/local-user', () => ({
+    getOrCreateLocalUser: mocks.getOrCreateLocalUser,
 }))
 
 vi.mock('@/lib/api-rate-limit', () => ({
@@ -58,10 +58,7 @@ import { POST } from './route'
 describe('POST /api/generate', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.requireAuth.mockResolvedValue({
-            user: { id: 'user-1', accountTier: 'free' },
-            error: null,
-        })
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1', accountTier: 'free' })
         mocks.checkRateLimit.mockResolvedValue(null)
         mocks.prisma.$transaction.mockImplementation(async (input: unknown) => {
             if (typeof input === 'function') {

@@ -2,17 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { generateCharacterSheet } from '@/lib/ai/character-design'
 import { getProviderConfig } from '@/lib/api-config'
-import { requireAuth, requireCharacterOwner } from '@/lib/api-auth'
+import { getLocalCharacter, getOrCreateLocalUser } from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 import { ACTION_CREDIT_COSTS, deductCredits, refundCredits } from '@/lib/billing'
 
 // POST /api/characters/[characterId]/generate-sheet — Generate character reference image
 export const POST = apiHandler(async (_request, context) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const { characterId } = await context.params
-    const ownership = await requireCharacterOwner(auth.user.id, characterId)
+    const ownership = await getLocalCharacter(localUser.id, characterId)
     if (ownership.error) return ownership.error
 
     const character = await prisma.character.findUnique({
@@ -25,14 +24,14 @@ export const POST = apiHandler(async (_request, context) => {
         return NextResponse.json({ error: 'Character needs a description first' }, { status: 400 })
     }
 
-    const providerConfig = await getProviderConfig(auth.user.id)
+    const providerConfig = await getProviderConfig(localUser.id)
     const operationKey = `manual_character_sheet:${character.id}:${Date.now()}`
     const refundOperationKey = `refund:${operationKey}`
     let charged = false
 
     try {
         const didCharge = await deductCredits(
-            auth.user.id,
+            localUser.id,
             ACTION_CREDIT_COSTS.standard_image,
             'character_sheet_generation',
             undefined,
@@ -48,7 +47,7 @@ export const POST = apiHandler(async (_request, context) => {
             character.description,
             character.project.artStyle,
             providerConfig,
-            auth.user.id,
+            localUser.id,
         )
 
         if (!imageUrl) {
@@ -64,7 +63,7 @@ export const POST = apiHandler(async (_request, context) => {
     } catch (error) {
         if (charged) {
             await refundCredits(
-                auth.user.id,
+                localUser.id,
                 ACTION_CREDIT_COSTS.standard_image,
                 `character sheet failed: ${character.name}`,
                 undefined,

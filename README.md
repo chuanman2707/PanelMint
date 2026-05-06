@@ -5,7 +5,7 @@ PanelMint is an AI-assisted text-to-comic generator.
 This repository has been cleaned to center on one production stack:
 
 - Next.js 16 + React 19 frontend
-- Clerk authentication
+- Single local workspace owner, with no hosted identity service in OSS v1
 - Neon Postgres via Prisma
 - Inngest background workflows
 - Cloudflare R2 object storage
@@ -28,7 +28,7 @@ Optional local Postgres helper:
 docker compose up -d
 ```
 
-That helper is only for disposable local development. The intended deployment contract is Vercel + Neon + Clerk + Inngest + R2.
+That helper is only for disposable local development. The intended deployment contract is Vercel + Neon + local single-user runtime + Inngest + R2.
 
 ## Useful checks
 
@@ -55,9 +55,6 @@ Use the local red-green-refactor loop for behavior changes in `src/app`, `src/li
 | `DATABASE_URL` | Yes | Neon/Postgres runtime connection string. |
 | `DIRECT_URL` | Optional | Direct Postgres connection for migrations. |
 | `ENCRYPTION_SECRET` | Yes for production | Encrypts stored user API keys. |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes | Clerk browser key. |
-| `CLERK_SECRET_KEY` | Yes | Clerk server key. |
-| `CLERK_WEBHOOK_SIGNING_SECRET` | Yes | Verifies Clerk webhooks. |
 | `INNGEST_EVENT_KEY` | Yes | Sends Inngest events. |
 | `INNGEST_SIGNING_KEY` | Yes | Verifies Inngest endpoint calls. |
 | `WAVESPEED_API_KEY` | Yes for production | Managed provider key for both LLM and image generation. |
@@ -88,9 +85,6 @@ cp .env.example .env
 | `DATABASE_URL` | Neon Dashboard -> your project -> `Connect` | The pooled connection string. Prefer the host with `-pooler` in it. Keep the database name aligned with the actual Neon database, which is usually `neondb` by default. |
 | `DIRECT_URL` | Neon Dashboard -> your project -> `Connect` | The direct Postgres connection string for Prisma migrations. Prisma CLI in this repo prefers this value when it is set. Do not use the `-pooler` host here. |
 | `ENCRYPTION_SECRET` | Generate locally | A long random secret, for example `openssl rand -base64 32`. |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk Dashboard -> `API Keys` | The publishable key, usually prefixed with `pk_test_` or `pk_live_`. |
-| `CLERK_SECRET_KEY` | Clerk Dashboard -> `API Keys` | The secret key, usually prefixed with `sk_test_` or `sk_live_`. |
-| `CLERK_WEBHOOK_SIGNING_SECRET` | Clerk Dashboard -> `Webhooks` | Create an endpoint pointing at `/api/webhooks/clerk`, then copy its signing secret (`whsec_...`). |
 | `INNGEST_EVENT_KEY` | Inngest Dashboard -> target environment | Create or copy the environment Event Key. |
 | `INNGEST_SIGNING_KEY` | Inngest Dashboard -> target environment -> `Signing Key` | Copy the signing key for the same Inngest environment. |
 | `WAVESPEED_API_KEY` | WaveSpeed -> API Keys | Generate one server-side API key and use it as the platform-managed key. |
@@ -105,7 +99,6 @@ cp .env.example .env
 
 4. Exact endpoints for this repo:
 
-- Clerk webhook URL: `http://localhost:3000/api/webhooks/clerk` in local dev, or `https://your-domain.com/api/webhooks/clerk` in production.
 - Inngest serve URL: `http://localhost:3000/api/inngest` in local dev, or `https://your-domain.com/api/inngest` in production.
 
 5. Quick verification after saving `.env`:

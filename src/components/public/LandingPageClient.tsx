@@ -81,9 +81,9 @@ export function LandingPageClient() {
                         </p>
                         <div className="mt-8 flex flex-wrap gap-4">
                             <NeoButton asChild size="lg">
-                                <Link href="/auth/signup">
+                                <Link href="/create">
                                     <Icon name="sparkles" size={18} />
-                                    Start free
+                                    Start locally
                                 </Link>
                             </NeoButton>
                             <NeoButton asChild variant="secondary" size="lg">
@@ -96,7 +96,7 @@ export function LandingPageClient() {
                         <div className="mt-10 flex flex-wrap gap-3">
                             <NeoTag tone="ink">SYSTEM_STATUS: NOMINAL</NeoTag>
                             <NeoTag tone="cyan">ENGINE_v2.4</NeoTag>
-                            <NeoTag tone="default">CLERK + NEXT 16</NeoTag>
+                            <NeoTag tone="default">LOCAL OSS</NeoTag>
                         </div>
                     </div>
 

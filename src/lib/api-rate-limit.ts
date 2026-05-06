@@ -12,11 +12,11 @@ export interface RateLimitOptions {
 
 // -- Presets --
 
-/** Login: 5 requests per 60 seconds per IP */
-export const AUTH_LOGIN_LIMIT: RateLimitConfig = { windowSeconds: 60, maxRequests: 5 }
+/** Local workspace actions: 5 requests per 60 seconds per IP */
+export const WORKSPACE_ACTION_LIMIT: RateLimitConfig = { windowSeconds: 60, maxRequests: 5 }
 
-/** Signup: 3 requests per 60 seconds per IP */
-export const AUTH_SIGNUP_LIMIT: RateLimitConfig = { windowSeconds: 60, maxRequests: 3 }
+/** Local workspace bootstrap: 3 requests per 60 seconds per IP */
+export const WORKSPACE_BOOTSTRAP_LIMIT: RateLimitConfig = { windowSeconds: 60, maxRequests: 3 }
 
 /** Generate comic: 3 requests per 60 seconds per user */
 export const GENERATE_LIMIT: RateLimitConfig = { windowSeconds: 60, maxRequests: 3 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useAuth } from '@/hooks/useAuth'
+import { useLocalUser } from '@/hooks/useLocalUser'
 import { NeoCard } from '@/components/ui/NeoCard'
 import { NeoButton } from '@/components/ui/NeoButton'
 import { NeoInput } from '@/components/ui/NeoInput'
@@ -80,7 +80,7 @@ function formatTransactionTime(value: string) {
 }
 
 export default function SettingsPage() {
-    const { user, refresh } = useAuth()
+    const { user, refresh } = useLocalUser()
     const searchParams = useSearchParams()
     const router = useRouter()
     const pathname = usePathname()

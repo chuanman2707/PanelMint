@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
-    requireAuth: vi.fn(),
-    getUserApiKey: vi.fn(),
-    setUserApiKey: vi.fn(),
+    getOrCreateLocalUser: vi.fn(),
+    getLocalUserApiKey: vi.fn(),
+    setLocalUserApiKey: vi.fn(),
     prisma: {
         user: {
             findUnique: vi.fn(),
@@ -12,13 +12,10 @@ const mocks = vi.hoisted(() => ({
     },
 }))
 
-vi.mock('@/lib/api-auth', () => ({
-    requireAuth: mocks.requireAuth,
-}))
-
-vi.mock('@/lib/auth', () => ({
-    getUserApiKey: mocks.getUserApiKey,
-    setUserApiKey: mocks.setUserApiKey,
+vi.mock('@/lib/local-user', () => ({
+    getOrCreateLocalUser: mocks.getOrCreateLocalUser,
+    getLocalUserApiKey: mocks.getLocalUserApiKey,
+    setLocalUserApiKey: mocks.setLocalUserApiKey,
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -30,32 +27,13 @@ import { DELETE, GET, POST } from './route'
 describe('/api/user/api-key', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.requireAuth.mockResolvedValue({
-            user: { id: 'user-1' },
-            error: null,
-        })
-        mocks.getUserApiKey.mockResolvedValue('sk-live-1234')
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
+        mocks.getLocalUserApiKey.mockResolvedValue('sk-live-1234')
         mocks.prisma.user.findUnique.mockResolvedValue({
             apiKey: 'encrypted',
             apiProvider: 'wavespeed',
         })
-        mocks.setUserApiKey.mockResolvedValue(undefined)
-    })
-
-    it('returns 401 when GET is called without a session', async () => {
-        mocks.requireAuth.mockResolvedValue({
-            user: null,
-            error: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
-        })
-
-        const response = await GET(
-            new NextRequest('http://localhost/api/user/api-key', {
-                method: 'GET',
-            }),
-            { params: Promise.resolve({}) },
-        )
-
-        expect(response.status).toBe(401)
+        mocks.setLocalUserApiKey.mockResolvedValue(undefined)
     })
 
     it('returns masked key metadata for the signed-in user', async () => {
@@ -67,6 +45,11 @@ describe('/api/user/api-key', () => {
         )
 
         expect(response.status).toBe(200)
+        expect(mocks.prisma.user.findUnique).toHaveBeenCalledWith({
+            where: { id: 'user-1' },
+            select: { apiKey: true, apiProvider: true },
+        })
+        expect(mocks.getLocalUserApiKey).toHaveBeenCalledWith('user-1')
         await expect(response.json()).resolves.toMatchObject({
             hasKey: true,
             maskedKey: 'sk-liv...1234',
@@ -101,7 +84,7 @@ describe('/api/user/api-key', () => {
         )
 
         expect(response.status).toBe(400)
-        expect(mocks.setUserApiKey).not.toHaveBeenCalled()
+        expect(mocks.setLocalUserApiKey).not.toHaveBeenCalled()
     })
 
     it('stores a trimmed key for a valid provider', async () => {
@@ -115,7 +98,7 @@ describe('/api/user/api-key', () => {
         )
 
         expect(response.status).toBe(200)
-        expect(mocks.setUserApiKey).toHaveBeenCalledWith('user-1', 'ws-live-1234', 'wavespeed')
+        expect(mocks.setLocalUserApiKey).toHaveBeenCalledWith('user-1', 'ws-live-1234', 'wavespeed')
         await expect(response.json()).resolves.toMatchObject({
             ok: true,
             provider: 'wavespeed',
@@ -131,6 +114,6 @@ describe('/api/user/api-key', () => {
         )
 
         expect(response.status).toBe(200)
-        expect(mocks.setUserApiKey).toHaveBeenCalledWith('user-1', null)
+        expect(mocks.setLocalUserApiKey).toHaveBeenCalledWith('user-1', null)
     })
 })

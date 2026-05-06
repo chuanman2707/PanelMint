@@ -6,8 +6,6 @@ CREATE TABLE "users" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "name" TEXT,
-    "auth_user_id" TEXT,
-    "passwordHash" TEXT,
     "apiKey" TEXT,
     "apiProvider" TEXT,
     "preferences" TEXT,
@@ -235,9 +233,6 @@ CREATE TABLE "pipeline_events" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
-
--- CreateIndex
-CREATE UNIQUE INDEX "users_auth_user_id_key" ON "users"("auth_user_id");
 
 -- CreateIndex
 CREATE INDEX "projects_userId_idx" ON "projects"("userId");

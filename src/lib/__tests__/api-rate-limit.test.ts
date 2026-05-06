@@ -16,8 +16,8 @@ vi.mock('@/lib/prisma', () => ({
 
 import {
     checkRateLimit,
-    AUTH_LOGIN_LIMIT,
-    AUTH_SIGNUP_LIMIT,
+    WORKSPACE_ACTION_LIMIT,
+    WORKSPACE_BOOTSTRAP_LIMIT,
     GENERATE_LIMIT,
     IMAGE_GEN_LIMIT,
     RETRY_LIMIT,
@@ -40,14 +40,14 @@ describe('API Rate Limiter (Postgres)', () => {
     it('returns null when under the limit', async () => {
         prismaMock.$queryRaw.mockResolvedValue([{ count: 1 }])
 
-        const result = await checkRateLimit('test', 'user-1', AUTH_LOGIN_LIMIT)
+        const result = await checkRateLimit('test', 'user-1', WORKSPACE_ACTION_LIMIT)
         expect(result).toBeNull()
     })
 
     it('returns 429 NextResponse when over the limit', async () => {
         prismaMock.$queryRaw.mockResolvedValue([{ count: 6 }])
 
-        const result = await checkRateLimit('test', 'user-2', AUTH_LOGIN_LIMIT)
+        const result = await checkRateLimit('test', 'user-2', WORKSPACE_ACTION_LIMIT)
         expect(result).not.toBeNull()
         expect(result!.status).toBe(429)
     })
@@ -55,29 +55,29 @@ describe('API Rate Limiter (Postgres)', () => {
     it('returns null (fail-open) when Postgres is unavailable', async () => {
         prismaMock.$queryRaw.mockRejectedValue(new Error('database unavailable'))
 
-        const result = await checkRateLimit('test', 'user-3', AUTH_LOGIN_LIMIT)
+        const result = await checkRateLimit('test', 'user-3', WORKSPACE_ACTION_LIMIT)
         expect(result).toBeNull()
     })
 
     it('falls back to a local limiter when the durable store is unavailable', async () => {
         prismaMock.$queryRaw.mockRejectedValue(new Error('database unavailable'))
 
-        const first = await checkRateLimit('auth:login', 'fallback-user', AUTH_LOGIN_LIMIT, {
+        const first = await checkRateLimit('workspace:open', 'fallback-user', WORKSPACE_ACTION_LIMIT, {
             onRedisError: 'local_fallback',
         })
-        const second = await checkRateLimit('auth:login', 'fallback-user', AUTH_LOGIN_LIMIT, {
+        const second = await checkRateLimit('workspace:open', 'fallback-user', WORKSPACE_ACTION_LIMIT, {
             onRedisError: 'local_fallback',
         })
-        const third = await checkRateLimit('auth:login', 'fallback-user', AUTH_LOGIN_LIMIT, {
+        const third = await checkRateLimit('workspace:open', 'fallback-user', WORKSPACE_ACTION_LIMIT, {
             onRedisError: 'local_fallback',
         })
-        const fourth = await checkRateLimit('auth:login', 'fallback-user', AUTH_LOGIN_LIMIT, {
+        const fourth = await checkRateLimit('workspace:open', 'fallback-user', WORKSPACE_ACTION_LIMIT, {
             onRedisError: 'local_fallback',
         })
-        const fifth = await checkRateLimit('auth:login', 'fallback-user', AUTH_LOGIN_LIMIT, {
+        const fifth = await checkRateLimit('workspace:open', 'fallback-user', WORKSPACE_ACTION_LIMIT, {
             onRedisError: 'local_fallback',
         })
-        const sixth = await checkRateLimit('auth:login', 'fallback-user', AUTH_LOGIN_LIMIT, {
+        const sixth = await checkRateLimit('workspace:open', 'fallback-user', WORKSPACE_ACTION_LIMIT, {
             onRedisError: 'local_fallback',
         })
 
@@ -92,21 +92,21 @@ describe('API Rate Limiter (Postgres)', () => {
     it('sets Retry-After header in seconds when limited', async () => {
         prismaMock.$queryRaw.mockResolvedValue([{ count: 6 }])
 
-        const result = await checkRateLimit('test', 'user-4', AUTH_LOGIN_LIMIT)
+        const result = await checkRateLimit('test', 'user-4', WORKSPACE_ACTION_LIMIT)
         expect(result!.headers.get('Retry-After')).toBe('45')
     })
 
     it('exports correct preset configs', () => {
-        expect(AUTH_LOGIN_LIMIT.maxRequests).toBe(5)
-        expect(AUTH_LOGIN_LIMIT.windowSeconds).toBe(60)
-        expect(AUTH_SIGNUP_LIMIT.maxRequests).toBe(3)
+        expect(WORKSPACE_ACTION_LIMIT.maxRequests).toBe(5)
+        expect(WORKSPACE_ACTION_LIMIT.windowSeconds).toBe(60)
+        expect(WORKSPACE_BOOTSTRAP_LIMIT.maxRequests).toBe(3)
         expect(GENERATE_LIMIT.maxRequests).toBe(3)
         expect(IMAGE_GEN_LIMIT.maxRequests).toBe(2)
         expect(RETRY_LIMIT.maxRequests).toBe(2)
     })
 
     it('prefers x-real-ip over x-forwarded-for when both are present', () => {
-        const request = new NextRequest('http://localhost/api/auth/signin', {
+        const request = new NextRequest('http://localhost/api/generate', {
             headers: {
                 'x-forwarded-for': '203.0.113.10, 10.0.0.2',
                 'x-real-ip': '198.51.100.7',
@@ -117,7 +117,7 @@ describe('API Rate Limiter (Postgres)', () => {
     })
 
     it('falls back to the first x-forwarded-for entry when x-real-ip is absent', () => {
-        const request = new NextRequest('http://localhost/api/auth/signin', {
+        const request = new NextRequest('http://localhost/api/generate', {
             headers: {
                 'x-forwarded-for': '203.0.113.10, 10.0.0.2',
             },
@@ -127,7 +127,7 @@ describe('API Rate Limiter (Postgres)', () => {
     })
 
     it('returns localhost when no forwarding headers are present', () => {
-        const request = new NextRequest('http://localhost/api/auth/signin')
+        const request = new NextRequest('http://localhost/api/generate')
 
         expect(getClientIp(request)).toBe('127.0.0.1')
     })

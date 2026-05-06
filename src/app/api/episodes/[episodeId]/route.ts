@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, requireEpisodeOwner } from '@/lib/api-auth'
+import { getLocalEpisode, getOrCreateLocalUser } from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 import { deleteEpisodeForProject } from '@/lib/episodes/delete-episode'
 
 export const DELETE = apiHandler(async (_request, context) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const { episodeId } = await context.params
-    const ownership = await requireEpisodeOwner(auth.user.id, episodeId)
+    const ownership = await getLocalEpisode(localUser.id, episodeId)
     if (ownership.error) return ownership.error
 
     await deleteEpisodeForProject({

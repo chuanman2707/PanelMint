@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-    requireAuth: vi.fn(),
+    getOrCreateLocalUser: vi.fn(),
     prisma: {
         user: {
             findUnique: vi.fn(),
@@ -13,8 +13,8 @@ const mocks = vi.hoisted(() => ({
     },
 }))
 
-vi.mock('@/lib/api-auth', () => ({
-    requireAuth: mocks.requireAuth,
+vi.mock('@/lib/local-user', () => ({
+    getOrCreateLocalUser: mocks.getOrCreateLocalUser,
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -26,7 +26,7 @@ import { GET } from './route'
 describe('GET /api/user/credits', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.requireAuth.mockResolvedValue({ user: { id: 'user-1' }, error: null })
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
         mocks.prisma.user.findUnique.mockResolvedValue({
             credits: 7420,
             accountTier: 'paid',

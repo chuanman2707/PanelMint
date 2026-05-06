@@ -4,12 +4,12 @@ import { NextRequest } from 'next/server'
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV
 
 const mocks = vi.hoisted(() => ({
-    requireAuth: vi.fn(),
+    getOrCreateLocalUser: vi.fn(),
     grantCredits: vi.fn(),
 }))
 
-vi.mock('@/lib/api-auth', () => ({
-    requireAuth: mocks.requireAuth,
+vi.mock('@/lib/local-user', () => ({
+    getOrCreateLocalUser: mocks.getOrCreateLocalUser,
 }))
 
 vi.mock('@/lib/billing', async () => {
@@ -27,7 +27,7 @@ describe('POST /api/user/credits/dev-topup', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         vi.stubEnv('NODE_ENV', 'development')
-        mocks.requireAuth.mockResolvedValue({ user: { id: 'user-1' }, error: null })
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
         mocks.grantCredits.mockResolvedValue(undefined)
     })
 
@@ -38,28 +38,6 @@ describe('POST /api/user/credits/dev-topup', () => {
         }
 
         vi.stubEnv('NODE_ENV', ORIGINAL_NODE_ENV)
-    })
-
-    it('returns 401 when the user is not authenticated', async () => {
-        mocks.requireAuth.mockResolvedValue({
-            user: null,
-            error: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
-        })
-
-        const response = await POST(
-            new NextRequest('http://localhost/api/user/credits/dev-topup', {
-                method: 'POST',
-                body: JSON.stringify({ packageId: 'starter' }),
-                headers: {
-                    'content-type': 'application/json',
-                    origin: 'http://localhost',
-                },
-            }),
-            { params: Promise.resolve({}) },
-        )
-
-        expect(response.status).toBe(401)
-        expect(mocks.grantCredits).not.toHaveBeenCalled()
     })
 
     it('blocks the helper in production', async () => {
@@ -75,6 +53,7 @@ describe('POST /api/user/credits/dev-topup', () => {
         )
 
         expect(response.status).toBe(403)
+        expect(mocks.getOrCreateLocalUser).not.toHaveBeenCalled()
         expect(mocks.grantCredits).not.toHaveBeenCalled()
     })
 

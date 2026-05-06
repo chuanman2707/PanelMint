@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth } from '@/lib/api-auth'
+import { getOrCreateLocalUser } from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 
 export const GET = apiHandler(async () => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const episodes = await prisma.episode.findMany({
-        where: { project: { userId: auth.user.id } },
+        where: { project: { userId: localUser.id } },
         orderBy: { createdAt: 'desc' },
         include: {
             project: { select: { name: true, artStyle: true } },

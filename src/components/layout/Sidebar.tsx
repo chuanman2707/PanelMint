@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuth } from '@/hooks/useAuth'
+import { useLocalUser } from '@/hooks/useLocalUser'
 import { Icon } from '@/components/ui/icons'
 import { NeoButton, cn } from '@/components/ui/NeoButton'
 import { NeoTag } from '@/components/ui/NeoTag'
@@ -17,7 +17,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
     const pathname = usePathname()
-    const { user, signout } = useAuth()
+    const { user } = useLocalUser()
     const creditBalance = (user?.credits ?? 0).toLocaleString()
     const activeHref = NAV_ITEMS.reduce<string | null>((bestMatch, item) => {
         const matches = pathname === item.href || pathname.startsWith(`${item.href}/`)
@@ -81,18 +81,10 @@ export function Sidebar() {
                                 {user?.name || user?.email?.split('@')[0] || 'Creator'}
                             </p>
                             <NeoTag tone="lime" className="mt-1">
-                                {(user?.accountTier ?? 'free') === 'paid' ? 'Paid tier' : 'Free tier'}
+                                {(user?.accountTier ?? 'free') === 'paid' ? 'Local paid tier' : 'Local workspace'}
                             </NeoTag>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => void signout()}
-                        className="mt-4 flex w-full items-center justify-center gap-2 border-[var(--neo-border-width-sm)] border-[var(--neo-ink)] px-3 py-2 font-display text-xs font-bold uppercase tracking-tight transition-colors hover:bg-[var(--neo-accent-pink)]"
-                    >
-                        <Icon name="logout" size={14} />
-                        Sign out
-                    </button>
                 </div>
             </div>
         </aside>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { enqueueCharacterSheets, enqueueStoryboard } from '@/lib/queue'
-import { requireAuth, requireEpisodeOwner } from '@/lib/api-auth'
+import { getLocalEpisode, getOrCreateLocalUser } from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 import { parseJsonBody } from '@/lib/api-validate'
 import { approveAnalysisRequestSchema } from '@/lib/validators/pipeline'
@@ -10,11 +10,10 @@ import { AppError } from '@/lib/errors'
 import { normalizeImageModelTier } from '@/lib/billing'
 
 export const POST = apiHandler(async (request, context) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const { runId } = await context.params
-    const ownership = await requireEpisodeOwner(auth.user.id, runId)
+    const ownership = await getLocalEpisode(localUser.id, runId)
     if (ownership.error) return ownership.error
 
     const episode = ownership.episode
@@ -80,7 +79,7 @@ export const POST = apiHandler(async (request, context) => {
 
         await recordPipelineEvent({
             episodeId: runId,
-            userId: auth.user.id,
+            userId: localUser.id,
             step: 'review_analysis',
             status: 'completed',
             metadata: {
@@ -92,7 +91,7 @@ export const POST = apiHandler(async (request, context) => {
 
         await syncPipelineRunState({
             episodeId: runId,
-            userId: auth.user.id,
+            userId: localUser.id,
             episodeStatus: 'storyboarding',
             runStatus: 'running',
             currentStep: 'storyboard',
@@ -122,7 +121,7 @@ export const POST = apiHandler(async (request, context) => {
 
             await syncPipelineRunState({
                 episodeId: runId,
-                userId: auth.user.id,
+                userId: localUser.id,
                 episodeStatus: 'review_analysis',
                 runStatus: 'paused',
                 currentStep: 'review_analysis',
@@ -133,7 +132,7 @@ export const POST = apiHandler(async (request, context) => {
 
             await recordPipelineEvent({
                 episodeId: runId,
-                userId: auth.user.id,
+                userId: localUser.id,
                 step: 'review_analysis',
                 status: 'failed',
                 metadata: {

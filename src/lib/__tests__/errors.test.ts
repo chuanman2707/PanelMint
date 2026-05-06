@@ -12,7 +12,6 @@ describe('Error System', () => {
 
         it('should have static factory methods', () => {
             expect(AppError.badRequest('bad').statusCode).toBe(400)
-            expect(AppError.unauthorized().statusCode).toBe(401)
             expect(AppError.forbidden().statusCode).toBe(403)
             expect(AppError.notFound('User').statusCode).toBe(404)
             expect(AppError.conflict('exists').statusCode).toBe(409)

@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
-    requireAuth: vi.fn(),
-    requireEpisodeOwner: vi.fn(),
+    getOrCreateLocalUser: vi.fn(),
+    getLocalEpisode: vi.fn(),
     deleteEpisodeForProject: vi.fn(),
     prisma: {
         episode: {
@@ -16,9 +16,9 @@ const mocks = vi.hoisted(() => ({
     },
 }))
 
-vi.mock('@/lib/api-auth', () => ({
-    requireAuth: mocks.requireAuth,
-    requireEpisodeOwner: mocks.requireEpisodeOwner,
+vi.mock('@/lib/local-user', () => ({
+    getOrCreateLocalUser: mocks.getOrCreateLocalUser,
+    getLocalEpisode: mocks.getLocalEpisode,
 }))
 
 vi.mock('@/lib/episodes/delete-episode', () => ({
@@ -34,8 +34,8 @@ import { DELETE } from './route'
 describe('DELETE /api/episodes/[episodeId]', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.requireAuth.mockResolvedValue({ user: { id: 'user-1' }, error: null })
-        mocks.requireEpisodeOwner.mockResolvedValue({
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
+        mocks.getLocalEpisode.mockResolvedValue({
             episode: { id: 'ep-1', projectId: 'project-1', status: 'done' },
             error: null,
         })
@@ -52,6 +52,7 @@ describe('DELETE /api/episodes/[episodeId]', () => {
         )
 
         expect(response.status).toBe(200)
+        expect(mocks.getLocalEpisode).toHaveBeenCalledWith('user-1', 'ep-1')
         expect(mocks.deleteEpisodeForProject).toHaveBeenCalledWith({
             episodeId: 'ep-1',
             projectId: 'project-1',

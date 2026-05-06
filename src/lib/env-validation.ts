@@ -1,9 +1,6 @@
 const CORE_REQUIRED = ['DATABASE_URL', 'ENCRYPTION_SECRET'] as const
 const PROD_PLATFORM_REQUIRED = [
     'WAVESPEED_API_KEY',
-    'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY',
-    'CLERK_SECRET_KEY',
-    'CLERK_WEBHOOK_SIGNING_SECRET',
     'INNGEST_EVENT_KEY',
     'INNGEST_SIGNING_KEY',
 ] as const
@@ -58,9 +55,6 @@ export function getEnvValidationReport(): EnvValidationReport {
         checks[key] = hasValue(key) ? 'configured' : 'optional'
     }
     checks.ALLOWED_ORIGINS = hasValue('ALLOWED_ORIGINS') ? 'configured' : 'optional'
-    checks.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = hasValue('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY') ? 'configured' : 'missing'
-    checks.CLERK_SECRET_KEY = hasValue('CLERK_SECRET_KEY') ? 'configured' : 'missing'
-    checks.CLERK_WEBHOOK_SIGNING_SECRET = hasValue('CLERK_WEBHOOK_SIGNING_SECRET') ? 'configured' : 'missing'
 
     return {
         ready: requiredMissing.length === 0,

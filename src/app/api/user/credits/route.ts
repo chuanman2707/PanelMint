@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth } from '@/lib/api-auth'
+import { getOrCreateLocalUser } from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 import { ACTION_CREDIT_COSTS, CREDIT_PACKAGES } from '@/lib/billing'
 
@@ -28,12 +28,11 @@ function describeReason(reason: string): string {
 }
 
 export const GET = apiHandler(async () => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const [user, transactions] = await Promise.all([
         prisma.user.findUnique({
-            where: { id: auth.user.id },
+            where: { id: localUser.id },
             select: {
                 credits: true,
                 accountTier: true,
@@ -41,7 +40,7 @@ export const GET = apiHandler(async () => {
             },
         }),
         prisma.creditTransaction.findMany({
-            where: { userId: auth.user.id },
+            where: { userId: localUser.id },
             orderBy: { createdAt: 'desc' },
             take: 30,
             select: {

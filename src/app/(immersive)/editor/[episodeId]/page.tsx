@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import { CanvasEditor } from '@/components/editor/CanvasEditor'
-import { requirePageSession } from '@/lib/api-auth'
+import { getOrCreateLocalUser } from '@/lib/local-user'
 
 interface EditorPageProps {
     params: Promise<{ episodeId: string }>
@@ -9,7 +9,7 @@ interface EditorPageProps {
 
 export default async function EditorPage({ params }: EditorPageProps) {
     const { episodeId } = await params
-    const user = await requirePageSession(`/editor/${episodeId}`)
+    const user = await getOrCreateLocalUser()
 
     const episode = await prisma.episode.findFirst({
         where: {

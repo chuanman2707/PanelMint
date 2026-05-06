@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
-import { getUserApiKey, setUserApiKey } from '@/lib/auth'
-import { requireAuth } from '@/lib/api-auth'
+import {
+    getLocalUserApiKey,
+    getOrCreateLocalUser,
+    setLocalUserApiKey,
+} from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 import { prisma } from '@/lib/prisma'
 import type { ApiProvider } from '@/lib/api-config'
@@ -19,15 +22,14 @@ const VALIDATION_URLS: Record<ApiProvider, string> = {
 }
 
 export const GET = apiHandler(async (request) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const dbUser = await prisma.user.findUnique({
-        where: { id: auth.user.id },
+        where: { id: localUser.id },
         select: { apiKey: true, apiProvider: true },
     })
 
-    const apiKey = await getUserApiKey(auth.user.id)
+    const apiKey = await getLocalUserApiKey(localUser.id)
     const provider = dbUser?.apiProvider ?? null
     const validate = request.nextUrl.searchParams.get('validate')
 
@@ -57,8 +59,7 @@ export const GET = apiHandler(async (request) => {
 })
 
 export const POST = apiHandler(async (request) => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
     const { apiKey, provider } = await parseJsonBody(request, apiKeyRequestSchema)
 
@@ -66,7 +67,7 @@ export const POST = apiHandler(async (request) => {
         return NextResponse.json({ error: 'Provider must be: wavespeed' }, { status: 400 })
     }
 
-    await setUserApiKey(auth.user.id, apiKey, provider)
+    await setLocalUserApiKey(localUser.id, apiKey, provider)
 
     return NextResponse.json({
         ok: true,
@@ -76,10 +77,9 @@ export const POST = apiHandler(async (request) => {
 })
 
 export const DELETE = apiHandler(async () => {
-    const auth = await requireAuth()
-    if (auth.error) return auth.error
+    const localUser = await getOrCreateLocalUser()
 
-    await setUserApiKey(auth.user.id, null)
+    await setLocalUserApiKey(localUser.id, null)
 
     return NextResponse.json({ ok: true })
 })

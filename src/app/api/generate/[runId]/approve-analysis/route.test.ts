@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
-    requireAuth: vi.fn(),
-    requireEpisodeOwner: vi.fn(),
+    getOrCreateLocalUser: vi.fn(),
+    getLocalEpisode: vi.fn(),
     enqueueStoryboard: vi.fn(),
     enqueueCharacterSheets: vi.fn(),
     syncPipelineRunState: vi.fn(),
@@ -27,9 +27,9 @@ const mocks = vi.hoisted(() => ({
     },
 }))
 
-vi.mock('@/lib/api-auth', () => ({
-    requireAuth: mocks.requireAuth,
-    requireEpisodeOwner: mocks.requireEpisodeOwner,
+vi.mock('@/lib/local-user', () => ({
+    getOrCreateLocalUser: mocks.getOrCreateLocalUser,
+    getLocalEpisode: mocks.getLocalEpisode,
 }))
 
 vi.mock('@/lib/queue', () => ({
@@ -51,7 +51,7 @@ import { POST } from './route'
 describe('POST /api/generate/[runId]/approve-analysis', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.requireAuth.mockResolvedValue({ user: { id: 'user-1' }, error: null })
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
         mocks.prisma.$transaction.mockImplementation(async (input: unknown) => {
             if (typeof input === 'function') {
                 return input(mocks.prisma)
@@ -59,7 +59,7 @@ describe('POST /api/generate/[runId]/approve-analysis', () => {
 
             return Promise.all(input as Promise<unknown>[])
         })
-        mocks.requireEpisodeOwner.mockResolvedValue({
+        mocks.getLocalEpisode.mockResolvedValue({
             episode: { id: 'ep-1', projectId: 'project-1', status: 'review_analysis' },
             error: null,
         })
@@ -119,6 +119,7 @@ describe('POST /api/generate/[runId]/approve-analysis', () => {
         )
 
         expect(response.status).toBe(200)
+        expect(mocks.getLocalEpisode).toHaveBeenCalledWith('user-1', 'ep-1')
         expect(mocks.prisma.character.update).toHaveBeenCalledWith({
             where: { id: 'char-1' },
             data: {

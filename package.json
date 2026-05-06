@@ -10,14 +10,13 @@
     "postinstall": "prisma generate",
     "lint": "eslint",
     "test": "vitest run",
-    "test:critical": "vitest run src/lib/__tests__ src/app/api/generate/route.test.ts src/app/api/user/credits/route.test.ts src/components/GenerateForm.test.tsx src/hooks/useAuth.test.tsx",
+    "test:critical": "vitest run src/lib/__tests__ src/app/api/generate/route.test.ts src/app/api/user/credits/route.test.ts src/components/GenerateForm.test.tsx src/hooks/useLocalUser.test.tsx",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1016.0",
     "@aws-sdk/s3-request-presigner": "^3.1016.0",
-    "@clerk/nextjs": "^7.0.7",
     "@prisma/adapter-pg": "^7.6.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",

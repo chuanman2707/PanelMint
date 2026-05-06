@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
-    requireAuth: vi.fn(),
-    requireCharacterOwner: vi.fn(),
+    getOrCreateLocalUser: vi.fn(),
+    getLocalCharacter: vi.fn(),
     getProviderConfig: vi.fn(),
     generateCharacterDescription: vi.fn(),
     prisma: {
@@ -15,9 +15,9 @@ const mocks = vi.hoisted(() => ({
     },
 }))
 
-vi.mock('@/lib/api-auth', () => ({
-    requireAuth: mocks.requireAuth,
-    requireCharacterOwner: mocks.requireCharacterOwner,
+vi.mock('@/lib/local-user', () => ({
+    getOrCreateLocalUser: mocks.getOrCreateLocalUser,
+    getLocalCharacter: mocks.getLocalCharacter,
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -37,8 +37,8 @@ import { PUT } from './route'
 describe('PUT /api/characters/[characterId]', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.requireAuth.mockResolvedValue({ user: { id: 'user-1' }, error: null })
-        mocks.requireCharacterOwner.mockResolvedValue({ character: { id: 'char-1' }, error: null })
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
+        mocks.getLocalCharacter.mockResolvedValue({ character: { id: 'char-1' }, error: null })
         mocks.prisma.character.findUnique.mockResolvedValue({
             id: 'char-1',
             name: 'Aoi',
@@ -114,6 +114,7 @@ describe('PUT /api/characters/[characterId]', () => {
         )
 
         expect(response.status).toBe(200)
+        expect(mocks.getLocalCharacter).toHaveBeenCalledWith('user-1', 'char-1')
         expect(mocks.prisma.character.update).toHaveBeenCalledWith({
             where: { id: 'char-1' },
             data: {

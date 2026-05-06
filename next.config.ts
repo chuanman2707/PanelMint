@@ -1,17 +1,13 @@
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
-const clerkFrontendHosts = [
-  "https://*.clerk.accounts.dev",
-  "https://*.clerk.com",
-];
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com ${clerkFrontendHosts.join(" ")}${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://img.clerk.com",
+  "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  `connect-src 'self' https://*.openrouter.ai https://*.googleapis.com https://integrate.api.nvidia.com https://api.wavespeed.ai https://clerk-telemetry.com https://*.clerk-telemetry.com ${clerkFrontendHosts.join(" ")}${isDev ? " ws: wss:" : ""}`,
+  `connect-src 'self' https://*.openrouter.ai https://*.googleapis.com https://integrate.api.nvidia.com https://api.wavespeed.ai${isDev ? " ws: wss:" : ""}`,
   "object-src 'none'",
   "base-uri 'self'",
   "frame-ancestors 'none'",

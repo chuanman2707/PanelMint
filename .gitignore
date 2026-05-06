@@ -54,3 +54,11 @@ public/generated/
 .claude
 .codex.worktrees
 .worktrees
+AGENTS.md
+CLAUDE.md
+.jules/
+
+# planning and internal docs
+docs/
+stitch-ui-migration.md
+weoweo-landing-animation-plan.md

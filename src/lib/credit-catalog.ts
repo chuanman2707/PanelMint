@@ -6,7 +6,7 @@ import { getStoryboardPanelBudget } from '@/lib/prompt-budget'
 export const IMAGE_MODEL_TIERS = ['standard', 'premium'] as const
 export type ImageModelTier = (typeof IMAGE_MODEL_TIERS)[number]
 
-export const FREE_SIGNUP_CREDITS = 300
+export const STARTER_CREDITS = 300
 
 export const CREDIT_PACKAGES = {
     starter: {

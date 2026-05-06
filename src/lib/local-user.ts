@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { FREE_SIGNUP_CREDITS } from './billing'
+import { STARTER_CREDITS } from './billing'
 import { decrypt, encrypt, isEncrypted } from './crypto'
 import { prisma } from './prisma'
 
@@ -74,7 +74,7 @@ export async function getOrCreateLocalUser(): Promise<LocalUser> {
                     name: LOCAL_USER_NAME,
                     authUserId: null,
                     passwordHash: LOCAL_OWNER_PASSWORD_PLACEHOLDER,
-                    credits: FREE_SIGNUP_CREDITS,
+                    credits: STARTER_CREDITS,
                     accountTier: 'free',
                     lifetimePurchasedCredits: 0,
                 },
@@ -90,7 +90,7 @@ export async function getOrCreateLocalUser(): Promise<LocalUser> {
             await tx.creditTransaction.create({
                 data: {
                     userId: created.id,
-                    amount: FREE_SIGNUP_CREDITS,
+                    amount: STARTER_CREDITS,
                     reason: 'starter_bonus',
                     balance: created.credits,
                     operationKey: `starter_bonus:${created.id}`,

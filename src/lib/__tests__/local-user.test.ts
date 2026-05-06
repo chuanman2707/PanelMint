@@ -38,7 +38,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 vi.mock('@/lib/billing', () => ({
-    FREE_SIGNUP_CREDITS: 300,
+    STARTER_CREDITS: 300,
 }))
 
 import {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
     ACTION_CREDIT_COSTS,
     CREDIT_PACKAGES,
-    FREE_SIGNUP_CREDITS,
+    STARTER_CREDITS,
     estimatePipelineCost,
     InsufficientCreditsError,
     canAccessPremium,
@@ -59,8 +59,8 @@ beforeEach(() => {
 })
 
 describe('credit catalog', () => {
-    it('exposes the locked package pricing and signup bonus', () => {
-        expect(FREE_SIGNUP_CREDITS).toBe(300)
+    it('exposes the locked package pricing and starter bonus', () => {
+        expect(STARTER_CREDITS).toBe(300)
         expect(CREDIT_PACKAGES.starter.credits).toBe(8000)
         expect(CREDIT_PACKAGES.creator.credits).toBe(27600)
         expect(CREDIT_PACKAGES.publisher.credits).toBe(100000)

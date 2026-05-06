@@ -11,8 +11,8 @@ export const LEGAL_SECTIONS = [
         body: 'Generated comic pages may require review and editing before publication. Weoweo exposes approval gates so you can validate narrative and visual direction before rendering.',
     },
     {
-        title: 'Provider costs',
-        body: 'Generation requests use the WaveSpeed key configured for this local workspace. Track provider spend in your WaveSpeed account; PanelMint only stores the provider key and generation project data.',
+        title: 'Provider key',
+        body: 'Generation requests use the WaveSpeed key configured for this local workspace. PanelMint stores the provider key and generation project data only.',
     },
     {
         title: 'Workspace security',

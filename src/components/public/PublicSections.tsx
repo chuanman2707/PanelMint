@@ -41,7 +41,7 @@ export function FeatureSection({ id = 'features' }: FeatureSectionProps) {
                         {[
                             ['Analysis lock', 'Verify characters, locations, and story intent before any panel imagery is generated.'],
                             ['Storyboard review', 'Approve panel beats in sequence so pacing and camera logic are intentional.'],
-                            ['Local cost clarity', 'WaveSpeed usage stays tied to your own account key outside this workspace.'],
+                            ['Provider ownership', 'WaveSpeed requests stay tied to your own account key outside this workspace.'],
                             ['Local finish', 'Reader and editor live inside the local workspace, not bolted onto the marketing shell.'],
                         ].map(([title, copy], index) => (
                             <div key={title} className="border-[var(--neo-border-width-sm)] border-black bg-white px-4 py-4 shadow-[var(--neo-shadow-button)]">

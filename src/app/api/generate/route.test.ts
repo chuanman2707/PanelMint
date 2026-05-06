@@ -50,7 +50,7 @@ import { POST } from './route'
 describe('POST /api/generate', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1', accountTier: 'free' })
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
         mocks.checkRateLimit.mockResolvedValue(null)
         mocks.prisma.$transaction.mockImplementation(async (input: unknown) => {
             if (typeof input === 'function') {
@@ -94,11 +94,6 @@ describe('POST /api/generate', () => {
         })
         const projectCreateData = mocks.prisma.project.create.mock.calls[0][0].data
         expect(projectCreateData).not.toHaveProperty('imageModel')
-        expect(mocks.recordPipelineEvent).toHaveBeenCalledWith(expect.objectContaining({
-            metadata: expect.not.objectContaining({
-                imageModelTier: expect.anything(),
-            }),
-        }))
         expect(mocks.enqueueAnalyze).toHaveBeenCalledWith(expect.objectContaining({
             episodeId: 'episode-1',
             userId: 'user-1',

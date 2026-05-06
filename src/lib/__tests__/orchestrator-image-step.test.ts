@@ -93,7 +93,6 @@ describe('runImageGenStep', () => {
             project: {
                 userId: 'user-1',
                 artStyle: 'webtoon',
-                imageModel: 'standard',
             },
             projectId: 'project-1',
         })

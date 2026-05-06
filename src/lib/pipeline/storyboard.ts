@@ -1,4 +1,4 @@
-// Storyboard types — kept for DB + UI usage
+// Storyboard types — kept for DB + UI shapes
 // The actual storyboard generation is now merged into analyze.ts (splitIntoPagesWithPanels)
 
 export interface PanelDescription {

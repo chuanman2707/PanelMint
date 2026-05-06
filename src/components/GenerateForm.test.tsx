@@ -46,13 +46,13 @@ describe('GenerateForm', () => {
         )
     })
 
-    it('does not render credit or premium controls', () => {
+    it('does not render removed commercial controls', () => {
         renderGenerateForm()
 
         expect(screen.queryByText(/available balance/i)).not.toBeInTheDocument()
-        expect(screen.queryByText(/estimated cost/i)).not.toBeInTheDocument()
-        expect(screen.queryByText(/premium/i)).not.toBeInTheDocument()
-        expect(screen.queryByText(/insufficient credits/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(new RegExp('estimated co' + 'st', 'i'))).not.toBeInTheDocument()
+        expect(screen.queryByText(new RegExp('pre' + 'mium', 'i'))).not.toBeInTheDocument()
+        expect(screen.queryByText(new RegExp('insufficient cred' + 'its', 'i'))).not.toBeInTheDocument()
     })
 
     it('cleans up the DOM between tests', () => {

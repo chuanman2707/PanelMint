@@ -46,8 +46,8 @@ export const ENGINE_SPECS = [
         copy: 'Ship readable pages first, then refine balloons and pacing without leaving the app.',
     },
     {
-        label: 'Cost clarity',
-        value: 'WaveSpeed account costs',
-        copy: 'Render usage is billed by your WaveSpeed account, outside this local OSS workspace.',
+        label: 'Provider ownership',
+        value: 'WaveSpeed account key',
+        copy: 'Render requests use the WaveSpeed account key configured for this local OSS workspace.',
     },
 ]

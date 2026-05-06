@@ -76,7 +76,7 @@ describe('POST /api/episodes/[episodeId]/retry', () => {
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
     })
 
-    it('queues failed panels for retry without checking credits', async () => {
+    it('queues failed panels for retry', async () => {
         const response = await POST(
             new NextRequest('http://localhost/api/episodes/ep-1/retry', { method: 'POST' }),
             { params: Promise.resolve({ episodeId: 'ep-1' }) },

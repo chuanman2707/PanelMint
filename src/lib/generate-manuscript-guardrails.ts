@@ -9,7 +9,7 @@ export const GENERATE_MANUSCRIPT_NEAR_LIMIT_HELPER_TEXT =
     'Bạn đang gần chạm giới hạn. Nên cắt chapter ở một điểm dừng tự nhiên.'
 
 export const GENERATE_MANUSCRIPT_LIMIT_HELPER_TEXT =
-    'Chapter này quá dài cho một lần generate. Hãy tách thành phần tiếp theo để tránh lỗi và kiểm soát credit tốt hơn.'
+    'Chapter này quá dài cho một lần generate. Hãy tách thành phần tiếp theo để tránh lỗi và kiểm soát tiến trình tốt hơn.'
 
 export const GENERATE_MANUSCRIPT_LIMIT_BLOCK_TEXT =
     'Chapter này quá dài để xử lý an toàn trong một lần generate.'

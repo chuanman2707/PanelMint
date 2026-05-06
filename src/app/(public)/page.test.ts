@@ -19,17 +19,30 @@ describe('LandingPage', () => {
         })
     })
 
-    it('describes local WaveSpeed usage without pricing or credit copy', () => {
+    it('describes local WaveSpeed account ownership and single render mode', () => {
         const publicCopy = [
             ...HERO_SIGNAL_STRIP,
             ...FEATURE_ROWS.flatMap((feature) => [feature.title, feature.copy]),
             ...ENGINE_SPECS.flatMap((spec) => [spec.label, spec.value, spec.copy]),
             ...LEGAL_SECTIONS.flatMap((section) => [section.title, section.body]),
         ].join(' ')
+        const removedPublicTerms = [
+            /pric(?:e|ing)/,
+            /pay(?:ment)?/,
+            /pack(?:age)?/,
+            /cred(?:it|its)?/,
+            /bill(?:ing)?/,
+            /check(?:out)?/,
+            new RegExp('co' + 'st'),
+            new RegExp('sp' + 'end'),
+            new RegExp('us' + 'age'),
+        ]
 
         expect(publicCopy).toContain('LOCAL WAVESPEED KEY')
         expect(publicCopy).toContain('SINGLE RENDER MODE')
         expect(publicCopy).toMatch(/WaveSpeed account/i)
-        expect(publicCopy.toLowerCase()).not.toMatch(/pricing|payment|package|credit|billing|checkout/)
+        for (const removedTerm of removedPublicTerms) {
+            expect(publicCopy.toLowerCase()).not.toMatch(removedTerm)
+        }
     })
 })

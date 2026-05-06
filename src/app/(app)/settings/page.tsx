@@ -247,7 +247,7 @@ export default function SettingsPage() {
                         <div className="border-[var(--neo-border-width)] border-[var(--neo-ink)] bg-[var(--neo-accent-cyan)] px-4 py-4 md:col-span-2">
                             <p className="font-mono text-[10px] uppercase tracking-[0.16em]">WaveSpeed account</p>
                             <p className="mt-3 text-sm text-black/80">
-                                Generation usage is handled by the WaveSpeed account behind this key.
+                                Generation requests use the WaveSpeed account behind this key.
                             </p>
                             <a className="mt-3 block break-all font-mono text-sm font-bold underline underline-offset-4" href={activeProviderInfo.setupUrl} target="_blank" rel="noreferrer">
                                 {activeProviderInfo.setupUrl}

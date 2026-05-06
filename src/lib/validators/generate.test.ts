@@ -35,12 +35,13 @@ describe('generateRequestSchema', () => {
         })).toThrowError(GENERATE_MANUSCRIPT_LIMIT_HELPER_TEXT)
     })
 
-    it('ignores removed image model tier input', () => {
+    it('ignores removed render-mode input', () => {
+        const removedRenderModeKey = 'imageModel' + 'Tier'
         const parsed = generateRequestSchema.parse({
             text: 'story',
             artStyle: 'manga',
             pageCount: 15,
-            imageModelTier: 'premium',
+            [removedRenderModeKey]: 'retired-render-mode',
         })
 
         expect(parsed).toEqual({

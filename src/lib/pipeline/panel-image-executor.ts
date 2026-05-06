@@ -1,10 +1,3 @@
-import {
-    deductCredits,
-    getImageGenerationCreditCost,
-    getImageGenerationReason,
-    refundCredits,
-    type ImageModelTier,
-} from '@/lib/billing'
 import type { ProviderConfig } from '@/lib/api-config'
 import { prisma } from '@/lib/prisma'
 import { buildCharacterCanon } from './character-canon'
@@ -48,7 +41,6 @@ interface ExecutePanelImageGenerationInput {
     dbCharacters: PanelCharacter[]
     providerConfig: ProviderConfig
     artStyle: string
-    imageModelTier: ImageModelTier
     userId: string
     episodeId: string
 }
@@ -93,7 +85,6 @@ export async function executePanelImageGeneration({
     dbCharacters,
     providerConfig,
     artStyle,
-    imageModelTier,
     userId,
     episodeId,
 }: ExecutePanelImageGenerationInput): Promise<PanelExecutionResult> {
@@ -101,8 +92,6 @@ export async function executePanelImageGeneration({
     const referenceImages = await collectPanelReferenceImages(panelCharNames, dbCharacters)
     const panelCharCanon = buildCharacterCanon(dbCharacters, panelCharNames)
     const mustKeep = parseMustKeep(panel.mustKeep)
-    const imageCreditCost = getImageGenerationCreditCost(imageModelTier)
-    const imageCreditReason = getImageGenerationReason(imageModelTier)
 
     if (await episodeCancellationRequested(episodeId)) {
         return 'skipped'
@@ -129,8 +118,6 @@ export async function executePanelImageGeneration({
         select: { generationAttempt: true },
     })
     const generationAttempt = reservedPanel?.generationAttempt ?? 1
-    const imageOperationKey = `image:${panel.id}:${generationAttempt}`
-    const refundOperationKey = `refund:${imageOperationKey}`
 
     await recordPipelineEvent({
         episodeId,
@@ -139,57 +126,9 @@ export async function executePanelImageGeneration({
         status: 'started',
         metadata: {
             attempt: generationAttempt,
-            imageModelTier,
             panelId: panel.id,
         },
     })
-
-    try {
-        const charged = await deductCredits(
-            userId,
-            imageCreditCost,
-            imageCreditReason,
-            episodeId,
-            { operationKey: imageOperationKey },
-        )
-
-        if (!charged) {
-            await prisma.panel.update({
-                where: { id: panel.id },
-                data: { status: 'queued' },
-            })
-            await recordPipelineEvent({
-                episodeId,
-                userId,
-                step: `image_panel:${panel.id}`,
-                status: 'skipped',
-                metadata: {
-                    attempt: generationAttempt,
-                    panelId: panel.id,
-                    reason: 'duplicate_credit_operation',
-                },
-                creditOperationKey: imageOperationKey,
-            })
-            return 'skipped'
-        }
-    } catch (err) {
-        await prisma.panel.update({
-            where: { id: panel.id },
-            data: { status: 'error' },
-        })
-        await recordPipelineEvent({
-            episodeId,
-            userId,
-            step: `image_panel:${panel.id}`,
-            status: 'failed',
-            metadata: {
-                attempt: generationAttempt,
-                error: err instanceof Error ? err.message : 'Credit deduction failed',
-                panelId: panel.id,
-            },
-        })
-        throw err
-    }
 
     try {
         const imageAsset = await generatePanelImage({
@@ -206,7 +145,6 @@ export async function executePanelImageGeneration({
             mood: panel.mood || undefined,
             lighting: panel.lighting || undefined,
             providerConfig,
-            imageModelTier,
             userId,
             episodeId,
         })
@@ -231,7 +169,6 @@ export async function executePanelImageGeneration({
                 storageKey: imageAsset.storageKey,
                 panelId: panel.id,
             },
-            creditOperationKey: imageOperationKey,
         })
 
         return 'done'
@@ -241,13 +178,6 @@ export async function executePanelImageGeneration({
                 where: { id: panel.id },
                 data: { status: 'content_filtered' },
             })
-            await refundCredits(
-                userId,
-                imageCreditCost,
-                `panel gen failed: ${panel.id}`,
-                episodeId,
-                { operationKey: refundOperationKey },
-            )
             await recordPipelineEvent({
                 episodeId,
                 userId,
@@ -259,7 +189,6 @@ export async function executePanelImageGeneration({
                     failureType: 'content_filter',
                     panelId: panel.id,
                 },
-                creditOperationKey: imageOperationKey,
             })
             return 'content_filtered'
         }
@@ -269,13 +198,6 @@ export async function executePanelImageGeneration({
                 where: { id: panel.id },
                 data: { status: 'error' },
             })
-            await refundCredits(
-                userId,
-                imageCreditCost,
-                'service error',
-                episodeId,
-                { operationKey: refundOperationKey },
-            )
             await recordPipelineEvent({
                 episodeId,
                 userId,
@@ -287,7 +209,6 @@ export async function executePanelImageGeneration({
                     failureType: 'service_error',
                     panelId: panel.id,
                 },
-                creditOperationKey: imageOperationKey,
             })
             throw err
         }
@@ -296,13 +217,6 @@ export async function executePanelImageGeneration({
             where: { id: panel.id },
             data: { status: 'error' },
         })
-        await refundCredits(
-            userId,
-            imageCreditCost,
-            `panel gen failed: ${panel.id}`,
-            episodeId,
-            { operationKey: refundOperationKey },
-        )
         await recordPipelineEvent({
             episodeId,
             userId,
@@ -314,7 +228,6 @@ export async function executePanelImageGeneration({
                 failureType: 'generic',
                 panelId: panel.id,
             },
-            creditOperationKey: imageOperationKey,
         })
         return 'error'
     }

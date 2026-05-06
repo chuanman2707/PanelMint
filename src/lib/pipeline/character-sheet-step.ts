@@ -2,11 +2,6 @@ import { prisma } from '@/lib/prisma'
 import { getProviderConfig } from '@/lib/api-config'
 import { generateCharacterSheet } from '@/lib/ai/character-design'
 import { WAVESPEED_IMAGE_POLL_TIMEOUT_MS } from '@/lib/pipeline/image-gen'
-import {
-    ACTION_CREDIT_COSTS,
-    deductCredits,
-    refundCredits,
-} from '@/lib/billing'
 import { recordPipelineEvent } from './run-state'
 
 const CHARACTER_SHEET_TIMEOUT_MS = WAVESPEED_IMAGE_POLL_TIMEOUT_MS + (3 * 60_000)
@@ -90,16 +85,13 @@ export async function runCharacterSheetStep(input: {
         return
     }
 
-    const operationKey = `character_sheet:${episodeId}:${character.id}:${attempt}`
-    const refundOperationKey = `refund:${operationKey}`
-    let charged = false
-
     await recordPipelineEvent({
         episodeId,
         userId,
         step: `character_sheet:${character.id}`,
         status: 'started',
         metadata: {
+            attempt,
             characterId: character.id,
             characterName: character.name,
         },
@@ -107,31 +99,6 @@ export async function runCharacterSheetStep(input: {
 
     try {
         const providerConfig = await getProviderConfig(userId)
-
-        const didCharge = await deductCredits(
-            userId,
-            ACTION_CREDIT_COSTS.standard_image,
-            'character_sheet_generation',
-            episodeId,
-            { operationKey },
-        )
-        if (!didCharge) {
-            await recordPipelineEvent({
-                episodeId,
-                userId,
-                step: `character_sheet:${character.id}`,
-                status: 'skipped',
-                metadata: {
-                    attempt,
-                    characterId: character.id,
-                    characterName: character.name,
-                    reason: 'duplicate_credit_operation',
-                },
-                creditOperationKey: operationKey,
-            })
-            return
-        }
-        charged = true
 
         const { imageUrl, storageKey } = await withTimeout(
             generateCharacterSheet(
@@ -167,19 +134,8 @@ export async function runCharacterSheetStep(input: {
                 imageUrl,
                 storageKey,
             },
-            creditOperationKey: operationKey,
         })
     } catch (err) {
-        if (charged) {
-            await refundCredits(
-                userId,
-                ACTION_CREDIT_COSTS.standard_image,
-                `character sheet failed: ${character.name}`,
-                episodeId,
-                { operationKey: refundOperationKey },
-            ).catch(console.error)
-        }
-
         await recordPipelineEvent({
             episodeId,
             userId,
@@ -191,7 +147,6 @@ export async function runCharacterSheetStep(input: {
                 attempt,
                 error: err instanceof Error ? err.message : 'Unknown character sheet failure',
             },
-            creditOperationKey: operationKey,
         }).catch(console.error)
     }
 }

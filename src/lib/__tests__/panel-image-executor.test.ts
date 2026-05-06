@@ -16,8 +16,6 @@ const mocks = vi.hoisted(() => {
     }
 
     return {
-        deductCredits: vi.fn(),
-        refundCredits: vi.fn(),
         recordPipelineEvent: vi.fn(),
         prisma: {
             episode: {
@@ -36,14 +34,6 @@ const mocks = vi.hoisted(() => {
         ServiceError: MockServiceError,
     }
 })
-
-vi.mock('@/lib/billing', () => ({
-    deductCredits: mocks.deductCredits,
-    refundCredits: mocks.refundCredits,
-    getImageGenerationCreditCost: (tier: 'standard' | 'premium') => tier === 'premium' ? 250 : 40,
-    getImageGenerationReason: (tier: 'standard' | 'premium') =>
-        tier === 'premium' ? 'premium_image_generation' : 'standard_image_generation',
-}))
 
 vi.mock('@/lib/prisma', () => ({
     prisma: mocks.prisma,
@@ -105,8 +95,6 @@ describe('executePanelImageGeneration', () => {
         mocks.prisma.panel.findUnique.mockResolvedValue({ generationAttempt: 1 })
         mocks.prisma.panel.update.mockResolvedValue({})
         mocks.prisma.panel.updateMany.mockResolvedValue({ count: 1 })
-        mocks.deductCredits.mockResolvedValue(true)
-        mocks.refundCredits.mockResolvedValue(undefined)
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
         mocks.collectPanelReferenceImages.mockResolvedValue(['/refs/aoi.png'])
         mocks.buildCharacterCanon.mockReturnValue('Aoi: Lead hero')
@@ -123,19 +111,11 @@ describe('executePanelImageGeneration', () => {
             dbCharacters,
             providerConfig,
             artStyle: 'webtoon',
-            imageModelTier: 'standard',
             userId: 'user-1',
             episodeId: 'episode-1',
         })
 
         expect(result).toBe('done')
-        expect(mocks.deductCredits).toHaveBeenCalledWith(
-            'user-1',
-            40,
-            'standard_image_generation',
-            'episode-1',
-            { operationKey: 'image:panel-1:1' },
-        )
         expect(mocks.prisma.panel.updateMany).toHaveBeenCalledWith({
             where: {
                 id: 'panel-1',
@@ -157,11 +137,23 @@ describe('executePanelImageGeneration', () => {
         })
         expect(mocks.generatePanelImage).toHaveBeenCalledWith(expect.objectContaining({
             panelId: 'panel-1',
-            imageModelTier: 'standard',
+            providerConfig,
         }))
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            step: 'image_panel:panel-1',
+            status: 'completed',
+            metadata: {
+                attempt: 1,
+                imageUrl: '/generated/panel-1.png',
+                storageKey: 'user-1/episode-1/panel-1.png',
+                panelId: 'panel-1',
+            },
+        })
     })
 
-    it('marks the panel content_filtered and refunds on content filter errors', async () => {
+    it('marks the panel content_filtered on content filter errors', async () => {
         mocks.generatePanelImage.mockRejectedValue(new mocks.ContentFilterError('blocked'))
 
         const result = await executePanelImageGeneration({
@@ -169,7 +161,6 @@ describe('executePanelImageGeneration', () => {
             dbCharacters,
             providerConfig,
             artStyle: 'webtoon',
-            imageModelTier: 'standard',
             userId: 'user-1',
             episodeId: 'episode-1',
         })
@@ -179,16 +170,9 @@ describe('executePanelImageGeneration', () => {
             where: { id: 'panel-1' },
             data: { status: 'content_filtered' },
         })
-        expect(mocks.refundCredits).toHaveBeenCalledWith(
-            'user-1',
-            40,
-            'panel gen failed: panel-1',
-            'episode-1',
-            { operationKey: 'refund:image:panel-1:1' },
-        )
     })
 
-    it('rethrows service errors after refunding the panel credit', async () => {
+    it('rethrows service errors after marking the panel failed', async () => {
         mocks.generatePanelImage.mockRejectedValue(new mocks.ServiceError('provider down'))
 
         await expect(executePanelImageGeneration({
@@ -196,18 +180,14 @@ describe('executePanelImageGeneration', () => {
             dbCharacters,
             providerConfig,
             artStyle: 'webtoon',
-            imageModelTier: 'standard',
             userId: 'user-1',
             episodeId: 'episode-1',
         })).rejects.toThrow('provider down')
 
-        expect(mocks.refundCredits).toHaveBeenCalledWith(
-            'user-1',
-            40,
-            'service error',
-            'episode-1',
-            { operationKey: 'refund:image:panel-1:1' },
-        )
+        expect(mocks.prisma.panel.update).toHaveBeenLastCalledWith({
+            where: { id: 'panel-1' },
+            data: { status: 'error' },
+        })
     })
 
     it('marks generic failures as error and tolerates malformed panel characters', async () => {
@@ -221,7 +201,6 @@ describe('executePanelImageGeneration', () => {
             dbCharacters,
             providerConfig,
             artStyle: 'webtoon',
-            imageModelTier: 'standard',
             userId: 'user-1',
             episodeId: 'episode-1',
         })
@@ -233,12 +212,5 @@ describe('executePanelImageGeneration', () => {
             where: { id: 'panel-1' },
             data: { status: 'error' },
         })
-        expect(mocks.refundCredits).toHaveBeenCalledWith(
-            'user-1',
-            40,
-            'panel gen failed: panel-1',
-            'episode-1',
-            { operationKey: 'refund:image:panel-1:1' },
-        )
     })
 })

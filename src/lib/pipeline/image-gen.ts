@@ -2,8 +2,6 @@ import { PROMPTS, getArtStylePrompt } from '@/lib/ai/prompts'
 import { imageRateLimiter } from '@/lib/utils/rate-limiter'
 import { buildStorageKey, buildStorageProxyUrl, getStorage } from '@/lib/storage'
 import type { ProviderConfig } from '@/lib/api-config'
-import type { ImageModelTier } from '@/lib/credit-catalog'
-import { logUsage } from '@/lib/usage'
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -25,7 +23,6 @@ export interface PanelImageInput {
     mood?: string
     lighting?: string
     providerConfig: ProviderConfig
-    imageModelTier?: ImageModelTier
     userId?: string
     episodeId?: string
 }
@@ -40,7 +37,6 @@ export interface StoredImageAsset {
 const MAX_PROMPT_CHARS = 1500
 const WAVESPEED_MAX_RETRIES = 3
 const WAVESPEED_BASE_DELAY_MS = 3_000
-const WAVESPEED_STANDARD_IMAGE_MODEL = 'wavespeed-ai/z-image/turbo'
 // Image polling runs inside an Inngest step on Vercel, so it must resolve
 // comfortably inside the step runtime envelope or the platform can kill the
 // process before we persist panel failure/completion state.
@@ -121,17 +117,9 @@ function resolveWaveSpeedImageStrategy(input: PanelImageInput): {
     model: string
     referenceImages?: string[]
 } {
-    const imageModelTier = input.imageModelTier ?? 'standard'
-
-    if (imageModelTier === 'premium') {
-        return {
-            model: input.providerConfig.imageModel,
-            referenceImages: input.referenceImages,
-        }
-    }
-
     return {
-        model: WAVESPEED_STANDARD_IMAGE_MODEL,
+        model: input.providerConfig.imageModel,
+        referenceImages: input.referenceImages,
     }
 }
 
@@ -162,16 +150,6 @@ export async function generatePanelImage(input: PanelImageInput): Promise<Stored
         input.userId,
         input.episodeId,
     )
-
-    // Log usage after successful image generation
-    if (input.userId) {
-        logUsage({
-            userId: input.userId,
-            type: 'image_gen',
-            model: strategy.model,
-            metadata: JSON.stringify({ panelId: input.panelId }),
-        })
-    }
 
     return url
 }

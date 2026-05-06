@@ -4,7 +4,6 @@ const mocks = vi.hoisted(() => ({
     getArtStylePrompt: vi.fn(),
     acquire: vi.fn(),
     upload: vi.fn(),
-    logUsage: vi.fn(),
 }))
 
 vi.mock('@/lib/ai/prompts', () => ({
@@ -32,10 +31,6 @@ vi.mock('@/lib/storage', () => ({
     }),
     buildStorageKey: (userId: string, episodeId: string, panelId: string) =>
         `${userId}/${episodeId}/${panelId}.png`,
-}))
-
-vi.mock('@/lib/usage', () => ({
-    logUsage: mocks.logUsage,
 }))
 
 import { ContentFilterError, generatePanelImage } from '@/lib/pipeline/image-gen'
@@ -75,7 +70,6 @@ describe('generatePanelImage', () => {
             mustKeep: ['No text', 'Single character only'],
             artStyle: 'webtoon',
             referenceImages: ['https://cdn.example.com/ref.png'],
-            imageModelTier: 'premium',
             providerConfig: {
                 provider: 'wavespeed',
                 apiKey: 'wavespeed-key',
@@ -210,26 +204,25 @@ describe('generatePanelImage', () => {
         expect(submitBody.prompt).toContain('Generate ONLY the visual scene.')
     })
 
-    it('uses the standard tier model instead of seedream and skips multi-ref payloads', async () => {
+    it('uses the configured image model and includes reference images', async () => {
         const fetchMock = vi.fn()
             .mockResolvedValueOnce(new Response(JSON.stringify({
                 code: 0,
-                data: { id: 'task-standard' },
+                data: { id: 'task-configured-model' },
             }), { status: 200, headers: { 'content-type': 'application/json' } }))
             .mockResolvedValueOnce(new Response(JSON.stringify({
-                data: { status: 'completed', outputs: ['https://cdn.example.com/standard.png'] },
+                data: { status: 'completed', outputs: ['https://cdn.example.com/configured-model.png'] },
             }), { status: 200, headers: { 'content-type': 'application/json' } }))
             .mockResolvedValueOnce(new Response(Buffer.from('image-bytes'), { status: 200 }))
         vi.stubGlobal('fetch', fetchMock)
 
         await generatePanelImage({
-            panelId: 'panel-standard',
+            panelId: 'panel-configured-model',
             description: 'A lone swordsman waiting under lantern light.',
             characters: ['Linh'],
             shotType: 'medium',
             location: 'market gate',
             artStyle: 'manga',
-            imageModelTier: 'standard',
             referenceImages: ['https://cdn.example.com/ref.png'],
             providerConfig: {
                 provider: 'wavespeed',
@@ -241,9 +234,9 @@ describe('generatePanelImage', () => {
             },
         })
 
-        expect(String(fetchMock.mock.calls[0]?.[0])).toBe('https://api.wavespeed.ai/api/v3/wavespeed-ai/z-image/turbo')
+        expect(String(fetchMock.mock.calls[0]?.[0])).toBe('https://api.wavespeed.ai/api/v3/wavespeed-ai/flux-kontext-pro/multi')
         const submitBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as { images?: string[] }
-        expect(submitBody.images).toBeUndefined()
+        expect(submitBody.images).toEqual(['https://cdn.example.com/ref.png'])
     })
 
     it('keeps polling long-running wavespeed image jobs past the old 120s cap', async () => {
@@ -253,7 +246,7 @@ describe('generatePanelImage', () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = String(input)
 
-            if (url === 'https://api.wavespeed.ai/api/v3/wavespeed-ai/z-image/turbo') {
+            if (url === 'https://api.wavespeed.ai/api/v3/wavespeed-ai/flux-kontext-pro/multi') {
                 return new Response(JSON.stringify({
                     code: 0,
                     data: { id: 'task-long-image' },
@@ -305,30 +298,29 @@ describe('generatePanelImage', () => {
             storageKey: 'panel-long.png',
         })
         expect(pollCount).toBeGreaterThanOrEqual(25)
-        expect(fetchMock.mock.calls.filter(([url]) => String(url) === 'https://api.wavespeed.ai/api/v3/wavespeed-ai/z-image/turbo')).toHaveLength(1)
+        expect(fetchMock.mock.calls.filter(([url]) => String(url) === 'https://api.wavespeed.ai/api/v3/wavespeed-ai/flux-kontext-pro/multi')).toHaveLength(1)
     })
 
-    it('does not fall back to seedream when a premium request retries', async () => {
+    it('does not fall back to seedream when a request retries', async () => {
         const fetchMock = vi.fn()
             .mockRejectedValueOnce(new Error('temporary upstream failure'))
             .mockResolvedValueOnce(new Response(JSON.stringify({
                 code: 0,
-                data: { id: 'task-premium-retry' },
+                data: { id: 'task-retry' },
             }), { status: 200, headers: { 'content-type': 'application/json' } }))
             .mockResolvedValueOnce(new Response(JSON.stringify({
-                data: { status: 'completed', outputs: ['https://cdn.example.com/premium-retry.png'] },
+                data: { status: 'completed', outputs: ['https://cdn.example.com/retry.png'] },
             }), { status: 200, headers: { 'content-type': 'application/json' } }))
             .mockResolvedValueOnce(new Response(Buffer.from('image-bytes'), { status: 200 }))
         vi.stubGlobal('fetch', fetchMock)
 
         await generatePanelImage({
-            panelId: 'panel-premium-retry',
+            panelId: 'panel-retry',
             description: 'A cloaked figure turning back toward the moon.',
             characters: ['Khanh'],
             shotType: 'wide',
             location: 'cliff edge',
             artStyle: 'webtoon',
-            imageModelTier: 'premium',
             referenceImages: ['https://cdn.example.com/ref.png'],
             providerConfig: {
                 provider: 'wavespeed',

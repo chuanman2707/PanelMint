@@ -7,21 +7,16 @@ datasource db {
 }
 
 model User {
-  id                       String              @id @default(uuid())
-  email                    String              @unique
-  name                     String?
-  apiKey                   String?             @db.Text
-  apiProvider              String?
-  preferences              String?             @db.Text
-  credits                  Int                 @default(300)
-  accountTier              String              @default("free")
-  lifetimePurchasedCredits Int                 @default(0)
-  createdAt                DateTime            @default(now())
-  updatedAt                DateTime            @default(now()) @updatedAt
-  projects                 Project[]
-  creditTransactions       CreditTransaction[]
-  usageRecords             UsageRecord[]
-  pipelineRuns             PipelineRun[]
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String?
+  apiKey       String?       @db.Text
+  apiProvider  String?
+  preferences  String?       @db.Text
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @default(now()) @updatedAt
+  projects     Project[]
+  pipelineRuns PipelineRun[]
 
   @@map("users")
 }
@@ -31,7 +26,6 @@ model Project {
   userId     String
   name       String
   artStyle   String      @default("manga")
-  imageModel String?
   llmModel   String?
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @default(now()) @updatedAt
@@ -187,37 +181,6 @@ model Location {
   @@map("locations")
 }
 
-model CreditTransaction {
-  id           String   @id @default(uuid())
-  userId       String
-  amount       Int
-  reason       String
-  balance      Int
-  episodeId    String?
-  providerTxId String?  @unique
-  operationKey String?  @unique @map("operation_key") @db.Text
-  createdAt    DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, createdAt])
-  @@map("credit_transactions")
-}
-
-model UsageRecord {
-  id        String   @id @default(uuid())
-  userId    String
-  type      String
-  model     String
-  tokens    Int?
-  cost      Float?
-  metadata  String?  @db.Text
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, createdAt])
-  @@map("usage_records")
-}
-
 model RateLimitWindow {
   id          String   @id @default(uuid())
   scope       String
@@ -253,15 +216,14 @@ model PipelineRun {
 }
 
 model PipelineEvent {
-  id                 String      @id @default(uuid())
-  runId              String      @map("run_id")
-  step               String
-  status             String
-  startedAt          DateTime    @default(now()) @map("started_at")
-  completedAt        DateTime?   @map("completed_at")
-  metadata           String?     @db.Text
-  creditOperationKey String?     @unique @map("credit_operation_key") @db.Text
-  run                PipelineRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  id          String      @id @default(uuid())
+  runId       String      @map("run_id")
+  step        String
+  status      String
+  startedAt   DateTime    @default(now()) @map("started_at")
+  completedAt DateTime?   @map("completed_at")
+  metadata    String?     @db.Text
+  run         PipelineRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@index([runId, startedAt])
   @@index([step, status])

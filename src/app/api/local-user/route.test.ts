@@ -17,8 +17,6 @@ describe('GET /api/local-user', () => {
             id: 'local-user-1',
             email: 'local@panelmint.dev',
             name: 'Local Creator',
-            credits: 300,
-            accountTier: 'free',
         })
 
         const response = await GET(
@@ -32,8 +30,6 @@ describe('GET /api/local-user', () => {
                 id: 'local-user-1',
                 email: 'local@panelmint.dev',
                 name: 'Local Creator',
-                credits: 300,
-                accountTier: 'free',
             },
         })
     })

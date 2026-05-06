@@ -9,13 +9,11 @@ function wrapper({ children }: { children: ReactNode }) {
     return <LocalUserProvider>{children}</LocalUserProvider>
 }
 
-function localUser(id: string, credits: number) {
+function localUser(id: string) {
     return {
         id,
         email: `${id}@panelmint.dev`,
         name: `Creator ${id}`,
-        credits,
-        accountTier: 'free',
     }
 }
 
@@ -50,8 +48,6 @@ describe('useLocalUser', () => {
                 id: 'local-user-1',
                 email: 'local@panelmint.dev',
                 name: 'Local Creator',
-                credits: 300,
-                accountTier: 'free',
             },
         }), {
             status: 200,
@@ -66,8 +62,6 @@ describe('useLocalUser', () => {
                 id: 'local-user-1',
                 email: 'local@panelmint.dev',
                 name: 'Local Creator',
-                credits: 300,
-                accountTier: 'free',
             })
         })
     })
@@ -84,9 +78,9 @@ describe('useLocalUser', () => {
     })
 
     it('keeps the latest refresh result when responses resolve out of order', async () => {
-        const initialUser = localUser('local-user-initial', 300)
-        const staleUser = localUser('local-user-stale', 100)
-        const latestUser = localUser('local-user-latest', 500)
+        const initialUser = localUser('local-user-initial')
+        const staleUser = localUser('local-user-stale')
+        const latestUser = localUser('local-user-latest')
         const staleRefresh = deferred<Response>()
         const latestRefresh = deferred<Response>()
         const fetchMock = vi.fn()

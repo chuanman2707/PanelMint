@@ -14,8 +14,6 @@ interface LocalUser {
     id: string
     email: string
     name: string | null
-    credits: number
-    accountTier: string
 }
 
 interface LocalUserContextType {

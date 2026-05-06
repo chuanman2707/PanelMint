@@ -42,7 +42,7 @@ export function FeatureSection({ id = 'features' }: FeatureSectionProps) {
                             ['Analysis lock', 'Verify characters, locations, and story intent before any panel imagery is generated.'],
                             ['Storyboard review', 'Approve panel beats in sequence so pacing and camera logic are intentional.'],
                             ['Credit honesty', 'Package math and premium-image cost stay explicit before you commit.'],
-                            ['Protected finish', 'Reader and editor live behind authenticated immersive routes, not bolted onto the marketing shell.'],
+                            ['Local finish', 'Reader and editor live inside the local workspace, not bolted onto the marketing shell.'],
                         ].map(([title, copy], index) => (
                             <div key={title} className="border-[var(--neo-border-width-sm)] border-black bg-white px-4 py-4 shadow-[var(--neo-shadow-button)]">
                                 <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[color:rgba(9,9,11,0.48)]">
@@ -206,7 +206,7 @@ export function PricingSection({ id = 'pricing', standalone = false }: PricingSe
                     </div>
                     <div className="mt-8 flex flex-wrap gap-4">
                         <NeoButton asChild size="lg">
-                            <Link href="/auth/signup">Create account</Link>
+                            <Link href="/create">Open workspace</Link>
                         </NeoButton>
                         <NeoButton asChild variant="secondary" size="lg">
                             <Link href="/legal">Legal terms</Link>
@@ -242,9 +242,9 @@ export function CtaSection({ id = 'cta' }: CtaSectionProps) {
                         </p>
                         <div className="mt-8 flex flex-wrap gap-4">
                             <NeoButton asChild size="lg">
-                                <Link href="/auth/signup">
+                                <Link href="/create">
                                     <Icon name="sparkles" size={18} />
-                                    Start free
+                                    Start locally
                                 </Link>
                             </NeoButton>
                             <NeoButton asChild variant="secondary" size="lg">

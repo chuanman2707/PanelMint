@@ -30,9 +30,6 @@ describe('GET /api/health', () => {
                 DATABASE_URL: 'configured',
                 ENCRYPTION_SECRET: 'configured',
                 WAVESPEED_API_KEY: 'configured',
-                NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'configured',
-                CLERK_SECRET_KEY: 'configured',
-                CLERK_WEBHOOK_SIGNING_SECRET: 'configured',
                 INNGEST_EVENT_KEY: 'configured',
                 INNGEST_SIGNING_KEY: 'configured',
                 R2_ACCOUNT_ID: 'optional',
@@ -52,16 +49,16 @@ describe('GET /api/health', () => {
         )
 
         expect(response.status).toBe(200)
-            await expect(response.json()).resolves.toMatchObject({
+        await expect(response.json()).resolves.toMatchObject({
             status: 'ready',
             details: {
                 missingRequiredEnv: [],
-                notes: ['The default deployment target is Vercel + Neon Postgres + Clerk + Inngest.'],
+                notes: ['Local single-user runtime. Auth is disabled for OSS v1.'],
             },
             checks: {
                 runtime: {
                     queue: 'inngest',
-                    auth: 'clerk',
+                    identity: 'local-single-user',
                 },
             },
         })
@@ -76,9 +73,6 @@ describe('GET /api/health', () => {
                 DATABASE_URL: 'configured',
                 ENCRYPTION_SECRET: 'configured',
                 WAVESPEED_API_KEY: 'missing',
-                NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'configured',
-                CLERK_SECRET_KEY: 'configured',
-                CLERK_WEBHOOK_SIGNING_SECRET: 'configured',
                 INNGEST_EVENT_KEY: 'missing',
                 INNGEST_SIGNING_KEY: 'configured',
                 R2_ACCOUNT_ID: 'optional',

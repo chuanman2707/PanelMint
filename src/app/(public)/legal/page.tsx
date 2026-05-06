@@ -15,8 +15,8 @@ const SECTIONS = [
         body: 'Credit balances, pricing, and payment-status screens describe the intended product flow. Where checkout is not yet wired, the UI should be treated as informational rather than transactional.',
     },
     {
-        title: 'Account security',
-        body: 'Authentication runs through Clerk. Keep your password, session, and any optional provider API keys secure. Remove custom keys immediately if you suspect compromise.',
+        title: 'Workspace security',
+        body: 'The local workspace keeps account state inside the app shell. Keep any optional provider API keys secure and remove custom keys immediately if you suspect compromise.',
     },
 ]
 

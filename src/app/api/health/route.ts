@@ -27,14 +27,14 @@ export const GET = apiHandler(async () => {
                 runtime: {
                     deployment: process.env.VERCEL ? 'vercel' : 'local',
                     queue: 'inngest',
-                    auth: 'clerk',
+                    identity: 'local-single-user',
                 },
             },
             details: {
                 missingRequiredEnv: envReport.requiredMissing,
                 warnings: envReport.warnings,
                 notes: [
-                    'The default deployment target is Vercel + Neon Postgres + Clerk + Inngest.',
+                    'Local single-user runtime. Auth is disabled for OSS v1.',
                 ],
             },
         },

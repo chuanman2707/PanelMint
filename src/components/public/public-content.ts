@@ -7,7 +7,7 @@ export const HERO_TERMINAL_LINES = [
 export const HERO_SIGNAL_STRIP = [
     'STORYBOARD GATES',
     'PAYMENT-READY UI',
-    'PROTECTED IMMERSIVE ROUTES',
+    'LOCAL IMMERSIVE ROUTES',
     'CREDIT-AWARE GENERATION',
 ]
 
@@ -24,7 +24,7 @@ export const FEATURE_ROWS = [
     },
     {
         title: 'Immersive reading + editing',
-        copy: 'Reader and editor routes stay protected, full-screen, and detached from app chrome.',
+        copy: 'Reader and editor routes stay local, full-screen, and detached from app chrome.',
         tone: 'lime' as const,
     },
 ]

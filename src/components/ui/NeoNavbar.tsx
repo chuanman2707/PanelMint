@@ -75,14 +75,11 @@ export function NeoNavbar() {
                             <button type="button" className="transition-colors hover:text-white" aria-label="Notifications">
                                 <Icon name="notifications" size={18} />
                             </button>
-                            <button type="button" className="transition-colors hover:text-white" aria-label="Account">
+                            <button type="button" className="transition-colors hover:text-white" aria-label="Workspace">
                                 <Icon name="user" size={18} />
                             </button>
                         </div>
-                        <Link href="/auth/signin" className="hidden shrink-0 sm:block">
-                            <NeoButton variant="secondary" size="sm">Sign In</NeoButton>
-                        </Link>
-                        <Link href={pathname === '/' ? '#cta' : '/auth/signup'} className="shrink-0">
+                        <Link href={pathname === '/' ? '#cta' : '/create'} className="shrink-0">
                             <NeoButton size="sm">Get Started</NeoButton>
                         </Link>
                     </div>

@@ -10,9 +10,7 @@ import { AppError } from '@/lib/errors'
 import { recordPipelineEvent, syncPipelineRunState } from '@/lib/pipeline/run-state'
 import {
     ACTION_CREDIT_COSTS,
-    canAccessPremium,
     checkCredits,
-    normalizeImageModelTier,
 } from '@/lib/billing'
 
 export const POST = apiHandler(async (request) => {
@@ -39,14 +37,9 @@ export const POST = apiHandler(async (request) => {
         text,
         artStyle: normalizedArtStyle,
         pageCount: clampedPageCount,
-        imageModelTier,
     } = await parseJsonBody(request, generateRequestSchema)
 
-    const normalizedImageModelTier = normalizeImageModelTier(imageModelTier)
-
-    if (normalizedImageModelTier === 'premium' && !canAccessPremium(localUser.accountTier as 'free' | 'paid')) {
-        throw AppError.forbidden('Premium image generation unlocks after your first credit purchase.')
-    }
+    const normalizedImageModelTier = 'standard'
 
     const hasCreditsForKickoff = await checkCredits(localUser.id, ACTION_CREDIT_COSTS.llm_generation)
     if (!hasCreditsForKickoff) {

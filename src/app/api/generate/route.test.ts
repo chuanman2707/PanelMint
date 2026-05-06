@@ -35,9 +35,7 @@ vi.mock('@/lib/api-validate', () => ({
 
 vi.mock('@/lib/billing', () => ({
     ACTION_CREDIT_COSTS: { llm_generation: 80 },
-    canAccessPremium: (tier: 'free' | 'paid') => tier === 'paid',
     checkCredits: mocks.checkCredits,
-    normalizeImageModelTier: (tier?: string | null) => tier === 'premium' ? 'premium' : 'standard',
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -71,7 +69,6 @@ describe('POST /api/generate', () => {
             text: 'A dramatic chapter opening',
             artStyle: 'webtoon',
             pageCount: 12,
-            imageModelTier: 'standard',
         })
         mocks.checkCredits.mockResolvedValue(true)
         mocks.prisma.episode.findFirst.mockResolvedValue(null)
@@ -109,24 +106,4 @@ describe('POST /api/generate', () => {
         }))
     })
 
-    it('blocks premium generation for free accounts', async () => {
-        mocks.parseJsonBody.mockResolvedValue({
-            text: 'A dramatic chapter opening',
-            artStyle: 'webtoon',
-            pageCount: 12,
-            imageModelTier: 'premium',
-        })
-
-        const response = await POST(
-            new NextRequest('http://localhost/api/generate', {
-                method: 'POST',
-                body: JSON.stringify({ text: 'chapter' }),
-                headers: { 'content-type': 'application/json' },
-            }),
-            { params: Promise.resolve({}) },
-        )
-
-        expect(response.status).toBe(403)
-        expect(mocks.prisma.project.create).not.toHaveBeenCalled()
-    })
 })

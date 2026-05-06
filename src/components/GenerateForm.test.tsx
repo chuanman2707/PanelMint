@@ -1,6 +1,19 @@
+import type * as React from 'react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { GenerateForm } from '@/components/GenerateForm'
 import { render, screen } from '@/test/render'
+
+function renderGenerateForm(overrides: Partial<React.ComponentProps<typeof GenerateForm>> = {}) {
+    const onGenerate = vi.fn()
+    const view = render(
+        <GenerateForm
+            onGenerate={onGenerate}
+            isLoading={false}
+            {...overrides}
+        />,
+    )
+    return { onGenerate, ...view }
+}
 
 describe('GenerateForm', () => {
     beforeEach(() => {
@@ -8,29 +21,14 @@ describe('GenerateForm', () => {
     })
 
     it('describes export length in pages instead of panels', () => {
-        render(
-            <GenerateForm
-                onGenerate={vi.fn()}
-                isLoading={false}
-                credits={1000}
-                accountTier="free"
-            />,
-        )
+        renderGenerateForm()
 
         expect(screen.getByText('15 pages')).toBeInTheDocument()
         expect(screen.queryByText('15 panels')).not.toBeInTheDocument()
     })
 
     it('submits trimmed manuscript text with the default generation options', async () => {
-        const onGenerate = vi.fn()
-        const { user } = render(
-            <GenerateForm
-                onGenerate={onGenerate}
-                isLoading={false}
-                credits={1000}
-                accountTier="free"
-            />,
-        )
+        const { onGenerate, user } = renderGenerateForm()
 
         await user.type(
             screen.getByPlaceholderText(
@@ -45,31 +43,16 @@ describe('GenerateForm', () => {
             'The opening scene needs a reset.',
             'manga',
             15,
-            'standard',
         )
     })
 
-    it('disables submission and shows the credit warning when the estimate exceeds the balance', async () => {
-        const onGenerate = vi.fn()
-        const { user } = render(
-            <GenerateForm
-                onGenerate={onGenerate}
-                isLoading={false}
-                credits={0}
-                accountTier="free"
-            />,
-        )
+    it('does not render credit or premium controls', () => {
+        renderGenerateForm()
 
-        await user.type(
-            screen.getByPlaceholderText(
-                'Paste your story or novel text here... The engine will analyze scene by scene.',
-            ),
-            'A short opening scene.',
-        )
-
-        expect(screen.getByRole('button', { name: 'Initialize Engine' })).toBeDisabled()
-        expect(screen.getByText('Insufficient credits')).toBeInTheDocument()
-        expect(onGenerate).not.toHaveBeenCalled()
+        expect(screen.queryByText(/available balance/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/estimated cost/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/premium/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/insufficient credits/i)).not.toBeInTheDocument()
     })
 
     it('cleans up the DOM between tests', () => {

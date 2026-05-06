@@ -9,24 +9,21 @@ describe('useCreateWorkflow', () => {
         vi.unstubAllGlobals()
     })
 
-    it('returns to input and exposes the API error when generation fails', async () => {
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
-            error: 'Insufficient credits',
-        }), {
-            status: 402,
-            headers: { 'content-type': 'application/json' },
-        })))
+    it('surfaces generation API errors', async () => {
+        const fetchMock = vi.fn()
+        vi.stubGlobal('fetch', fetchMock)
+        fetchMock.mockResolvedValueOnce(
+            new Response(JSON.stringify({ error: 'WaveSpeed API key is missing' }), { status: 400 }),
+        )
 
         const { result } = renderHook(() => useCreateWorkflow({ resumeId: null }))
 
         await act(async () => {
-            await result.current.handleGenerate('story', 'manga', 15, 'standard')
+            await result.current.handleGenerate('story', 'manga', 15)
         })
 
-        await waitFor(() => {
-            expect(result.current.state).toBe('input')
-            expect(result.current.error).toBe('Insufficient credits')
-        })
+        expect(result.current.error).toBe('WaveSpeed API key is missing')
+        expect(result.current.state).toBe('input')
     })
 
     it('loads a resumable run into storyboard review without starting polling again', async () => {

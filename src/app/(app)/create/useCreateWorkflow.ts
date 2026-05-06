@@ -131,7 +131,7 @@ export function useCreateWorkflow({ resumeId }: UseCreateWorkflowArgs) {
         stopPolling()
     }, [stopPolling])
 
-    const handleGenerate = useCallback(async (text: string, artStyle: string, pageCount: number, imageModelTier: 'standard' | 'premium') => {
+    const handleGenerate = useCallback(async (text: string, artStyle: string, pageCount: number) => {
         setState('analyzing')
         setError(null)
         setStatus(INITIAL_STATUS)
@@ -140,7 +140,7 @@ export function useCreateWorkflow({ resumeId }: UseCreateWorkflowArgs) {
             const res = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text, artStyle, pageCount, imageModelTier }),
+                body: JSON.stringify({ text, artStyle, pageCount }),
             })
 
             if (!res.ok) {

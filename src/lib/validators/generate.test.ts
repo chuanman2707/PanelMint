@@ -34,4 +34,19 @@ describe('generateRequestSchema', () => {
             text: 'x'.repeat(MAX_STORY_MANUSCRIPT_CHARS + 1),
         })).toThrowError(GENERATE_MANUSCRIPT_LIMIT_HELPER_TEXT)
     })
+
+    it('ignores removed image model tier input', () => {
+        const parsed = generateRequestSchema.parse({
+            text: 'story',
+            artStyle: 'manga',
+            pageCount: 15,
+            imageModelTier: 'premium',
+        })
+
+        expect(parsed).toEqual({
+            text: 'story',
+            artStyle: 'manga',
+            pageCount: 15,
+        })
+    })
 })

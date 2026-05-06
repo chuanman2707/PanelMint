@@ -17,7 +17,6 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1016.0",
     "@aws-sdk/s3-request-presigner": "^3.1016.0",
-    "@clerk/nextjs": "^7.0.7",
     "@prisma/adapter-pg": "^7.6.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",

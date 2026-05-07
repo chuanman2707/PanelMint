@@ -1,22 +1,70 @@
-import { writeFile, mkdir, unlink } from 'fs/promises'
-import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
+import { mkdir, readFile, stat, unlink, writeFile } from 'fs/promises'
+import { dirname, join, resolve, sep } from 'path'
 
-// ─── Interface ─────────────────────────────────────────
+export interface StoredFile {
+    buffer: Buffer
+    contentType: string
+}
 
 export interface StorageProvider {
-    upload(buffer: Buffer, key: string): Promise<string>
+    upload(buffer: Buffer, key: string, options?: { contentType?: string }): Promise<string>
+    read(key: string): Promise<StoredFile>
     getSignedUrl(key: string, expiresIn?: number): Promise<string>
     delete(key: string): Promise<void>
 }
 
-/** Build a storage key: {userId}/{episodeId}/{panelId}-{uuid}.png */
-export function buildStorageKey(userId: string, episodeId: string, panelId: string): string {
-    return `${userId}/${episodeId}/${panelId}-${randomUUID()}.png`
+const IMAGE_CONTENT_TYPES: Record<string, string> = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    webp: 'image/webp',
+    gif: 'image/gif',
+}
+
+export function getStorageBaseDir(): string {
+    return resolve(process.env.PANELMINT_STORAGE_DIR?.trim() || join(process.cwd(), '.panelmint', 'generated'))
+}
+
+export function normalizeStorageKey(key: string): string {
+    const slashNormalized = key.replace(/\\/g, '/')
+    if (!slashNormalized || slashNormalized.startsWith('/')) {
+        throw new Error('Invalid storage key')
+    }
+
+    const normalized = slashNormalized.replace(/^\/+/, '')
+    if (!normalized || normalized.split('/').some((segment) => segment === '..' || segment === '')) {
+        throw new Error('Invalid storage key')
+    }
+
+    return normalized
+}
+
+export function resolveStoragePath(key: string): string {
+    const baseDir = getStorageBaseDir()
+    const filePath = resolve(baseDir, normalizeStorageKey(key))
+
+    if (filePath !== baseDir && !filePath.startsWith(`${baseDir}${sep}`)) {
+        throw new Error('Invalid storage key')
+    }
+
+    return filePath
+}
+
+export function getContentTypeForStorageKey(key: string): string {
+    const extension = key.split('.').pop()?.toLowerCase() ?? ''
+    return IMAGE_CONTENT_TYPES[extension] ?? 'application/octet-stream'
+}
+
+export function buildStorageKey(userId: string, episodeId: string, panelId: string, extension = 'png'): string {
+    const lowerExtension = extension.toLowerCase()
+    const safeExtension = IMAGE_CONTENT_TYPES[lowerExtension] ? lowerExtension : 'png'
+
+    return `users/${userId}/episodes/${episodeId}/panels/${panelId}-${randomUUID()}.${safeExtension}`
 }
 
 export function buildStorageProxyUrl(key: string): string {
-    const encodedKey = key
+    const encodedKey = normalizeStorageKey(key)
         .split('/')
         .map((segment) => encodeURIComponent(segment))
         .join('/')
@@ -24,118 +72,57 @@ export function buildStorageProxyUrl(key: string): string {
     return `/api/storage/${encodedKey}`
 }
 
-// ─── R2 Storage Provider ───────────────────────────────
-
-export class R2StorageProvider implements StorageProvider {
-    private client: import('@aws-sdk/client-s3').S3Client
-    private bucket: string
-    private publicUrl: string
-
-    constructor() {
-        const { S3Client } = require('@aws-sdk/client-s3') as typeof import('@aws-sdk/client-s3')
-
-        this.bucket = process.env.R2_BUCKET_NAME!
-        this.publicUrl = process.env.R2_PUBLIC_URL || ''
-
-        this.client = new S3Client({
-            region: 'auto',
-            endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-            credentials: {
-                accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-                secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-            },
-        })
-    }
-
-    async upload(buffer: Buffer, key: string): Promise<string> {
-        const { PutObjectCommand } = require('@aws-sdk/client-s3') as typeof import('@aws-sdk/client-s3')
-
-        await this.client.send(new PutObjectCommand({
-            Bucket: this.bucket,
-            Key: key,
-            Body: buffer,
-            ContentType: 'image/png',
-        }))
-
-        const url = this.publicUrl ? `${this.publicUrl}/${key}` : key
-        console.log(`[Storage] R2 uploaded: ${key} → ${url}`)
-        return url
-    }
-
-    async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
-        const { GetObjectCommand } = require('@aws-sdk/client-s3') as typeof import('@aws-sdk/client-s3')
-        const { getSignedUrl: awsGetSignedUrl } = require('@aws-sdk/s3-request-presigner') as typeof import('@aws-sdk/s3-request-presigner')
-
-        const command = new GetObjectCommand({
-            Bucket: this.bucket,
-            Key: key,
-        })
-
-        return awsGetSignedUrl(this.client, command, { expiresIn })
-    }
-
-    async delete(key: string): Promise<void> {
-        const { DeleteObjectCommand } = require('@aws-sdk/client-s3') as typeof import('@aws-sdk/client-s3')
-
-        await this.client.send(new DeleteObjectCommand({
-            Bucket: this.bucket,
-            Key: key,
-        }))
-
-        console.log(`[Storage] R2 deleted: ${key}`)
-    }
-}
-
-// ─── Local Storage Provider (dev fallback) ─────────────
-
 export class LocalStorageProvider implements StorageProvider {
-    private baseDir: string
+    async upload(buffer: Buffer, key: string): Promise<string> {
+        const normalizedKey = normalizeStorageKey(key)
+        const filePath = resolveStoragePath(normalizedKey)
 
-    constructor(baseDir?: string) {
-        this.baseDir = baseDir || join(process.cwd(), 'public', 'generated')
+        await mkdir(dirname(filePath), { recursive: true })
+        await writeFile(filePath, buffer)
+
+        return normalizedKey
     }
 
-    async upload(buffer: Buffer, key: string): Promise<string> {
-        const filename = key.split('/').pop() || `${randomUUID()}.png`
-        const outputDir = this.baseDir
-        await mkdir(outputDir, { recursive: true })
-        await writeFile(join(outputDir, filename), buffer)
-        console.log(`[Storage] Local saved: ${filename}`)
-        return `/generated/${filename}`
+    async read(key: string): Promise<StoredFile> {
+        const normalizedKey = normalizeStorageKey(key)
+        const filePath = resolveStoragePath(normalizedKey)
+        const fileStat = await stat(filePath)
+
+        if (!fileStat.isFile()) {
+            throw new Error('Not found')
+        }
+
+        return {
+            buffer: await readFile(filePath),
+            contentType: getContentTypeForStorageKey(normalizedKey),
+        }
     }
 
     async getSignedUrl(key: string): Promise<string> {
-        if (key.startsWith('/generated/')) return key
-        return `/generated/${basename(key)}`
+        return buildStorageProxyUrl(key)
     }
 
     async delete(key: string): Promise<void> {
-        const filename = key.split('/').pop() || key
-        const filePath = join(this.baseDir, filename)
         try {
-            await unlink(filePath)
-            console.log(`[Storage] Local deleted: ${filename}`)
-        } catch {
-            // File may not exist — ignore
+            await unlink(resolveStoragePath(key))
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+                throw error
+            }
         }
     }
 }
 
-// ─── Factory ───────────────────────────────────────────
-
-let _provider: StorageProvider | null = null
+let provider: StorageProvider | null = null
 
 export function createStorageProvider(): StorageProvider {
-    if (process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID) {
-        return new R2StorageProvider()
-    }
     return new LocalStorageProvider()
 }
 
-/** Singleton storage provider */
 export function getStorage(): StorageProvider {
-    if (!_provider) {
-        _provider = createStorageProvider()
+    if (!provider) {
+        provider = createStorageProvider()
     }
-    return _provider
+
+    return provider
 }

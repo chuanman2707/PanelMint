@@ -5,17 +5,27 @@ interface StorageRouteContext {
     params: Promise<{ key?: string[] }>
 }
 
-export async function GET(request: NextRequest, context: StorageRouteContext) {
+export async function GET(_request: NextRequest, context: StorageRouteContext) {
     const { key } = await context.params
 
     if (!key?.length) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    const storageKey = key
-        .map((segment) => decodeURIComponent(segment))
-        .join('/')
-    const targetUrl = await getStorage().getSignedUrl(storageKey)
+    try {
+        const storageKey = key
+            .map((segment) => decodeURIComponent(segment))
+            .join('/')
+        const file = await getStorage().read(storageKey)
 
-    return NextResponse.redirect(new URL(targetUrl, request.url))
+        return new NextResponse(file.buffer, {
+            status: 200,
+            headers: {
+                'Content-Type': file.contentType,
+                'Cache-Control': 'public, max-age=31536000, immutable',
+            },
+        })
+    } catch {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
 }

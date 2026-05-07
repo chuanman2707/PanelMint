@@ -73,6 +73,7 @@ describe('prepareWaveSpeedReferenceImages', () => {
         const refs = await prepareWaveSpeedReferenceImages([
             { imageUrl: 'https://cdn.example.com/ref.png' },
             { imageUrl: 'http://localhost:3000/api/storage/ref.png' },
+            { imageUrl: 'http://localhost./api/storage/ref.png' },
             { imageUrl: 'http://0.0.0.0/ref.png' },
             { imageUrl: 'http://127.0.0.1/ref.png' },
             { imageUrl: 'http://10.0.0.5/ref.png' },
@@ -81,6 +82,9 @@ describe('prepareWaveSpeedReferenceImages', () => {
             { imageUrl: 'http://[fc00::1]/ref.png' },
             { imageUrl: 'http://[fd12::1]/ref.png' },
             { imageUrl: 'http://[fe80::1]/ref.png' },
+            { imageUrl: 'http://[fe90::1]/ref.png' },
+            { imageUrl: 'http://[fea0::1]/ref.png' },
+            { imageUrl: 'http://[febf::1]/ref.png' },
             { imageUrl: 'http://[::ffff:127.0.0.1]/ref.png' },
         ], providerConfig)
 

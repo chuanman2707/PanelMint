@@ -23,7 +23,10 @@ const IMAGE_CONTENT_TYPES: Record<string, string> = {
 }
 
 export function getStorageBaseDir(): string {
-    return resolve(process.env.PANELMINT_STORAGE_DIR?.trim() || join(process.cwd(), '.panelmint', 'generated'))
+    const configuredDir = process.env.PANELMINT_STORAGE_DIR?.trim()
+    if (configuredDir) return resolve(/* turbopackIgnore: true */ configuredDir)
+
+    return join(/* turbopackIgnore: true */ process.cwd(), '.panelmint', 'generated')
 }
 
 export function normalizeStorageKey(key: string): string {
@@ -42,7 +45,7 @@ export function normalizeStorageKey(key: string): string {
 
 export function resolveStoragePath(key: string): string {
     const baseDir = getStorageBaseDir()
-    const filePath = resolve(baseDir, normalizeStorageKey(key))
+    const filePath = resolve(/* turbopackIgnore: true */ baseDir, normalizeStorageKey(key))
 
     if (filePath !== baseDir && !filePath.startsWith(`${baseDir}${sep}`)) {
         throw new Error('Invalid storage key')
@@ -77,8 +80,8 @@ export class LocalStorageProvider implements StorageProvider {
         const normalizedKey = normalizeStorageKey(key)
         const filePath = resolveStoragePath(normalizedKey)
 
-        await mkdir(dirname(filePath), { recursive: true })
-        await writeFile(filePath, buffer)
+        await mkdir(/* turbopackIgnore: true */ dirname(filePath), { recursive: true })
+        await writeFile(/* turbopackIgnore: true */ filePath, buffer)
 
         return normalizedKey
     }
@@ -86,14 +89,14 @@ export class LocalStorageProvider implements StorageProvider {
     async read(key: string): Promise<StoredFile> {
         const normalizedKey = normalizeStorageKey(key)
         const filePath = resolveStoragePath(normalizedKey)
-        const fileStat = await stat(filePath)
+        const fileStat = await stat(/* turbopackIgnore: true */ filePath)
 
         if (!fileStat.isFile()) {
             throw new Error('Not found')
         }
 
         return {
-            buffer: await readFile(filePath),
+            buffer: await readFile(/* turbopackIgnore: true */ filePath),
             contentType: getContentTypeForStorageKey(normalizedKey),
         }
     }
@@ -104,7 +107,7 @@ export class LocalStorageProvider implements StorageProvider {
 
     async delete(key: string): Promise<void> {
         try {
-            await unlink(resolveStoragePath(key))
+            await unlink(/* turbopackIgnore: true */ resolveStoragePath(key))
         } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
                 throw error

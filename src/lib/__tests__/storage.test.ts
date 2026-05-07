@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdir, readFile, stat, unlink, writeFile } from 'fs/promises'
+import { join } from 'path'
 import {
     LocalStorageProvider,
     buildStorageKey,
     buildStorageProxyUrl,
     createStorageProvider,
     getContentTypeForStorageKey,
+    getStorageBaseDir,
     normalizeStorageKey,
 } from '@/lib/storage'
 
@@ -42,6 +44,12 @@ describe('local storage', () => {
             '/tmp/panelmint-generated/users/u/panel.png',
             buffer,
         )
+    })
+
+    it('defaults generated assets under the local workspace', () => {
+        vi.stubEnv('PANELMINT_STORAGE_DIR', '')
+
+        expect(getStorageBaseDir()).toBe(join(process.cwd(), '.panelmint', 'generated'))
     })
 
     it('reads local files with content type', async () => {

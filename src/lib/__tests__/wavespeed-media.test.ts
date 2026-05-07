@@ -60,7 +60,7 @@ describe('prepareWaveSpeedReferenceImages', () => {
     it('does not pass local browser URLs to WaveSpeed', async () => {
         const refs = await prepareWaveSpeedReferenceImages([
             { imageUrl: '/api/storage/characters/aoi.png' },
-            { imageUrl: '/generated/aoi.png' },
+            { imageUrl: '/local-assets/aoi.png' },
             { imageUrl: '/Users/binhan/aoi.png' },
         ], providerConfig)
 

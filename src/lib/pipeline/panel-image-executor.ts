@@ -91,7 +91,6 @@ export async function executePanelImageGeneration({
 }: ExecutePanelImageGenerationInput): Promise<PanelExecutionResult> {
     const panelCharNames = parsePanelCharacterNames(panel.characters)
     const referenceCandidates = await collectPanelReferenceImages(panelCharNames, dbCharacters)
-    const referenceImages = await prepareWaveSpeedReferenceImages(referenceCandidates, providerConfig)
     const panelCharCanon = buildCharacterCanon(dbCharacters, panelCharNames)
     const mustKeep = parseMustKeep(panel.mustKeep)
 
@@ -133,6 +132,7 @@ export async function executePanelImageGeneration({
     })
 
     try {
+        const referenceImages = await prepareWaveSpeedReferenceImages(referenceCandidates, providerConfig)
         const imageAsset = await generatePanelImage({
             panelId: panel.id,
             description: panel.approvedPrompt || panel.description || '',

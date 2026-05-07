@@ -160,6 +160,40 @@ describe('executePanelImageGeneration', () => {
         })
     })
 
+    it('does not upload references when the episode is already cancelled', async () => {
+        mocks.prisma.episode.findUnique.mockResolvedValue({ status: 'error' })
+
+        const result = await executePanelImageGeneration({
+            panel,
+            dbCharacters,
+            providerConfig,
+            artStyle: 'webtoon',
+            userId: 'user-1',
+            episodeId: 'episode-1',
+        })
+
+        expect(result).toBe('skipped')
+        expect(mocks.prepareWaveSpeedReferenceImages).not.toHaveBeenCalled()
+        expect(mocks.generatePanelImage).not.toHaveBeenCalled()
+    })
+
+    it('does not upload references when panel reservation fails', async () => {
+        mocks.prisma.panel.updateMany.mockResolvedValue({ count: 0 })
+
+        const result = await executePanelImageGeneration({
+            panel,
+            dbCharacters,
+            providerConfig,
+            artStyle: 'webtoon',
+            userId: 'user-1',
+            episodeId: 'episode-1',
+        })
+
+        expect(result).toBe('skipped')
+        expect(mocks.prepareWaveSpeedReferenceImages).not.toHaveBeenCalled()
+        expect(mocks.generatePanelImage).not.toHaveBeenCalled()
+    })
+
     it('marks the panel content_filtered on content filter errors', async () => {
         mocks.generatePanelImage.mockRejectedValue(new mocks.ContentFilterError('blocked'))
 

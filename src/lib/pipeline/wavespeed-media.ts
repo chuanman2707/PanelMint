@@ -7,7 +7,28 @@ export interface ReferenceImageCandidate {
 }
 
 function isRemoteUrl(value: string): boolean {
-    return value.startsWith('https://') || value.startsWith('http://')
+    try {
+        const url = new URL(value)
+        if (url.protocol !== 'https:' && url.protocol !== 'http:') return false
+
+        const hostname = url.hostname.toLowerCase()
+        if (hostname === 'localhost' || hostname.endsWith('.localhost')) return false
+        if (hostname === '::1' || hostname === '[::1]') return false
+        if (/^127\./.test(hostname)) return false
+        if (/^10\./.test(hostname)) return false
+        if (/^192\.168\./.test(hostname)) return false
+        if (/^169\.254\./.test(hostname)) return false
+
+        const private172 = hostname.match(/^172\.(\d+)\./)
+        if (private172) {
+            const secondOctet = Number(private172[1])
+            if (secondOctet >= 16 && secondOctet <= 31) return false
+        }
+
+        return true
+    } catch {
+        return false
+    }
 }
 
 async function uploadReferenceToWaveSpeed(
@@ -20,7 +41,8 @@ async function uploadReferenceToWaveSpeed(
         const file = await getStorage().read(reference.storageKey)
         const formData = new FormData()
         const filename = reference.storageKey.split('/').pop() || 'reference.png'
-        formData.append('file', new Blob([new Uint8Array(file.buffer)], { type: file.contentType }), filename)
+        const bytes = new Uint8Array(file.buffer.buffer, file.buffer.byteOffset, file.buffer.byteLength)
+        formData.append('file', new Blob([bytes], { type: file.contentType }), filename)
 
         const response = await fetch(`${config.baseUrl}/media/upload/binary`, {
             method: 'POST',

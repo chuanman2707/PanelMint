@@ -34,6 +34,13 @@ describe('prepareWaveSpeedReferenceImages', () => {
     })
 
     it('uploads local storage references to WaveSpeed media upload', async () => {
+        const backing = Buffer.alloc(16)
+        backing.write('image', 4)
+        mocks.read.mockResolvedValue({
+            buffer: backing.subarray(4, 9),
+            contentType: 'image/png',
+        })
+
         const refs = await prepareWaveSpeedReferenceImages([
             { storageKey: 'characters/aoi.png', imageUrl: '/api/storage/characters/aoi.png' },
         ], providerConfig)
@@ -44,6 +51,10 @@ describe('prepareWaveSpeedReferenceImages', () => {
         expect(init?.method).toBe('POST')
         expect(init?.headers).toMatchObject({ Authorization: 'Bearer ws-key' })
         expect(init?.body).toBeInstanceOf(FormData)
+        const file = (init?.body as FormData).get('file') as File
+        expect(file.name).toBe('aoi.png')
+        expect(file.type).toBe('image/png')
+        await expect(file.text()).resolves.toBe('image')
     })
 
     it('does not pass local browser URLs to WaveSpeed', async () => {
@@ -54,6 +65,21 @@ describe('prepareWaveSpeedReferenceImages', () => {
         ], providerConfig)
 
         expect(refs).toEqual([])
+        expect(fetch).not.toHaveBeenCalled()
+        expect(mocks.read).not.toHaveBeenCalled()
+    })
+
+    it('passes through remote public URLs only', async () => {
+        const refs = await prepareWaveSpeedReferenceImages([
+            { imageUrl: 'https://cdn.example.com/ref.png' },
+            { imageUrl: 'http://localhost:3000/api/storage/ref.png' },
+            { imageUrl: 'http://127.0.0.1/ref.png' },
+            { imageUrl: 'http://10.0.0.5/ref.png' },
+            { imageUrl: 'http://172.16.0.5/ref.png' },
+            { imageUrl: 'http://192.168.1.5/ref.png' },
+        ], providerConfig)
+
+        expect(refs).toEqual(['https://cdn.example.com/ref.png'])
         expect(fetch).not.toHaveBeenCalled()
         expect(mocks.read).not.toHaveBeenCalled()
     })

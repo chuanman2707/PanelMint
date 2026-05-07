@@ -30,7 +30,7 @@ describe('callLLM WaveSpeed polling', () => {
     })
 
     it('uses shared provider config when no explicit config is passed', async () => {
-        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = String(input)
 
             if (url.includes('/wavespeed-ai/any-llm')) {

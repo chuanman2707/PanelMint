@@ -11,6 +11,7 @@ export interface ProviderConfig {
     apiKey: string
     llmModel: string
     imageModel: string
+    imageFallbackModel?: string
     baseUrl: string
     userId?: string
 }
@@ -21,6 +22,7 @@ export const WAVESPEED_PROVIDER_SETUP_ERROR =
 const WAVESPEED_BASE_URL = 'https://api.wavespeed.ai/api/v3'
 const DEFAULT_LLM_MODEL = 'bytedance-seed/seed-1.6-flash'
 const DEFAULT_IMAGE_MODEL = 'wavespeed-ai/flux-kontext-pro/multi'
+const DEFAULT_IMAGE_FALLBACK_MODEL = 'bytedance/seedream-v4'
 
 function readEnvValue(key: string): string | null {
     const value = process.env[key]?.trim()
@@ -38,6 +40,7 @@ export async function getProviderConfig(userId?: string): Promise<ProviderConfig
         apiKey,
         llmModel: readEnvValue('LLM_MODEL') ?? DEFAULT_LLM_MODEL,
         imageModel: readEnvValue('IMAGE_MODEL') ?? DEFAULT_IMAGE_MODEL,
+        imageFallbackModel: readEnvValue('IMAGE_FALLBACK_MODEL') ?? DEFAULT_IMAGE_FALLBACK_MODEL,
         baseUrl: WAVESPEED_BASE_URL,
         ...(userId ? { userId } : {}),
     }

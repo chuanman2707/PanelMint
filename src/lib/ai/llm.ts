@@ -1,12 +1,11 @@
 /**
  * LLM wrapper for WaveSpeed.
  *
- * Text generation uses the official WaveSpeed "any-llm" endpoint with a
- * WaveSpeed API key. If no providerConfig is passed, the platform-managed key
- * is used.
+ * Text generation uses the official WaveSpeed "any-llm" endpoint with the
+ * shared local provider config from WAVESPEED_API_KEY.
  */
 
-import type { ProviderConfig } from '@/lib/api-config'
+import { getProviderConfig, type ProviderConfig } from '@/lib/api-config'
 
 const WAVESPEED_ANY_LLM_URL = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/any-llm'
 const WAVESPEED_POLL_URL = 'https://api.wavespeed.ai/api/v3/predictions'
@@ -30,26 +29,11 @@ export async function callLLM(
         pollTimeoutMs?: number
     }
 ): Promise<string> {
-    const providerConfig = options?.providerConfig ?? getPlatformProviderConfig()
+    const providerConfig = options?.providerConfig ?? await getProviderConfig()
     return callLLMWaveSpeed(prompt, {
         ...options,
         providerConfig,
     })
-}
-
-function getPlatformProviderConfig(): ProviderConfig {
-    const apiKey = process.env.WAVESPEED_API_KEY?.trim()
-    if (!apiKey) {
-        throw new Error('WAVESPEED_API_KEY is required for LLM generation.')
-    }
-
-    return {
-        provider: 'wavespeed',
-        apiKey,
-        llmModel: process.env.LLM_MODEL?.trim() || 'bytedance-seed/seed-1.6-flash',
-        imageModel: process.env.IMAGE_MODEL?.trim() || 'wavespeed-ai/flux-kontext-pro/multi',
-        baseUrl: 'https://api.wavespeed.ai/api/v3',
-    }
 }
 
 async function callLLMWaveSpeed(

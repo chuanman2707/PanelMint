@@ -13,12 +13,13 @@ function isRemoteUrl(value: string): boolean {
 
         const hostname = url.hostname.toLowerCase().replace(/\.+$/, '')
         const host = hostname.replace(/^\[|\]$/g, '')
+        const isIpv6Literal = host.includes(':')
         if (hostname === 'localhost' || hostname.endsWith('.localhost')) return false
         if (host === '::' || host === '::1') return false
         if (host.startsWith('::ffff:')) return false
         if (host === '0.0.0.0') return false
-        if (host.startsWith('fc') || host.startsWith('fd')) return false
-        if (/^fe[89ab][0-9a-f]?:/i.test(host)) return false
+        if (isIpv6Literal && (host.startsWith('fc') || host.startsWith('fd'))) return false
+        if (isIpv6Literal && /^fe[89ab][0-9a-f]?:/i.test(host)) return false
         if (/^127\./.test(host)) return false
         if (/^10\./.test(host)) return false
         if (/^192\.168\./.test(host)) return false

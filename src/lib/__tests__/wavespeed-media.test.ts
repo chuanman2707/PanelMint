@@ -72,6 +72,7 @@ describe('prepareWaveSpeedReferenceImages', () => {
     it('passes through remote public URLs only', async () => {
         const refs = await prepareWaveSpeedReferenceImages([
             { imageUrl: 'https://cdn.example.com/ref.png' },
+            { imageUrl: 'https://fcdn.example.com/ref.png' },
             { imageUrl: 'http://localhost:3000/api/storage/ref.png' },
             { imageUrl: 'http://localhost./api/storage/ref.png' },
             { imageUrl: 'http://0.0.0.0/ref.png' },
@@ -88,7 +89,10 @@ describe('prepareWaveSpeedReferenceImages', () => {
             { imageUrl: 'http://[::ffff:127.0.0.1]/ref.png' },
         ], providerConfig)
 
-        expect(refs).toEqual(['https://cdn.example.com/ref.png'])
+        expect(refs).toEqual([
+            'https://cdn.example.com/ref.png',
+            'https://fcdn.example.com/ref.png',
+        ])
         expect(fetch).not.toHaveBeenCalled()
         expect(mocks.read).not.toHaveBeenCalled()
     })

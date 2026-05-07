@@ -173,7 +173,6 @@ CREATE TABLE "pipeline_runs" (
     "userId" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'pending',
     "current_step" TEXT,
-    "inngest_run_id" TEXT,
     "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "completed_at" TIMESTAMP(3),
     "error" TEXT,
@@ -193,6 +192,27 @@ CREATE TABLE "pipeline_events" (
     "metadata" TEXT,
 
     CONSTRAINT "pipeline_events_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "pipeline_jobs" (
+    "id" TEXT NOT NULL,
+    "episode_id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "payload" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'queued',
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "max_attempts" INTEGER NOT NULL DEFAULT 3,
+    "available_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "locked_at" TIMESTAMP(3),
+    "locked_by" TEXT,
+    "last_error" TEXT,
+    "dedupe_key" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "pipeline_jobs_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -244,9 +264,6 @@ CREATE UNIQUE INDEX "rate_limit_windows_scope_window_start_key" ON "rate_limit_w
 CREATE UNIQUE INDEX "pipeline_runs_episodeId_key" ON "pipeline_runs"("episodeId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "pipeline_runs_inngest_run_id_key" ON "pipeline_runs"("inngest_run_id");
-
--- CreateIndex
 CREATE INDEX "pipeline_runs_userId_idx" ON "pipeline_runs"("userId");
 
 -- CreateIndex
@@ -257,6 +274,21 @@ CREATE INDEX "pipeline_events_run_id_started_at_idx" ON "pipeline_events"("run_i
 
 -- CreateIndex
 CREATE INDEX "pipeline_events_step_status_idx" ON "pipeline_events"("step", "status");
+
+-- CreateIndex
+CREATE INDEX "pipeline_jobs_status_available_at_idx" ON "pipeline_jobs"("status", "available_at");
+
+-- CreateIndex
+CREATE INDEX "pipeline_jobs_locked_at_idx" ON "pipeline_jobs"("locked_at");
+
+-- CreateIndex
+CREATE INDEX "pipeline_jobs_episode_id_idx" ON "pipeline_jobs"("episode_id");
+
+-- CreateIndex
+CREATE INDEX "pipeline_jobs_dedupe_key_status_idx" ON "pipeline_jobs"("dedupe_key", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "pipeline_jobs_active_dedupe_key_key" ON "pipeline_jobs"("dedupe_key") WHERE "status" IN ('queued', 'running');
 
 -- AddForeignKey
 ALTER TABLE "projects" ADD CONSTRAINT "projects_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -290,3 +322,9 @@ ALTER TABLE "pipeline_runs" ADD CONSTRAINT "pipeline_runs_userId_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "pipeline_events" ADD CONSTRAINT "pipeline_events_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "pipeline_runs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pipeline_jobs" ADD CONSTRAINT "pipeline_jobs_episode_id_fkey" FOREIGN KEY ("episode_id") REFERENCES "episodes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pipeline_jobs" ADD CONSTRAINT "pipeline_jobs_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

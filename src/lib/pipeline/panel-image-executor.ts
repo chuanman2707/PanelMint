@@ -151,6 +151,20 @@ export async function executePanelImageGeneration({
             episodeId,
         })
 
+        if (await episodeCancellationRequested(episodeId)) {
+            await recordPipelineEvent({
+                episodeId,
+                userId,
+                step: `image_panel:${panel.id}`,
+                status: 'cancelled',
+                metadata: {
+                    attempt: generationAttempt,
+                    panelId: panel.id,
+                },
+            })
+            return 'skipped'
+        }
+
         await prisma.panel.update({
             where: { id: panel.id },
             data: {
@@ -175,6 +189,20 @@ export async function executePanelImageGeneration({
 
         return 'done'
     } catch (err) {
+        if (await episodeCancellationRequested(episodeId)) {
+            await recordPipelineEvent({
+                episodeId,
+                userId,
+                step: `image_panel:${panel.id}`,
+                status: 'cancelled',
+                metadata: {
+                    attempt: generationAttempt,
+                    panelId: panel.id,
+                },
+            })
+            return 'skipped'
+        }
+
         if (err instanceof ContentFilterError) {
             await prisma.panel.update({
                 where: { id: panel.id },

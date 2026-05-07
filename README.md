@@ -16,7 +16,7 @@ This repository has been cleaned to center on one production stack:
 npm install
 cp .env.example .env
 npx prisma generate
-npx prisma db push
+npx prisma migrate deploy
 npm run dev
 ```
 
@@ -96,7 +96,7 @@ cp .env.example .env
 
 ```bash
 npx prisma generate
-npx prisma db push
+npx prisma migrate deploy
 npm run dev
 ```
 

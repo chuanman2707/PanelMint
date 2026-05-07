@@ -161,6 +161,15 @@ describe('runImageGenStep', () => {
 
         await runImageGenStep('episode-1', ['panel-1'])
 
+        expect(mocks.prisma.character.findMany).toHaveBeenCalledWith({
+            where: { projectId: 'project-1' },
+            include: {
+                appearances: {
+                    where: { isDefault: true },
+                    select: { imageUrl: true, storageKey: true, isDefault: true },
+                },
+            },
+        })
         expect(mocks.prisma.panel.update).toHaveBeenCalledWith({
             where: { id: 'panel-1' },
             data: { status: 'content_filtered' },

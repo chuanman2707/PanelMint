@@ -177,6 +177,38 @@ describe('executePanelImageGeneration', () => {
         expect(mocks.generatePanelImage).not.toHaveBeenCalled()
     })
 
+    it('does not persist generated output when cancellation happens during provider work', async () => {
+        mocks.prisma.episode.findUnique
+            .mockResolvedValueOnce({ status: 'imaging' })
+            .mockResolvedValueOnce({ status: 'error' })
+        mocks.generatePanelImage.mockResolvedValue({
+            imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/panel-1.png',
+            storageKey: 'user-1/episode-1/panel-1.png',
+        })
+
+        const result = await executePanelImageGeneration({
+            panel,
+            dbCharacters,
+            providerConfig,
+            artStyle: 'webtoon',
+            userId: 'user-1',
+            episodeId: 'episode-1',
+        })
+
+        expect(result).toBe('skipped')
+        expect(mocks.prisma.panel.update).not.toHaveBeenCalled()
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            step: 'image_panel:panel-1',
+            status: 'cancelled',
+            metadata: {
+                attempt: 1,
+                panelId: 'panel-1',
+            },
+        })
+    })
+
     it('does not upload references when panel reservation fails', async () => {
         mocks.prisma.panel.updateMany.mockResolvedValue({ count: 0 })
 

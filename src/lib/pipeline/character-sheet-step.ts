@@ -148,5 +148,6 @@ export async function runCharacterSheetStep(input: {
                 error: err instanceof Error ? err.message : 'Unknown character sheet failure',
             },
         }).catch(console.error)
+        throw err
     }
 }

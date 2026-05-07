@@ -4,13 +4,21 @@ const mocks = vi.hoisted(() => ({
     prisma: {
         episode: {
             findUnique: vi.fn(),
+            findUniqueOrThrow: vi.fn(),
             update: vi.fn(),
         },
         character: {
             create: vi.fn(),
+            findMany: vi.fn(),
             update: vi.fn(),
         },
         location: {
+            create: vi.fn(),
+        },
+        page: {
+            create: vi.fn(),
+        },
+        panel: {
             create: vi.fn(),
         },
     },
@@ -54,7 +62,7 @@ vi.mock('@/lib/pipeline/image-gen', () => ({
     ServiceError: class ServiceError extends Error {},
 }))
 
-import { runAnalyzeStep } from '@/lib/pipeline/orchestrator'
+import { runAnalyzeStep, runStoryboardStep } from '@/lib/pipeline/orchestrator'
 
 describe('runAnalyzeStep', () => {
     beforeEach(() => {
@@ -172,5 +180,81 @@ describe('runAnalyzeStep', () => {
             },
         })
         expect(mocks.analyzeCharactersAndLocations).not.toHaveBeenCalled()
+    })
+
+    it('does not persist analysis output when cancellation happens during provider work', async () => {
+        mocks.prisma.episode.findUnique
+            .mockResolvedValueOnce({ status: 'queued' })
+            .mockResolvedValueOnce({ status: 'error' })
+
+        await runAnalyzeStep({
+            projectId: 'project-1',
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            text: 'A training day at the academy.',
+            artStyle: 'manhua',
+            pageCount: 5,
+        })
+
+        expect(mocks.prisma.character.create).not.toHaveBeenCalled()
+        expect(mocks.prisma.location.create).not.toHaveBeenCalled()
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            step: 'analyze',
+            status: 'cancelled',
+        })
+    })
+
+    it('does not persist storyboard output when cancellation happens during provider work', async () => {
+        mocks.prisma.episode.findUniqueOrThrow.mockResolvedValue({
+            id: 'episode-1',
+            projectId: 'project-1',
+            novelText: 'A training day at the academy.',
+            pageCount: 1,
+            project: {
+                userId: 'user-1',
+            },
+        })
+        mocks.prisma.character.findMany.mockResolvedValue([
+            {
+                name: 'Linh',
+                aliases: null,
+                description: 'brief',
+            },
+        ])
+        mocks.splitIntoPagesWithPanels.mockResolvedValue([
+            {
+                summary: 'Training day',
+                content: 'A scene',
+                characters: ['Linh'],
+                location: 'Academy',
+                dialogue: [],
+                sceneContext: {},
+                panels: [{
+                    shotType: 'wide',
+                    description: 'Linh trains',
+                    dialogue: null,
+                    characters: ['Linh'],
+                    location: 'Academy',
+                    sourceExcerpt: 'Linh trains',
+                    mustKeep: [],
+                    mood: null,
+                    lighting: null,
+                }],
+            },
+        ])
+        mocks.prisma.episode.findUnique.mockResolvedValueOnce({ status: 'error' })
+
+        await runStoryboardStep('episode-1')
+
+        expect(mocks.prisma.page.create).not.toHaveBeenCalled()
+        expect(mocks.prisma.panel.create).not.toHaveBeenCalled()
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            step: 'storyboard',
+            status: 'cancelled',
+        })
     })
 })

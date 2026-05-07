@@ -209,11 +209,11 @@ describe('character sheet step', () => {
         })
         mocks.generateCharacterSheet.mockRejectedValue(new Error('upstream timeout'))
 
-        await runCharacterSheetStep({
+        await expect(runCharacterSheetStep({
             episodeId: 'ep-1',
             userId: 'user-1',
             characterId: 'char-1',
-        })
+        })).rejects.toThrow('upstream timeout')
 
         expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
             episodeId: 'ep-1',
@@ -242,11 +242,11 @@ describe('character sheet step', () => {
         })
         mocks.getProviderConfig.mockRejectedValue(new Error('missing provider key'))
 
-        await runCharacterSheetStep({
+        await expect(runCharacterSheetStep({
             episodeId: 'ep-1',
             userId: 'user-1',
             characterId: 'char-1',
-        })
+        })).rejects.toThrow('missing provider key')
 
         expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
             episodeId: 'ep-1',

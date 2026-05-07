@@ -8,6 +8,15 @@ import { recordPipelineEvent, syncPipelineRunState } from './run-state'
 // Statuses that indicate an episode is already being processed
 const PROCESSING_STATUSES = ['analyzing', 'storyboarding', 'imaging']
 
+async function episodeCancellationRequested(episodeId: string): Promise<boolean> {
+    const episode = await prisma.episode.findUnique({
+        where: { id: episodeId },
+        select: { status: true },
+    })
+
+    return episode?.status === 'error'
+}
+
 /** Progress now flows through episode + pipeline table writes, not Redis pub/sub. */
 async function emitProgress(episodeId: string, data: {
     status: string
@@ -85,6 +94,16 @@ export async function runAnalyzeStep(input: PipelineInput): Promise<void> {
         await updateEpisode(episodeId, userId, 'analyzing', 5)
 
         const { characters, locations } = await analyzeCharactersAndLocations(text, providerConfig)
+
+        if (await episodeCancellationRequested(episodeId)) {
+            await recordPipelineEvent({
+                episodeId,
+                userId,
+                step: 'analyze',
+                status: 'cancelled',
+            })
+            return
+        }
 
         // Save characters with identity anchors
         const savedCharacters = []
@@ -183,6 +202,16 @@ export async function runStoryboardStep(episodeId: string): Promise<void> {
             pageCount,
             providerConfig,
         )
+
+        if (await episodeCancellationRequested(episodeId)) {
+            await recordPipelineEvent({
+                episodeId,
+                userId,
+                step: 'storyboard',
+                status: 'cancelled',
+            })
+            return
+        }
 
         // Check for 0 panels
         const totalPanels = pages.reduce((sum, p) => sum + p.panels.length, 0)
@@ -293,7 +322,7 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
             include: {
                 appearances: {
                     where: { isDefault: true },
-                    select: { imageUrl: true, isDefault: true },
+                    select: { imageUrl: true, storageKey: true, isDefault: true },
                 },
             },
         })
@@ -393,7 +422,7 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
                     if (result === 'content_filtered') {
                         console.warn(`[Pipeline] Panel ${panel.id} blocked by content filter`)
                     } else {
-                    console.error(`[Pipeline] Panel ${panel.id} image gen failed`)
+                        console.error(`[Pipeline] Panel ${panel.id} image gen failed`)
                     }
                 }
             } catch (err) {

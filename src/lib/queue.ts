@@ -1,7 +1,6 @@
-import { inngest } from '@/lib/inngest/client'
-import { prisma } from '@/lib/prisma'
+import { enqueuePipelineJob, cancelEpisodeJobs } from '@/lib/queue/repository'
+import { getEpisodeOwner, getUniqueIds } from '@/lib/queue/fanout'
 
-// Discriminated union of all pipeline job shapes
 export type PipelineJobData =
     | {
         type: 'analyze'
@@ -13,110 +12,70 @@ export type PipelineJobData =
         pageCount: number
       }
     | { type: 'storyboard'; episodeId: string }
-    | { type: 'generate-images'; episodeId: string; panelIds?: string[] }
-
-function getUniqueIds(values: string[] | undefined): string[] {
-    if (!values?.length) return []
-    return [...new Set(values.filter(Boolean))]
-}
+    | { type: 'character-sheets-parent'; episodeId: string }
+    | { type: 'character-sheet'; episodeId: string; userId: string; characterId: string }
+    | { type: 'image-generation-parent'; episodeId: string; panelIds: string[] }
+    | { type: 'image-panel'; episodeId: string; userId: string; panelId: string }
 
 export async function enqueueAnalyze(
     data: Omit<Extract<PipelineJobData, { type: 'analyze' }>, 'type'>,
 ) {
-    return inngest.send({
-        id: `analyze:${data.episodeId}`,
-        name: 'episode/analyze.requested',
-        data,
+    return enqueuePipelineJob({
+        episodeId: data.episodeId,
+        userId: data.userId,
+        type: 'analyze',
+        payload: data,
+        dedupeKey: `analyze:${data.episodeId}`,
+        maxAttempts: 2,
     })
 }
 
 export async function enqueueStoryboard(episodeId: string) {
-    return inngest.send({
-        id: `storyboard:${episodeId}`,
-        name: 'episode/storyboard.requested',
-        data: { episodeId },
+    const userId = await getEpisodeOwner(episodeId)
+
+    return enqueuePipelineJob({
+        episodeId,
+        userId,
+        type: 'storyboard',
+        payload: { episodeId },
+        dedupeKey: `storyboard:${episodeId}`,
+        maxAttempts: 2,
     })
 }
 
 export async function enqueueCharacterSheets(episodeId: string) {
-    return inngest.send({
-        id: `character-sheets:${episodeId}`,
-        name: 'episode/character-sheets.requested',
-        data: { episodeId },
+    const userId = await getEpisodeOwner(episodeId)
+
+    return enqueuePipelineJob({
+        episodeId,
+        userId,
+        type: 'character-sheets-parent',
+        payload: { episodeId },
+        dedupeKey: `character-sheets-parent:${episodeId}`,
+        maxAttempts: 2,
     })
-}
-
-async function getImageFanoutPayload(episodeId: string, panelIds: string[]) {
-    const episode = await prisma.episode.findUnique({
-        where: { id: episodeId },
-        select: {
-            project: {
-                select: {
-                    userId: true,
-                },
-            },
-        },
-    })
-
-    if (!episode?.project.userId) {
-        throw new Error(`Episode ${episodeId} is missing a project owner.`)
-    }
-
-    const panels = await prisma.panel.findMany({
-        where: {
-            id: { in: panelIds },
-            page: { episodeId },
-        },
-        select: {
-            id: true,
-            generationAttempt: true,
-        },
-    })
-
-    return {
-        userId: episode.project.userId,
-        panels: panels.map((panel) => ({
-            panelId: panel.id,
-            attempt: panel.generationAttempt + 1,
-        })),
-    }
-}
-
-function buildImageGenerationEventId(episodeId: string, panels: Array<{ panelId: string; attempt: number }>) {
-    const suffix = panels
-        .map((panel) => `${panel.panelId}:${panel.attempt}`)
-        .sort()
-        .join(',')
-
-    return `image-generation:${episodeId}:${suffix}`
 }
 
 export async function enqueueImageGen(episodeId: string, panelIds?: string[]) {
     const uniquePanelIds = getUniqueIds(panelIds)
+    if (uniquePanelIds.length === 0) return []
 
-    if (uniquePanelIds.length === 0) {
-        return []
-    }
+    const userId = await getEpisodeOwner(episodeId)
+    const stablePanelKey = [...uniquePanelIds].sort().join(',')
 
-    const payload = await getImageFanoutPayload(episodeId, uniquePanelIds)
-
-    return inngest.send({
-        id: buildImageGenerationEventId(episodeId, payload.panels),
-        name: 'episode/image-generation.requested',
-        data: {
+    return enqueuePipelineJob({
+        episodeId,
+        userId,
+        type: 'image-generation-parent',
+        payload: {
             episodeId,
-            userId: payload.userId,
-            panels: payload.panels,
+            panelIds: uniquePanelIds,
         },
+        dedupeKey: `image-generation-parent:${episodeId}:${stablePanelKey}`,
+        maxAttempts: 2,
     })
 }
 
 export async function cancelEpisodePipelineJobs(episodeId: string) {
-    await inngest.send({
-        id: `cancel:${episodeId}`,
-        name: 'episode/cancel.requested',
-        data: { episodeId },
-    })
-
-    return 1
+    return cancelEpisodeJobs(episodeId)
 }

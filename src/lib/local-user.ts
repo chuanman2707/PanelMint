@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { decrypt, encrypt, isEncrypted } from './crypto'
 import { prisma } from './prisma'
 
 export const LOCAL_USER_EMAIL = 'local@panelmint.dev'
@@ -146,34 +145,6 @@ export async function getLocalCharacter(localUserId: string, characterId: string
     }
 
     return { character, error: null }
-}
-
-export async function getLocalUserApiKey(userId: string): Promise<string | null> {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { apiKey: true },
-    })
-    const raw = user?.apiKey ?? null
-    if (!raw) return null
-
-    if (!isEncrypted(raw)) return raw
-
-    try {
-        return decrypt(raw)
-    } catch (err) {
-        console.error('[LocalUser] Failed to decrypt API key - possible key corruption or wrong ENCRYPTION_SECRET', err)
-        return null
-    }
-}
-
-export async function setLocalUserApiKey(userId: string, apiKey: string | null, provider?: string) {
-    await prisma.user.update({
-        where: { id: userId },
-        data: {
-            apiKey: apiKey ? encrypt(apiKey) : null,
-            apiProvider: provider ?? null,
-        },
-    })
 }
 
 export async function getLocalUserPreferences(userId: string) {

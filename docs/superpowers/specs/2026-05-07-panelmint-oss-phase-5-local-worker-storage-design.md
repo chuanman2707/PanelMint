@@ -1,4 +1,4 @@
-# PanelMint OSS Phase 5 Local Worker And Storage Design
+# Thiết kế PanelMint OSS Phase 5: Local Worker Và Local Storage
 
 Date: 2026-05-07
 Status: Draft for review
@@ -55,7 +55,7 @@ Baseline hiện tại vẫn còn:
 - `/api/storage/...` tiếp tục tồn tại, nhưng serve file local thay vì redirect signed URL.
 - Phase 5 bao gồm full R2/storage cleanup, không đẩy sang Phase 6.
 
-## 4. Impact Notes
+## 4. Ghi chú tác động
 
 GitNexus impact analysis cho thấy các queue adapter có caller trực tiếp ít:
 
@@ -69,13 +69,13 @@ Storage có blast radius lớn hơn:
 
 - `getStorage`: CRITICAL risk.
 - Direct callers gồm reference image resolution, image download/save, và `/api/storage`.
-- Affected flows gồm character sheet generation, panel image generation, reference image collection, and storage serving.
+- Affected flows gồm character sheet generation, panel image generation, reference image collection, và storage serving.
 
 Implementation phải chia nhỏ queue replacement và storage cleanup, nhưng cả hai đều thuộc Phase 5.
 
-## 5. Target Architecture
+## 5. Kiến trúc mục tiêu
 
-Next.js API routes vẫn là control plane:
+Next.js API routes vẫn là lớp nhận lệnh từ UI:
 
 - Tạo episode/project.
 - Approve analysis.
@@ -87,7 +87,7 @@ Next.js API routes vẫn là control plane:
 
 Thay đổi chính là các route không gọi Inngest nữa. Chúng ghi durable jobs vào Postgres.
 
-Worker là execution plane:
+Worker là lớp xử lý nền:
 
 - Claim job từ Postgres.
 - Chạy handler tương ứng.
@@ -96,18 +96,18 @@ Worker là execution plane:
 - Retry job lỗi nếu còn attempts.
 - Skip hoặc cancel job nếu episode đã bị cancel.
 
-Storage local là asset plane:
+Storage local là lớp lưu file ảnh:
 
 - Generated images ghi vào `PANELMINT_STORAGE_DIR`.
 - DB lưu relative `storageKey`.
 - App serve ảnh qua `/api/storage/...`.
 - Ảnh vẫn load sau khi app/worker restart.
 
-## 6. Queue Contract
+## 6. Hợp đồng queue
 
 Thêm bảng DB mới, ví dụ `pipeline_jobs`.
 
-Fields chính:
+Các field chính:
 
 - `id`
 - `episodeId`
@@ -168,7 +168,7 @@ running
 
 `failed`, `succeeded`, và `cancelled` không nên chặn retry có attempt mới.
 
-## 7. Enqueue Design
+## 7. Thiết kế enqueue
 
 `src/lib/queue.ts` vẫn là public queue API cho app routes.
 
@@ -190,7 +190,7 @@ Nhưng implementation đổi sang DB:
 
 Route code không cần biết worker chạy thế nào.
 
-## 8. Worker Execution
+## 8. Cách worker chạy
 
 Thêm script worker, ví dụ:
 
@@ -221,9 +221,36 @@ Concurrency mặc định nên bảo thủ:
 
 Giá trị concurrency có thể cấu hình sau, nhưng Phase 5 không cần UI config.
 
-## 9. Job Handlers
+## 9. Hợp đồng claim job
 
-Handler mapping:
+Claim job phải là thao tác atomic trong DB. Không được claim bằng kiểu đọc job rồi update rời rạc.
+
+Implementation nên dùng một trong hai cách:
+
+- Raw SQL trong transaction với `FOR UPDATE SKIP LOCKED`.
+- Hoặc một câu `UPDATE ... WHERE ... RETURNING *` có điều kiện status/lock đầy đủ.
+
+Claim query phải chỉ lấy:
+
+- Job `queued` có `availableAt <= now`.
+- Hoặc job `running` đã stale theo `lockedAt`.
+
+Khi claim thành công, cùng một thao tác DB phải set:
+
+- `status = 'running'`
+- `lockedAt = now`
+- `lockedBy = <worker-id>`
+- `attempts = attempts + 1`
+
+Worker id nên được tạo khi process start, ví dụ `hostname:pid:uuid`.
+
+Khi worker chạy concurrency nội bộ cho image/character jobs, mỗi lane vẫn phải claim qua cùng atomic claim contract. Điều này tránh hai lane lấy cùng một job.
+
+Nếu Prisma không biểu diễn được `SKIP LOCKED` sạch, implementation được phép dùng `prisma.$queryRaw` hoặc `prisma.$executeRaw` cho riêng phần claim/reclaim.
+
+## 10. Handler cho từng job
+
+Mapping handler:
 
 - `analyze`: gọi `runAnalyzeStep(payload)`.
 - `storyboard`: gọi `runStoryboardStep(episodeId)`.
@@ -234,7 +261,28 @@ Handler mapping:
 
 Implementation có thể gọi `runImageGenStep(episodeId, [panelId])` để giữ behavior hiện tại. Nếu việc đó làm khó idempotency hoặc status tổng, plan implementation có thể tách helper panel-level rõ hơn, nhưng không được rewrite pipeline không cần thiết.
 
-## 10. Cancellation
+Parent jobs là dispatch-only:
+
+- `character-sheets-parent` enqueue các job `character-sheet`, rồi mark chính nó `succeeded`.
+- `image-generation-parent` enqueue các job `image-panel`, rồi mark chính nó `succeeded`.
+- Parent job không chờ child jobs chạy xong.
+
+Aggregate completion dùng behavior hiện tại nếu giữ được:
+
+- Mỗi `image-panel` gọi `runImageGenStep(episodeId, [panelId])`.
+- Sau mỗi panel, `runImageGenStep` đọc global panel summary.
+- Khi không còn panel cần render, episode được mark `done`.
+
+Nếu implementation tách panel-level helper thay vì gọi `runImageGenStep`, plan phải thêm helper finalize rõ ràng, ví dụ `finalizeEpisodeImageGeneration(episodeId)`, và gọi helper đó sau mỗi child panel job.
+
+Manual character sheet endpoint hiện tại vẫn là synchronous API path trong Phase 5:
+
+- `src/app/api/characters/[characterId]/generate-sheet/route.ts` không cần chuyển sang queue trong phase này.
+- Endpoint này vẫn phải dùng local storage contract mới.
+- Endpoint này không được import R2/AWS SDK/Inngest.
+- Tests của endpoint phải được update nếu image URL/storage key contract đổi.
+
+## 11. Cancellation
 
 Khi user cancel:
 
@@ -242,6 +290,7 @@ Khi user cancel:
 - API ghi pipeline event `cancelled`.
 - Active jobs của episode chuyển sang `cancelled`.
 - Panel còn `queued` chuyển sang `error`.
+- UI hiện tại có thể vẫn thấy episode status là `error`, nhưng copy/status response nên có đủ event/error metadata để hiển thị là user-cancelled thay vì provider failure nếu UI đã có chỗ làm điều đó.
 
 Worker phải kiểm tra cancellation:
 
@@ -251,7 +300,7 @@ Worker phải kiểm tra cancellation:
 
 Cancelled job không retry.
 
-## 11. Retry
+## 12. Retry
 
 Retry panel phải tiếp tục hoạt động:
 
@@ -264,7 +313,7 @@ Panel đã `done` không bị render lại khi chỉ chạy resume bình thườ
 
 Character đã có `imageUrl` không bị tạo lại khi resume.
 
-## 12. Local Storage Design
+## 13. Thiết kế local storage
 
 Storage local-only.
 
@@ -289,6 +338,32 @@ characters/character-1-uuid.png
 
 Không bao giờ lưu absolute path vào DB.
 
+## 14. Hợp đồng image URL
+
+`storageKey` là source of truth cho asset local.
+
+Các field `imageUrl` hiện có vẫn được giữ để giảm UI/API churn, nhưng giá trị mới phải được derive từ `storageKey`:
+
+```text
+imageUrl = buildStorageProxyUrl(storageKey)
+```
+
+Với local storage mới, không được persist:
+
+- Absolute local file path.
+- `/generated/...`.
+- R2 public URL.
+- R2 signed URL.
+
+Các nơi ghi ảnh mới, gồm panel image generation, character sheet generation, manual character sheet endpoint, và character appearance nếu có, phải ghi:
+
+- `storageKey`: relative key an toàn.
+- `imageUrl`: `/api/storage/...` URL được build từ `storageKey`.
+
+Các API response có thể trả `imageUrl` từ DB để giữ UI đơn giản. Nếu implementation gặp row cũ có `storageKey` nhưng `imageUrl` thiếu hoặc stale, response layer nên ưu tiên derive URL từ `storageKey` thay vì trả URL cũ.
+
+Phase 5 không cần migration phức tạp cho asset cũ trước OSS release, nhưng fresh generated assets sau Phase 5 phải dùng contract mới.
+
 `LocalStorageProvider` chịu trách nhiệm:
 
 - Normalize key.
@@ -298,6 +373,8 @@ Không bao giờ lưu absolute path vào DB.
 - Tạo thư mục con khi upload.
 - Ghi file với extension đúng.
 - Delete file nếu cần.
+- Chỉ cho phép extension ảnh hợp lệ: `png`, `jpg`, `jpeg`, `webp`, `gif`.
+- Content type phải được map từ extension allowlist, không lấy tùy tiện từ user-controlled input.
 
 `/api/storage/...` chịu trách nhiệm:
 
@@ -308,14 +385,14 @@ Không bao giờ lưu absolute path vào DB.
 - Set `Content-Type`.
 - Không redirect sang signed URL.
 
-## 13. R2 Cleanup
+## 15. Dọn R2
 
 Xóa khỏi runtime chính:
 
 - `R2StorageProvider`.
 - R2 env validation.
 - R2 docs/copy.
-- AWS SDK imports and dependencies.
+- AWS SDK imports và dependencies.
 - Logic chọn storage provider bằng `R2_ACCOUNT_ID`.
 
 Xóa env khỏi `.env.example`:
@@ -328,7 +405,7 @@ Xóa env khỏi `.env.example`:
 
 README không còn nói R2 là production stack.
 
-## 14. Inngest Cleanup
+## 16. Dọn Inngest
 
 Xóa khỏi runtime chính:
 
@@ -342,11 +419,11 @@ Xóa khỏi runtime chính:
 - `INNGEST_DEV`
 - Inngest docs/copy.
 
-`pipeline_runs.inngestRunId` không còn cần thiết. Phase 5 nên remove field này khỏi Prisma schema, baseline SQL, and fresh init migration.
+`pipeline_runs.inngestRunId` không còn cần thiết. Phase 5 nên remove field này khỏi Prisma schema, baseline SQL, và fresh init migration.
 
 Nếu implementation muốn giữ một generic external run id thì phải rename rõ ràng, nhưng mặc định là xóa.
 
-## 15. Status And Health
+## 17. Status và health
 
 Status UI nên tiếp tục dựa trên state hiện có:
 
@@ -374,7 +451,7 @@ Health endpoint nên phản ánh local runtime:
 
 Nếu thêm heartbeat đơn giản thì chỉ dùng để hiển thị, không làm app crash.
 
-## 16. Error Handling
+## 18. Xử lý lỗi
 
 Job failure phải rõ ràng:
 
@@ -393,7 +470,7 @@ Retry delay nên đơn giản:
 
 Không cần distributed scheduler phức tạp trong v1.
 
-## 17. Database Changes
+## 19. Thay đổi DB
 
 Thêm model queue job.
 
@@ -412,7 +489,7 @@ Queue table cần indexes cho claim nhanh:
 
 Nếu partial unique index khó biểu diễn qua Prisma, implementation có thể dùng SQL migration/index thủ công trong baseline.
 
-## 18. Documentation
+## 20. Docs
 
 README quickstart cần chuyển sang local OSS runtime:
 
@@ -444,7 +521,7 @@ Docs phải nói rõ:
 - model/rate limit options
 - `PANELMINT_STORAGE_DIR`
 
-## 19. Testing Strategy
+## 21. Chiến lược test
 
 Focused tests:
 
@@ -463,6 +540,8 @@ Focused tests:
 - `/api/storage/...` chặn path traversal.
 - Env validation không check Inngest/R2.
 - Health không report Inngest/R2 readiness.
+- Stale tests đang giả định Inngest/R2 phải được update hoặc delete.
+- Các test hiện có như health route tests, env-validation tests, storage tests, image-gen runtime budget tests, route tests mock queue/Inngest, và image-gen flow tests phải được rà lại.
 
 Verification commands:
 
@@ -472,11 +551,11 @@ npm run build
 rg -n "inngest|Inngest|INNGEST_|R2_|Cloudflare R2|@aws-sdk|s3-request-presigner|R2StorageProvider|inngest:dev" src prisma scripts README.md .env.example package.json
 ```
 
-Final `rg` should return no active runtime, schema, script, package, env, or README matches. Historical specs and plans are allowed outside searched active paths.
+Final `rg` should return no active runtime, schema, script, package, env, test, or README matches. Historical specs and plans are allowed outside searched active paths.
 
 Before committing implementation changes, run GitNexus change detection and confirm affected scope matches Phase 5 queue/storage replacement.
 
-## 20. Non-Scope
+## 22. Ngoài phạm vi
 
 Phase 5 should not:
 
@@ -489,7 +568,7 @@ Phase 5 should not:
 - Add cloud storage fallback.
 - Add a new billing/credits system.
 
-## 21. Definition Of Done
+## 23. Done khi
 
 Phase 5 is done when:
 

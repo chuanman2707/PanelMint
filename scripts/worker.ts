@@ -1,4 +1,6 @@
-import { runWorkerLoop } from '@/lib/queue/worker'
+import { loadEnvConfig } from '@next/env'
+
+loadEnvConfig(process.cwd())
 
 const controller = new AbortController()
 
@@ -9,7 +11,12 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     })
 }
 
-runWorkerLoop({ signal: controller.signal }).catch((error) => {
+async function main() {
+    const { runWorkerLoop } = await import('@/lib/queue/worker')
+    await runWorkerLoop({ signal: controller.signal })
+}
+
+main().catch((error) => {
     console.error('[Worker] fatal error', error)
     process.exitCode = 1
 })

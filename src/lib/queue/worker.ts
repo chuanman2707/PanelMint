@@ -21,6 +21,46 @@ export function getRetryDelayMs(job: Pick<PipelineJobRecord, 'attempts'>): numbe
     return BASE_RETRY_DELAY_MS * Math.max(1, job.attempts)
 }
 
+async function runClaimedJob(job: PipelineJobRecord, workerId: string): Promise<void> {
+    try {
+        await handlePipelineJob(job)
+    } catch (error) {
+        await failPipelineJob({
+            jobId: job.id,
+            workerId,
+            error,
+            attempts: job.attempts,
+            maxAttempts: job.maxAttempts,
+            retryDelayMs: getRetryDelayMs(job),
+        })
+        return
+    }
+
+    const completed = await completePipelineJob({
+        jobId: job.id,
+        workerId,
+    })
+
+    if (!completed) {
+        console.warn(`[Worker] skipped completion for unowned job ${job.id}`)
+    }
+}
+
+async function waitForPollInterval(ms: number, signal?: AbortSignal): Promise<void> {
+    if (ms <= 0 || signal?.aborted) return
+
+    await new Promise<void>((resolve) => {
+        const done = () => {
+            clearTimeout(timeout)
+            signal?.removeEventListener('abort', done)
+            resolve()
+        }
+
+        const timeout = setTimeout(done, ms)
+        signal?.addEventListener('abort', done, { once: true })
+    })
+}
+
 export async function runWorkerOnce(input: {
     workerId: string
     claimLimit?: number
@@ -32,24 +72,20 @@ export async function runWorkerOnce(input: {
         staleAfterMs: input.staleAfterMs ?? DEFAULT_STALE_AFTER_MS,
     })
 
-    await Promise.all(jobs.map(async (job) => {
-        try {
-            await handlePipelineJob(job)
-            await completePipelineJob({
-                jobId: job.id,
-                workerId: input.workerId,
-            })
-        } catch (error) {
-            await failPipelineJob({
-                jobId: job.id,
-                workerId: input.workerId,
-                error,
-                attempts: job.attempts,
-                maxAttempts: job.maxAttempts,
-                retryDelayMs: getRetryDelayMs(job),
-            })
-        }
-    }))
+    const results = await Promise.allSettled(
+        jobs.map((job) => runClaimedJob(job, input.workerId)),
+    )
+    const failures = results.filter((result): result is PromiseRejectedResult =>
+        result.status === 'rejected',
+    )
+
+    if (failures.length === 1) throw failures[0].reason
+    if (failures.length > 1) {
+        throw new AggregateError(
+            failures.map((failure) => failure.reason),
+            'One or more pipeline jobs failed after handler completion.',
+        )
+    }
 
     return jobs.length
 }
@@ -67,7 +103,7 @@ export async function runWorkerLoop(input: {
     while (!input.signal?.aborted) {
         const count = await runWorkerOnce({ workerId })
         if (count === 0) {
-            await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+            await waitForPollInterval(pollIntervalMs, input.signal)
         }
     }
 

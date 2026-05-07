@@ -393,7 +393,7 @@ async function pollWavespeedResult(
 }
 
 // ─── File Storage Helpers ───────────────────────────────
-// Uses StorageProvider (R2 in production, local in dev)
+// Uses local StorageProvider for generated assets.
 
 async function downloadAndSave(panelId: string, sourceImageUrl: string, userId?: string, episodeId?: string): Promise<StoredImageAsset> {
     const res = await fetch(sourceImageUrl)

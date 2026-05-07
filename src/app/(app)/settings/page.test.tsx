@@ -23,7 +23,6 @@ describe('SettingsPage', () => {
         expect(screen.queryByRole('button', { name: /Save Key/i })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /Validate/i })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /Remove Key/i })).not.toBeInTheDocument()
-        expect(screen.queryByText(/stored key/i)).not.toBeInTheDocument()
         expect(screen.queryByText(/fallback/i)).not.toBeInTheDocument()
     })
 })

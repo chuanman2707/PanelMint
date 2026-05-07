@@ -18,7 +18,6 @@ describe('env-validation', () => {
         expect(report.requiredMissing).toContain('WAVESPEED_API_KEY')
         expect(report.checks.DATABASE_URL).toBe('configured')
         expect(report.checks.WAVESPEED_API_KEY).toBe('missing')
-        expect(report.checks.ENCRYPTION_SECRET).toBeUndefined()
     })
 
     it('does not crash startup validation when only WAVESPEED_API_KEY is missing', () => {

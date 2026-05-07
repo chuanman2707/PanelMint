@@ -54,10 +54,9 @@ Use the local red-green-refactor loop for behavior changes in `src/app`, `src/li
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | Neon/Postgres runtime connection string. |
 | `DIRECT_URL` | Optional | Direct Postgres connection for migrations. |
-| `ENCRYPTION_SECRET` | Yes for production | Encrypts stored user API keys. |
 | `INNGEST_EVENT_KEY` | Yes | Sends Inngest events. |
 | `INNGEST_SIGNING_KEY` | Yes | Verifies Inngest endpoint calls. |
-| `WAVESPEED_API_KEY` | Yes for production | Managed provider key for both LLM and image generation. |
+| `WAVESPEED_API_KEY` | Yes for generation | Your WaveSpeed API key from `.env`; used for both LLM and image generation. |
 | `ALLOWED_ORIGINS` | Optional | Extra trusted origins for mutating requests. |
 
 Optional R2 group:
@@ -84,10 +83,9 @@ cp .env.example .env
 | --- | --- | --- |
 | `DATABASE_URL` | Neon Dashboard -> your project -> `Connect` | The pooled connection string. Prefer the host with `-pooler` in it. Keep the database name aligned with the actual Neon database, which is usually `neondb` by default. |
 | `DIRECT_URL` | Neon Dashboard -> your project -> `Connect` | The direct Postgres connection string for Prisma migrations. Prisma CLI in this repo prefers this value when it is set. Do not use the `-pooler` host here. |
-| `ENCRYPTION_SECRET` | Generate locally | A long random secret, for example `openssl rand -base64 32`. |
 | `INNGEST_EVENT_KEY` | Inngest Dashboard -> target environment | Create or copy the environment Event Key. |
 | `INNGEST_SIGNING_KEY` | Inngest Dashboard -> target environment -> `Signing Key` | Copy the signing key for the same Inngest environment. |
-| `WAVESPEED_API_KEY` | WaveSpeed -> API Keys | Generate one server-side API key and use it as the platform-managed key. |
+| `WAVESPEED_API_KEY` | WaveSpeed -> API Keys | Generate one key and paste it into `.env`. PanelMint does not store provider keys in the database. |
 | `ALLOWED_ORIGINS` | Your app domains | Comma-separated origins allowed to make mutating cross-origin requests. |
 
 3. Recommended local/dev values:

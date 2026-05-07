@@ -28,7 +28,6 @@ describe('GET /api/health', () => {
             warnings: [],
             checks: {
                 DATABASE_URL: 'configured',
-                ENCRYPTION_SECRET: 'configured',
                 WAVESPEED_API_KEY: 'configured',
                 INNGEST_EVENT_KEY: 'configured',
                 INNGEST_SIGNING_KEY: 'configured',
@@ -64,14 +63,13 @@ describe('GET /api/health', () => {
         })
     })
 
-    it('returns degraded when required env is missing', async () => {
+    it('returns degraded when generation env is missing', async () => {
         mocks.getEnvValidationReport.mockReturnValue({
             ready: false,
-            requiredMissing: ['INNGEST_EVENT_KEY'],
+            requiredMissing: ['WAVESPEED_API_KEY'],
             warnings: ['ALLOWED_ORIGINS is empty'],
             checks: {
                 DATABASE_URL: 'configured',
-                ENCRYPTION_SECRET: 'configured',
                 WAVESPEED_API_KEY: 'missing',
                 INNGEST_EVENT_KEY: 'missing',
                 INNGEST_SIGNING_KEY: 'configured',
@@ -93,7 +91,12 @@ describe('GET /api/health', () => {
         await expect(response.json()).resolves.toMatchObject({
             status: 'degraded',
             details: {
-                missingRequiredEnv: ['INNGEST_EVENT_KEY'],
+                missingRequiredEnv: ['WAVESPEED_API_KEY'],
+            },
+            checks: {
+                env: {
+                    WAVESPEED_API_KEY: 'missing',
+                },
             },
         })
     })

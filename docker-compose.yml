@@ -1,5 +1,5 @@
 # Legacy local helper only.
-# Default deployment is Vercel + Neon Postgres + Inngest + Cloudflare R2.
+# Default deployment is Vercel + Neon Postgres + local worker + local generated asset storage.
 # Use this file only if you want a disposable local Postgres stack for development.
 
 services:

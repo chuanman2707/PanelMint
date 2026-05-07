@@ -8,7 +8,7 @@ This repository has been cleaned to center on one production stack:
 - Single local workspace owner, with no hosted identity service in OSS v1
 - Neon Postgres via Prisma
 - Local worker background queue
-- Cloudflare R2 object storage
+- Local generated asset storage
 
 ## Local setup
 
@@ -34,7 +34,9 @@ Optional local Postgres helper:
 docker compose up -d
 ```
 
-That helper is only for disposable local development. The intended deployment contract is Vercel + Neon + local single-user runtime + local worker queue + R2.
+That helper is only for disposable local development. The intended deployment contract is Vercel + Neon + local single-user runtime + local worker queue + local generated asset storage.
+
+Generated images are stored locally under `PANELMINT_STORAGE_DIR`, defaulting to `.panelmint/generated`.
 
 ## Useful checks
 
@@ -63,16 +65,7 @@ Use the local red-green-refactor loop for behavior changes in `src/app`, `src/li
 | `WAVESPEED_API_KEY` | Yes for generation | Your WaveSpeed API key from `.env`; used for both LLM and image generation. |
 | `WAVESPEED_BASE_URL` | Optional | Defaults to `https://api.wavespeed.ai/api/v3`; override only for a WaveSpeed-compatible proxy. |
 | `ALLOWED_ORIGINS` | Optional | Extra trusted origins for mutating requests. |
-
-Optional R2 group:
-
-- `R2_ACCOUNT_ID`
-- `R2_ACCESS_KEY_ID`
-- `R2_SECRET_ACCESS_KEY`
-- `R2_BUCKET_NAME`
-- `R2_PUBLIC_URL`
-
-If any R2 variable is set, the whole group must be configured.
+| `PANELMINT_STORAGE_DIR` | Optional | Local directory for generated images; defaults to `.panelmint/generated`. |
 
 ## Where To Get Each Key
 
@@ -91,6 +84,7 @@ cp .env.example .env
 | `WAVESPEED_API_KEY` | WaveSpeed -> API Keys | Generate one key and paste it into `.env`. PanelMint does not store provider keys in the database. |
 | `WAVESPEED_BASE_URL` | `.env.example` default | Leave as-is unless you route requests through a WaveSpeed-compatible proxy. |
 | `ALLOWED_ORIGINS` | Your app domains | Comma-separated origins allowed to make mutating cross-origin requests. |
+| `PANELMINT_STORAGE_DIR` | `.env.example` default | Leave as-is for local generated images, or point it to another local directory. |
 
 3. Recommended local/dev values:
 
@@ -104,6 +98,11 @@ cp .env.example .env
 npx prisma generate
 npx prisma db push
 npm run dev
+```
+
+Run the local worker in a second terminal while `npm run dev` is running:
+
+```bash
 npm run worker
 curl http://localhost:3000/api/health
 ```

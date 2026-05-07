@@ -12,14 +12,19 @@ function isRemoteUrl(value: string): boolean {
         if (url.protocol !== 'https:' && url.protocol !== 'http:') return false
 
         const hostname = url.hostname.toLowerCase()
+        const host = hostname.replace(/^\[|\]$/g, '')
         if (hostname === 'localhost' || hostname.endsWith('.localhost')) return false
-        if (hostname === '::1' || hostname === '[::1]') return false
-        if (/^127\./.test(hostname)) return false
-        if (/^10\./.test(hostname)) return false
-        if (/^192\.168\./.test(hostname)) return false
-        if (/^169\.254\./.test(hostname)) return false
+        if (host === '::' || host === '::1') return false
+        if (host.startsWith('::ffff:')) return false
+        if (host === '0.0.0.0') return false
+        if (host.startsWith('fc') || host.startsWith('fd')) return false
+        if (host.startsWith('fe80:')) return false
+        if (/^127\./.test(host)) return false
+        if (/^10\./.test(host)) return false
+        if (/^192\.168\./.test(host)) return false
+        if (/^169\.254\./.test(host)) return false
 
-        const private172 = hostname.match(/^172\.(\d+)\./)
+        const private172 = host.match(/^172\.(\d+)\./)
         if (private172) {
             const secondOctet = Number(private172[1])
             if (secondOctet >= 16 && secondOctet <= 31) return false
@@ -41,7 +46,10 @@ async function uploadReferenceToWaveSpeed(
         const file = await getStorage().read(reference.storageKey)
         const formData = new FormData()
         const filename = reference.storageKey.split('/').pop() || 'reference.png'
-        const bytes = new Uint8Array(file.buffer.buffer, file.buffer.byteOffset, file.buffer.byteLength)
+        const bytes = file.buffer.buffer.slice(
+            file.buffer.byteOffset,
+            file.buffer.byteOffset + file.buffer.byteLength,
+        ) as ArrayBuffer
         formData.append('file', new Blob([bytes], { type: file.contentType }), filename)
 
         const response = await fetch(`${config.baseUrl}/media/upload/binary`, {

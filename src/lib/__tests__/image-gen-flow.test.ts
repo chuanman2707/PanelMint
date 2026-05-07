@@ -239,6 +239,40 @@ describe('generatePanelImage', () => {
         expect(submitBody.images).toEqual(['https://cdn.example.com/ref.png'])
     })
 
+    it('uses the fallback text-to-image model when no reference images are available', async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                code: 0,
+                data: { id: 'task-fallback-model' },
+            }), { status: 200, headers: { 'content-type': 'application/json' } }))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                data: { status: 'completed', outputs: ['https://cdn.example.com/fallback-model.png'] },
+            }), { status: 200, headers: { 'content-type': 'application/json' } }))
+            .mockResolvedValueOnce(new Response(Buffer.from('image-bytes'), { status: 200 }))
+        vi.stubGlobal('fetch', fetchMock)
+
+        await generatePanelImage({
+            panelId: 'panel-fallback-model',
+            description: 'A quiet village road before sunrise.',
+            characters: [],
+            shotType: 'wide',
+            location: 'village road',
+            artStyle: 'manga',
+            providerConfig: {
+                provider: 'wavespeed',
+                apiKey: 'wavespeed-key',
+                llmModel: 'bytedance-seed/seed-1.6-flash',
+                imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
+                imageFallbackModel: 'bytedance/seedream-v4',
+                baseUrl: 'https://api.wavespeed.ai/api/v3',
+            },
+        })
+
+        expect(String(fetchMock.mock.calls[0]?.[0])).toBe('https://api.wavespeed.ai/api/v3/bytedance/seedream-v4')
+        const submitBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as { images?: string[] }
+        expect(submitBody.images).toBeUndefined()
+    })
+
     it('keeps polling long-running wavespeed image jobs past the old 120s cap', async () => {
         vi.useFakeTimers()
 
@@ -246,7 +280,7 @@ describe('generatePanelImage', () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = String(input)
 
-            if (url === 'https://api.wavespeed.ai/api/v3/wavespeed-ai/flux-kontext-pro/multi') {
+            if (url === 'https://api.wavespeed.ai/api/v3/bytedance/seedream-v4') {
                 return new Response(JSON.stringify({
                     code: 0,
                     data: { id: 'task-long-image' },
@@ -298,7 +332,7 @@ describe('generatePanelImage', () => {
             storageKey: 'panel-long.png',
         })
         expect(pollCount).toBeGreaterThanOrEqual(25)
-        expect(fetchMock.mock.calls.filter(([url]) => String(url) === 'https://api.wavespeed.ai/api/v3/wavespeed-ai/flux-kontext-pro/multi')).toHaveLength(1)
+        expect(fetchMock.mock.calls.filter(([url]) => String(url) === 'https://api.wavespeed.ai/api/v3/bytedance/seedream-v4')).toHaveLength(1)
     })
 
     it('does not fall back to seedream when a request retries', async () => {

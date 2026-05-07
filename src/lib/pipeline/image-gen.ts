@@ -44,6 +44,7 @@ export const WAVESPEED_IMAGE_POLL_TIMEOUT_MS = 210_000
 const WAVESPEED_POLL_INITIAL_DELAY_MS = 2_000
 const WAVESPEED_POLL_MAX_DELAY_MS = 10_000
 const WAVESPEED_POLL_LOG_INTERVAL_MS = 60_000
+const WAVESPEED_TEXT_TO_IMAGE_FALLBACK_MODEL = 'bytedance/seedream-v4'
 
 /** Webtoon portrait dimensions */
 const WEBTOON_WIDTH = 1024
@@ -117,9 +118,16 @@ function resolveWaveSpeedImageStrategy(input: PanelImageInput): {
     model: string
     referenceImages?: string[]
 } {
+    const referenceImages = input.referenceImages?.filter(Boolean)
+    if (referenceImages?.length) {
+        return {
+            model: input.providerConfig.imageModel,
+            referenceImages,
+        }
+    }
+
     return {
-        model: input.providerConfig.imageModel,
-        referenceImages: input.referenceImages,
+        model: input.providerConfig.imageFallbackModel ?? WAVESPEED_TEXT_TO_IMAGE_FALLBACK_MODEL,
     }
 }
 

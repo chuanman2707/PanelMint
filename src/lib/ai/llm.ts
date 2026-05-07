@@ -48,6 +48,7 @@ function getPlatformProviderConfig(): ProviderConfig {
         apiKey,
         llmModel: process.env.LLM_MODEL?.trim() || 'bytedance-seed/seed-1.6-flash',
         imageModel: process.env.IMAGE_MODEL?.trim() || 'wavespeed-ai/flux-kontext-pro/multi',
+        imageFallbackModel: 'bytedance/seedream-v4',
         baseUrl: 'https://api.wavespeed.ai/api/v3',
     }
 }

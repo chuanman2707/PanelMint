@@ -27,6 +27,7 @@ const PROVIDER_DEFAULTS: Record<ApiProvider, Omit<ProviderConfig, 'apiKey'>> = {
         provider: 'wavespeed',
         llmModel: 'bytedance-seed/seed-1.6-flash',
         imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
+        imageFallbackModel: 'bytedance/seedream-v4',
         baseUrl: 'https://api.wavespeed.ai/api/v3',
     },
 }

@@ -215,4 +215,26 @@ describe('runImageGenStep', () => {
             data: { status: 'review_storyboard', progress: 50 },
         })
     })
+
+    it('does not mark a child image job done when sibling panels still remain', async () => {
+        mocks.prisma.panel.findMany.mockResolvedValue([])
+        mocks.prisma.panel.count
+            .mockResolvedValueOnce(2)
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(1)
+
+        await runImageGenStep('episode-1', ['panel-1'])
+
+        expect(mocks.prisma.episode.update).not.toHaveBeenCalledWith({
+            where: { id: 'episode-1' },
+            data: { status: 'done', progress: 100 },
+        })
+        expect(mocks.prisma.episode.update).toHaveBeenLastCalledWith({
+            where: { id: 'episode-1' },
+            data: { status: 'imaging', progress: 73 },
+        })
+    })
 })

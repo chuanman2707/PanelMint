@@ -327,8 +327,18 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
                     status: 'completed',
                     metadata: { panelCount: 0, reason: 'no_panels' },
                 })
+                await updateEpisode(episodeId, userId, 'done', 100)
+                return
             }
-            await updateEpisode(episodeId, userId, 'done', 100)
+
+            const summary = await getEpisodeImageGenerationSummary(episodeId)
+            if (summary.remainingPanels === 0) {
+                await updateEpisode(episodeId, userId, 'done', 100)
+            } else if (summary.activePanels === 0) {
+                await updateEpisode(episodeId, userId, 'review_storyboard', 50)
+            } else {
+                await updateEpisode(episodeId, userId, 'imaging', getImageGenerationProgress(summary))
+            }
             return
         }
 

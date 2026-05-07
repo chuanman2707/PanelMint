@@ -124,9 +124,11 @@ Update these database artifacts consistently:
 
 - `prisma/schema.prisma`
 - `prisma/postgres-baseline.sql`
-- Prisma migration files or a new destructive migration, depending on the repository's migration policy at implementation time
+- Any baseline or init migration that defines the fresh local schema
 
 This is a breaking local schema cleanup. Existing local databases that contain stored keys will not preserve them. Users must move their WaveSpeed key into `.env` before or during upgrade.
+
+Because this repository is being prepared for an OSS local-first release, Phase 4 should update the fresh-install schema history instead of adding only a drop-column migration that leaves `apiKey` and `apiProvider` in an init migration. The active Prisma schema, baseline SQL, and migration history used by fresh setup should all agree that provider keys are not database fields.
 
 ## 10. API And Helper Cleanup
 
@@ -171,6 +173,13 @@ Environment validation should match the local OSS contract.
 
 `WAVESPEED_API_KEY` should be required for generation readiness. The health endpoint should make missing WaveSpeed configuration easy to diagnose, with `WAVESPEED_API_KEY` reported as missing rather than a generic provider error.
 
+Health readiness should be explicit:
+
+- Missing `DATABASE_URL` means the app is not ready and `/api/health` should return 503.
+- Missing `WAVESPEED_API_KEY` means generation is not ready and `/api/health` should return degraded/503 with `WAVESPEED_API_KEY` in `missingRequiredEnv`.
+- Missing `WAVESPEED_API_KEY` should not make module import or startup validation crash before the user can read setup docs or health output.
+- `validateEnv` should continue to guard true startup requirements, not every generation-only requirement.
+
 `ENCRYPTION_SECRET` should not be required unless a remaining runtime feature explicitly needs encryption after API-key storage is removed.
 
 The health endpoint should keep reporting:
@@ -188,7 +197,11 @@ Missing `WAVESPEED_API_KEY` should produce a clear setup error:
 WAVESPEED_API_KEY is required for WaveSpeed generation. Set it in .env.
 ```
 
-Invalid, expired, rate-limited, or rejected WaveSpeed keys should continue to surface through the existing provider error handling. The app should preserve the current behavior of storing useful error state on the relevant episode, pipeline run, event, character, or panel.
+Invalid, expired, rate-limited, or rejected WaveSpeed keys should preserve the current behavior of storing useful error state on the relevant episode, pipeline run, event, character, or panel.
+
+Provider-auth failures must use local BYOK language. They should not say "platform API key", "platform-managed key", "temporary generation service unavailable", or "add your API key in Settings" when the real fix is updating `WAVESPEED_API_KEY` in `.env`.
+
+Pipeline catch blocks that currently rewrite provider configuration errors must be updated to preserve a `.env`-oriented message. In particular, missing-key errors from `getProviderConfig` should remain recognizable as `WAVESPEED_API_KEY` setup errors after they are persisted to episode, pipeline, character, or panel state.
 
 Because `/api/user/api-key` is deleted, key validation happens through health/setup checks and real provider calls, not through a Settings validate button.
 
@@ -206,6 +219,9 @@ Update focused tests for:
 - `/api/user/api-key` route tests are deleted with the route.
 - Env validation no longer requires `ENCRYPTION_SECRET`.
 - Health reports missing `WAVESPEED_API_KEY` clearly.
+- Health returns degraded/503 for missing `WAVESPEED_API_KEY` without crashing module import or startup validation.
+- Provider-auth failures use local `.env`/`WAVESPEED_API_KEY` wording, not platform-key or Settings wording.
+- Pipeline error rewriting does not replace missing-key setup errors with stale Settings copy.
 - Prisma schema and baseline no longer contain `apiKey` or `apiProvider`.
 
 Required verification:
@@ -216,7 +232,7 @@ npm run build
 rg -n "apiKey|apiProvider|getLocalUserApiKey|setLocalUserApiKey|/api/user/api-key|ENCRYPTION_SECRET|encrypt\\(|decrypt\\(|isEncrypted|migrate-encrypt-api-keys|Advanced API|stored key|platform-managed|fallback key" src prisma scripts README.md .env.example package.json
 ```
 
-The final `rg` should return no active runtime, schema, script, or test matches for DB-stored API-key behavior. Documentation-only mentions in historical specs are allowed outside the searched active paths.
+The final `rg` should return no active runtime, schema, migration, script, or test matches for DB-stored API-key behavior. Documentation-only mentions in historical specs are allowed outside the searched active paths.
 
 Before committing implementation changes, run GitNexus change detection and confirm the affected scope matches Phase 4 provider simplification.
 
@@ -228,7 +244,7 @@ Existing local users must copy their WaveSpeed key into `.env` as `WAVESPEED_API
 
 Fresh local installs should only need `.env` and Postgres setup. They should not need `ENCRYPTION_SECRET`.
 
-If Prisma migration history cannot be rewritten safely on the active branch, implementation may add a destructive migration that drops `apiKey` and `apiProvider`. The chosen migration path must keep fresh `prisma db push` and build/test behavior consistent.
+Implementation should update the fresh-install migration history used by this OSS branch so it no longer creates `apiKey` or `apiProvider`. If the team later decides to preserve historical migrations, the implementation plan must also narrow the verification command so it checks only active schema artifacts; Phase 4's default path is full fresh-schema cleanup.
 
 ## 16. Definition Of Done
 

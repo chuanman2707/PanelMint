@@ -71,7 +71,7 @@ describe('GET /api/health', () => {
             checks: {
                 DATABASE_URL: 'configured',
                 WAVESPEED_API_KEY: 'missing',
-                INNGEST_EVENT_KEY: 'missing',
+                INNGEST_EVENT_KEY: 'configured',
                 INNGEST_SIGNING_KEY: 'configured',
                 R2_ACCOUNT_ID: 'optional',
                 R2_ACCESS_KEY_ID: 'optional',

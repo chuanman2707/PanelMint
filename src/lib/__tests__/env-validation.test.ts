@@ -59,6 +59,26 @@ describe('env-validation', () => {
         expect(report.checks.R2_PUBLIC_URL).toBe('optional')
     })
 
+    it('marks production queue readiness as missing when Inngest credentials are blank', () => {
+        vi.stubEnv('NODE_ENV', 'production')
+        vi.stubEnv('DATABASE_URL', 'postgres://db')
+        vi.stubEnv('WAVESPEED_API_KEY', 'ws-key')
+        vi.stubEnv('INNGEST_EVENT_KEY', '')
+        vi.stubEnv('INNGEST_SIGNING_KEY', '')
+
+        const report = getEnvValidationReport()
+
+        expect(report.ready).toBe(false)
+        expect(report.requiredMissing).toEqual(
+            expect.arrayContaining([
+                'INNGEST_EVENT_KEY',
+                'INNGEST_SIGNING_KEY',
+            ]),
+        )
+        expect(report.checks.INNGEST_EVENT_KEY).toBe('missing')
+        expect(report.checks.INNGEST_SIGNING_KEY).toBe('missing')
+    })
+
     it('keeps production origin warnings separate from readiness', () => {
         vi.stubEnv('NODE_ENV', 'production')
         vi.stubEnv('DATABASE_URL', 'postgres://db')

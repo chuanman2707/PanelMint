@@ -37,9 +37,8 @@ export interface StoredImageAsset {
 const MAX_PROMPT_CHARS = 1500
 const WAVESPEED_MAX_RETRIES = 3
 const WAVESPEED_BASE_DELAY_MS = 3_000
-// Image polling runs inside an Inngest step on Vercel, so it must resolve
-// comfortably inside the step runtime envelope or the platform can kill the
-// process before we persist panel failure/completion state.
+// Image polling runs inside a local worker lock, so it must resolve
+// comfortably before stale-job reclaim can retry the same panel.
 export const WAVESPEED_IMAGE_POLL_TIMEOUT_MS = 210_000
 const WAVESPEED_POLL_INITIAL_DELAY_MS = 2_000
 const WAVESPEED_POLL_MAX_DELAY_MS = 10_000

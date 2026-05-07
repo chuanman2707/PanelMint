@@ -163,7 +163,7 @@ describe('POST /api/generate/[runId]/approve-analysis', () => {
     })
 
     it('reverts to review_analysis when storyboard enqueue fails after approval updates', async () => {
-        mocks.enqueueStoryboard.mockRejectedValue(new Error('Inngest unavailable'))
+        mocks.enqueueStoryboard.mockRejectedValue(new Error('Local queue unavailable'))
 
         const response = await POST(
             new NextRequest('http://localhost/api/generate/ep-1/approve-analysis', {
@@ -192,7 +192,7 @@ describe('POST /api/generate/[runId]/approve-analysis', () => {
 
         expect(response.status).toBe(400)
         await expect(response.json()).resolves.toMatchObject({
-            error: 'Inngest unavailable',
+            error: 'Local queue unavailable',
         })
         expect(mocks.prisma.episode.update).toHaveBeenCalledWith({
             where: { id: 'ep-1' },

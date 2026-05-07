@@ -291,8 +291,8 @@ async function submitWavespeedTask(
     })
 
     if (res.status === 401 || res.status === 403) {
-        console.error('[ImageGen] wavespeed.ai auth error — bad platform API key')
-        throw new ServiceError('Generation service temporarily unavailable. Please try again later.')
+        console.error('[ImageGen] wavespeed.ai auth error - check WAVESPEED_API_KEY in .env')
+        throw new ServiceError('WaveSpeed rejected WAVESPEED_API_KEY. Check the key in .env and restart the app.')
     }
 
     if (res.status === 429) {

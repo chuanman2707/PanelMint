@@ -52,13 +52,8 @@ export async function runAnalyzeStep(input: PipelineInput): Promise<void> {
     let providerConfig: ProviderConfig
     try {
         providerConfig = await getProviderConfig(userId)
-    } catch {
-        await setEpisodeError(
-            episodeId,
-            userId,
-            new Error('API key not configured. Please add your API key in Settings.'),
-            'analyze',
-        )
+    } catch (error) {
+        await setEpisodeError(episodeId, userId, error, 'analyze')
         return
     }
 

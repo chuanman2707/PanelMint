@@ -33,7 +33,7 @@ vi.mock('@/lib/storage', () => ({
         `${userId}/${episodeId}/${panelId}.png`,
 }))
 
-import { ContentFilterError, generatePanelImage } from '@/lib/pipeline/image-gen'
+import { ContentFilterError, generatePanelImage, ServiceError } from '@/lib/pipeline/image-gen'
 
 describe('generatePanelImage', () => {
     beforeEach(() => {
@@ -93,6 +93,51 @@ describe('generatePanelImage', () => {
         expect(submitBody.prompt).toContain('Source excerpt: Thanh Thu steps into the forest clearing.')
         expect(submitBody.prompt).toContain('Visible characters: Thanh Thu')
         expect(fetchMock.mock.calls[0]?.[1]?.body).toContain('https://cdn.example.com/ref.png')
+    })
+
+    it('reports WaveSpeed auth failures as local .env setup errors', async () => {
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response('invalid token', {
+                status: 401,
+                headers: { 'content-type': 'text/plain' },
+            }))
+        vi.stubGlobal('fetch', fetchMock)
+
+        try {
+            let caught: unknown
+            try {
+                await generatePanelImage({
+                    panelId: 'panel-auth',
+                    description: 'Hero reveal',
+                    characters: ['Thanh Thu'],
+                    shotType: 'medium',
+                    location: 'forest',
+                    artStyle: 'webtoon',
+                    providerConfig: {
+                        provider: 'wavespeed',
+                        apiKey: 'bad-key',
+                        llmModel: 'bytedance-seed/seed-1.6-flash',
+                        imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
+                        baseUrl: 'https://api.wavespeed.ai/api/v3',
+                    },
+                })
+            } catch (error) {
+                caught = error
+            }
+
+            expect(caught).toBeInstanceOf(ServiceError)
+            expect(caught).toHaveProperty(
+                'message',
+                'WaveSpeed rejected WAVESPEED_API_KEY. Check the key in .env and restart the app.',
+            )
+            expect(consoleError).toHaveBeenCalledWith(
+                '[ImageGen] wavespeed.ai auth error - check WAVESPEED_API_KEY in .env',
+            )
+            expect(consoleError.mock.calls.flat().join(' ')).not.toContain('platform API key')
+        } finally {
+            consoleError.mockRestore()
+        }
     })
 
     it('throws ContentFilterError when wavespeed reports content filtering', async () => {

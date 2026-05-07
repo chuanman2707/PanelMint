@@ -12,11 +12,11 @@ export const LEGAL_SECTIONS = [
     },
     {
         title: 'Provider key',
-        body: 'Generation requests use the WaveSpeed key configured for this local workspace. PanelMint stores the provider key and generation project data only.',
+        body: 'PanelMint/Weoweo does not store provider API keys in the app database. Generation uses the WaveSpeed key configured in this local workspace via WAVESPEED_API_KEY.',
     },
     {
         title: 'Workspace security',
-        body: 'The local workspace keeps account state inside the app shell. Keep any optional provider API keys secure and remove custom keys immediately if you suspect compromise.',
+        body: 'The local workspace keeps account state inside the app shell. Keep your .env file and local environment variables secure, and rotate the WaveSpeed key if you suspect compromise.',
     },
 ]
 
@@ -30,7 +30,7 @@ export default function LegalPage() {
                         Legal protocols.
                     </h1>
                     <p className="mt-4 max-w-2xl text-base leading-8 text-[color:rgba(9,9,11,0.76)]">
-                        This page outlines the current operating assumptions for the MVP UI migration and the responsibilities attached to account use, generated content, and provider-key settings.
+                        This page outlines the current operating assumptions for the MVP UI migration and the responsibilities attached to account use, generated content, and local generation configuration.
                     </p>
                 </div>
 

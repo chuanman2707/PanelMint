@@ -1,13 +1,8 @@
 /**
- * API Config
+ * WaveSpeed provider configuration for the local OSS runtime.
  *
- * The production contract is WaveSpeed-only for both LLM and image generation.
- * Users may optionally store their own WaveSpeed key, otherwise the platform
- * key from WAVESPEED_API_KEY is used.
+ * WAVESPEED_API_KEY in .env is the only runtime API key source.
  */
-
-import { prisma } from './prisma'
-import { decrypt, isEncrypted } from './crypto'
 
 export type ApiProvider = 'wavespeed'
 
@@ -16,64 +11,57 @@ export interface ProviderConfig {
     apiKey: string
     llmModel: string
     imageModel: string
-    baseUrl: string
-    /** wavespeed.ai fallback image model when multi-ref generation is unavailable */
     imageFallbackModel?: string
+    baseUrl: string
     userId?: string
 }
 
-const PROVIDER_DEFAULTS: Record<ApiProvider, Omit<ProviderConfig, 'apiKey'>> = {
-    wavespeed: {
+export const WAVESPEED_PROVIDER_SETUP_ERROR =
+    'WAVESPEED_API_KEY is required for WaveSpeed generation. Set it in .env.'
+
+export class ProviderSetupError extends Error {
+    constructor(message = WAVESPEED_PROVIDER_SETUP_ERROR) {
+        super(message)
+        this.name = 'ProviderSetupError'
+    }
+}
+
+export function isProviderSetupError(error: unknown): error is ProviderSetupError {
+    return error instanceof ProviderSetupError
+        || (error instanceof Error && error.message === WAVESPEED_PROVIDER_SETUP_ERROR)
+}
+
+const DEFAULT_WAVESPEED_BASE_URL = 'https://api.wavespeed.ai/api/v3'
+const DEFAULT_LLM_MODEL = 'bytedance-seed/seed-1.6-flash'
+const DEFAULT_IMAGE_MODEL = 'wavespeed-ai/flux-kontext-pro/multi'
+const DEFAULT_IMAGE_FALLBACK_MODEL = 'bytedance/seedream-v4'
+
+function readEnvValue(key: string): string | null {
+    const value = process.env[key]?.trim()
+    return value || null
+}
+
+function normalizeBaseUrl(value: string): string {
+    return value.replace(/\/+$/, '')
+}
+
+export async function getProviderConfig(userId?: string): Promise<ProviderConfig> {
+    const apiKey = readEnvValue('WAVESPEED_API_KEY')
+    if (!apiKey) {
+        throw new ProviderSetupError()
+    }
+
+    return {
         provider: 'wavespeed',
-        llmModel: 'bytedance-seed/seed-1.6-flash',
-        imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
-        imageFallbackModel: 'bytedance/seedream-v4',
-        baseUrl: 'https://api.wavespeed.ai/api/v3',
-    },
-}
-
-/**
- * Get the effective WaveSpeed config for a user.
- *
- * Preference order:
- * 1. User-provided WaveSpeed key saved in the DB
- * 2. Platform-managed WAVESPEED_API_KEY env var
- */
-export async function getProviderConfig(userId: string): Promise<ProviderConfig> {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { apiKey: true, apiProvider: true },
-    })
-
-    const provider: ApiProvider = 'wavespeed'
-    const defaults = PROVIDER_DEFAULTS[provider]
-    const raw = user?.apiKey
-    if (raw) {
-        const apiKey = isEncrypted(raw) ? decrypt(raw) : raw
-        return { ...defaults, apiKey, userId }
+        apiKey,
+        llmModel: readEnvValue('LLM_MODEL') ?? DEFAULT_LLM_MODEL,
+        imageModel: readEnvValue('IMAGE_MODEL') ?? DEFAULT_IMAGE_MODEL,
+        imageFallbackModel: readEnvValue('IMAGE_FALLBACK_MODEL') ?? DEFAULT_IMAGE_FALLBACK_MODEL,
+        baseUrl: normalizeBaseUrl(readEnvValue('WAVESPEED_BASE_URL') ?? DEFAULT_WAVESPEED_BASE_URL),
+        ...(userId ? { userId } : {}),
     }
-
-    const platformKey = process.env.WAVESPEED_API_KEY?.trim()
-    if (!platformKey) {
-        throw new Error('WAVESPEED_API_KEY not configured on platform.')
-    }
-    return { ...defaults, apiKey: platformKey, userId }
 }
 
-/**
- * Quick check: does user have an API key? (no decryption)
- */
-export async function hasApiKey(userId: string): Promise<boolean> {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { apiKey: true },
-    })
-    return !!user?.apiKey
-}
-
-/**
- * Get provider info for display (configuration, setup URL, risk level).
- */
 export function getProviderInfo(provider: ApiProvider) {
     const info = {
         wavespeed: {
@@ -81,7 +69,7 @@ export function getProviderInfo(provider: ApiProvider) {
             description: 'Unified provider for text generation and multi-reference image generation.',
             llmModel: 'Seed 1.6 Flash',
             imageModel: 'FLUX Kontext Pro Multi',
-            configuration: 'Project-configured',
+            configuration: 'Configured with WAVESPEED_API_KEY in .env',
             risk: 'none' as const,
             setupUrl: 'https://wavespeed.ai/accesskey',
         },

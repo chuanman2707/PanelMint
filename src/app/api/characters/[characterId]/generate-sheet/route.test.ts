@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
+    providerSetupError: 'WAVESPEED_API_KEY is required for WaveSpeed generation. Set it in .env.',
     getOrCreateLocalUser: vi.fn(),
     getLocalCharacter: vi.fn(),
     getProviderConfig: vi.fn(),
@@ -21,6 +22,9 @@ vi.mock('@/lib/local-user', () => ({
 
 vi.mock('@/lib/api-config', () => ({
     getProviderConfig: mocks.getProviderConfig,
+    WAVESPEED_PROVIDER_SETUP_ERROR: mocks.providerSetupError,
+    isProviderSetupError: (error: unknown) =>
+        error instanceof Error && error.message === mocks.providerSetupError,
 }))
 
 vi.mock('@/lib/ai/character-design', () => ({
@@ -69,5 +73,24 @@ describe('POST /api/characters/[characterId]/generate-sheet', () => {
             data: { imageUrl: '/image.png', storageKey: 'key' },
         })
         await expect(response.json()).resolves.toEqual({ imageUrl: '/image.png' })
+    })
+
+    it('returns local WaveSpeed setup guidance when the provider key is missing', async () => {
+        mocks.getProviderConfig.mockRejectedValue(
+            new Error(mocks.providerSetupError),
+        )
+
+        const response = await POST(
+            new NextRequest('http://localhost/api/characters/char-1/generate-sheet', { method: 'POST' }),
+            { params: Promise.resolve({ characterId: 'char-1' }) },
+        )
+
+        expect(response.status).toBe(503)
+        await expect(response.json()).resolves.toEqual({
+            error: mocks.providerSetupError,
+            code: 'SERVICE_UNAVAILABLE',
+        })
+        expect(mocks.generateCharacterSheet).not.toHaveBeenCalled()
+        expect(mocks.prisma.character.update).not.toHaveBeenCalled()
     })
 })

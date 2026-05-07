@@ -1,6 +1,6 @@
-const CORE_REQUIRED = ['DATABASE_URL', 'ENCRYPTION_SECRET'] as const
-const PROD_PLATFORM_REQUIRED = [
-    'WAVESPEED_API_KEY',
+const STARTUP_REQUIRED = ['DATABASE_URL'] as const
+const GENERATION_REQUIRED = ['WAVESPEED_API_KEY'] as const
+const PROD_QUEUE_REQUIRED = [
     'INNGEST_EVENT_KEY',
     'INNGEST_SIGNING_KEY',
 ] as const
@@ -23,17 +23,23 @@ function hasValue(key: string): boolean {
     return Boolean(process.env[key]?.trim())
 }
 
+function missing(keys: readonly string[]): string[] {
+    return keys.filter((key) => !hasValue(key))
+}
+
 export function getEnvValidationReport(): EnvValidationReport {
-    const requiredMissing: string[] = [...CORE_REQUIRED]
-        .filter((key) => !hasValue(key))
+    const requiredMissing: string[] = [
+        ...missing(STARTUP_REQUIRED),
+        ...missing(GENERATION_REQUIRED),
+    ]
 
     if (process.env.NODE_ENV === 'production') {
-        requiredMissing.push(...PROD_PLATFORM_REQUIRED.filter((key) => !hasValue(key)))
+        requiredMissing.push(...missing(PROD_QUEUE_REQUIRED))
     }
 
     const anyR2Configured = [...OPTIONAL_R2_REQUIRED, ...OPTIONAL_R2_OPTIONAL].some((key) => hasValue(key))
     if (anyR2Configured) {
-        requiredMissing.push(...OPTIONAL_R2_REQUIRED.filter((key) => !hasValue(key)))
+        requiredMissing.push(...missing(OPTIONAL_R2_REQUIRED))
     }
 
     const warnings: string[] = []
@@ -42,10 +48,13 @@ export function getEnvValidationReport(): EnvValidationReport {
     }
 
     const checks: EnvValidationReport['checks'] = {}
-    for (const key of CORE_REQUIRED) {
+    for (const key of STARTUP_REQUIRED) {
         checks[key] = hasValue(key) ? 'configured' : 'missing'
     }
-    for (const key of PROD_PLATFORM_REQUIRED) {
+    for (const key of GENERATION_REQUIRED) {
+        checks[key] = hasValue(key) ? 'configured' : 'missing'
+    }
+    for (const key of PROD_QUEUE_REQUIRED) {
         checks[key] = hasValue(key) ? 'configured' : 'missing'
     }
     for (const key of OPTIONAL_R2_REQUIRED) {
@@ -64,15 +73,11 @@ export function getEnvValidationReport(): EnvValidationReport {
     }
 }
 
-/**
- * Crash fast on startup if required env vars are missing.
- * Call once from prisma.ts so it fires on first import.
- */
 export function validateEnv(): void {
-    const report = getEnvValidationReport()
-    if (!report.ready) {
+    const requiredMissing = missing(STARTUP_REQUIRED)
+    if (requiredMissing.length > 0) {
         throw new Error(
-            `[Startup] Missing required env vars: ${report.requiredMissing.join(', ')}\n` +
+            `[Startup] Missing required env vars: ${requiredMissing.join(', ')}\n` +
             'Copy .env.example to .env and set the required values.',
         )
     }

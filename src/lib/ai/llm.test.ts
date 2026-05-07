@@ -70,6 +70,50 @@ describe('callLLM WaveSpeed polling', () => {
         expect(submitBody.model).toBe('env-llm-model')
     })
 
+    it('builds submit and polling URLs from provider config baseUrl', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input)
+
+            if (url.includes('/wavespeed-ai/any-llm')) {
+                return new Response(JSON.stringify({
+                    data: { id: 'task-custom-base' },
+                }), {
+                    status: 200,
+                    headers: { 'content-type': 'application/json' },
+                })
+            }
+
+            return new Response(JSON.stringify({
+                data: {
+                    status: 'completed',
+                    output: 'Custom base response',
+                },
+            }), {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const resultPromise = callLLM('Use custom base URL', {
+            providerConfig: {
+                provider: 'wavespeed',
+                apiKey: 'wavespeed-key',
+                llmModel: 'bytedance-seed/seed-1.6-flash',
+                imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
+                baseUrl: 'https://proxy.example.test/api/v3/',
+            },
+        })
+
+        await vi.runAllTimersAsync()
+
+        await expect(resultPromise).resolves.toBe('Custom base response')
+        expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+            'https://proxy.example.test/api/v3/wavespeed-ai/any-llm',
+            'https://proxy.example.test/api/v3/predictions/task-custom-base/result',
+        ])
+    })
+
     it('keeps polling long-running storyboard jobs beyond 60 seconds and uses throughput priority', async () => {
         let pollCount = 0
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

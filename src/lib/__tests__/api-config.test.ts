@@ -25,6 +25,7 @@ describe('getProviderConfig', () => {
 
     it('loads WaveSpeed config from environment variables only', async () => {
         vi.stubEnv('WAVESPEED_API_KEY', '  ws-env-key  ')
+        vi.stubEnv('WAVESPEED_BASE_URL', '  https://proxy.example.test/api/v3/  ')
         vi.stubEnv('LLM_MODEL', ' custom-llm ')
         vi.stubEnv('IMAGE_MODEL', ' custom-image ')
         vi.stubEnv('IMAGE_FALLBACK_MODEL', '')
@@ -35,7 +36,7 @@ describe('getProviderConfig', () => {
             llmModel: 'custom-llm',
             imageModel: 'custom-image',
             imageFallbackModel: 'bytedance/seedream-v4',
-            baseUrl: 'https://api.wavespeed.ai/api/v3',
+            baseUrl: 'https://proxy.example.test/api/v3',
             userId: 'user-1',
         })
 

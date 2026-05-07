@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isProviderSetupError, WAVESPEED_PROVIDER_SETUP_ERROR } from './api-config'
 
 /** Typed error codes for structured API responses */
 export const ErrorCode = {
@@ -7,6 +8,7 @@ export const ErrorCode = {
     NOT_FOUND: 'NOT_FOUND',
     CONFLICT: 'CONFLICT',
     RATE_LIMITED: 'RATE_LIMITED',
+    SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
     INTERNAL_ERROR: 'INTERNAL_ERROR',
 } as const
 
@@ -48,6 +50,16 @@ export class AppError extends Error {
 
 /** Build a structured error response from any error */
 export function buildErrorResponse(err: unknown): NextResponse {
+    if (isProviderSetupError(err)) {
+        return NextResponse.json(
+            {
+                error: WAVESPEED_PROVIDER_SETUP_ERROR,
+                code: ErrorCode.SERVICE_UNAVAILABLE,
+            },
+            { status: 503 },
+        )
+    }
+
     if (err instanceof AppError) {
         const headers: Record<string, string> = {}
         if (err.retryAfter != null) {

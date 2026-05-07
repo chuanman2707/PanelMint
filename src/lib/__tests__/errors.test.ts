@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { AppError, buildErrorResponse } from '../errors'
+import { ProviderSetupError, WAVESPEED_PROVIDER_SETUP_ERROR } from '../api-config'
 
 describe('Error System', () => {
     describe('AppError', () => {
@@ -44,6 +45,14 @@ describe('Error System', () => {
             expect(res.status).toBe(500)
             const body = await res.json()
             expect(body.code).toBe('INTERNAL_ERROR')
+        })
+
+        it('should preserve provider setup errors for local BYOK guidance', async () => {
+            const res = buildErrorResponse(new ProviderSetupError())
+            expect(res.status).toBe(503)
+            const body = await res.json()
+            expect(body.error).toBe(WAVESPEED_PROVIDER_SETUP_ERROR)
+            expect(body.code).toBe('SERVICE_UNAVAILABLE')
         })
     })
 })

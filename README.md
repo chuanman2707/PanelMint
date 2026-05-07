@@ -57,6 +57,7 @@ Use the local red-green-refactor loop for behavior changes in `src/app`, `src/li
 | `INNGEST_EVENT_KEY` | Yes | Sends Inngest events. |
 | `INNGEST_SIGNING_KEY` | Yes | Verifies Inngest endpoint calls. |
 | `WAVESPEED_API_KEY` | Yes for generation | Your WaveSpeed API key from `.env`; used for both LLM and image generation. |
+| `WAVESPEED_BASE_URL` | Optional | Defaults to `https://api.wavespeed.ai/api/v3`; override only for a WaveSpeed-compatible proxy. |
 | `ALLOWED_ORIGINS` | Optional | Extra trusted origins for mutating requests. |
 
 Optional R2 group:
@@ -86,6 +87,7 @@ cp .env.example .env
 | `INNGEST_EVENT_KEY` | Inngest Dashboard -> target environment | Create or copy the environment Event Key. |
 | `INNGEST_SIGNING_KEY` | Inngest Dashboard -> target environment -> `Signing Key` | Copy the signing key for the same Inngest environment. |
 | `WAVESPEED_API_KEY` | WaveSpeed -> API Keys | Generate one key and paste it into `.env`. PanelMint does not store provider keys in the database. |
+| `WAVESPEED_BASE_URL` | `.env.example` default | Leave as-is unless you route requests through a WaveSpeed-compatible proxy. |
 | `ALLOWED_ORIGINS` | Your app domains | Comma-separated origins allowed to make mutating cross-origin requests. |
 
 3. Recommended local/dev values:

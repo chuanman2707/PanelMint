@@ -7,8 +7,6 @@
 
 import { getProviderConfig, type ProviderConfig } from '@/lib/api-config'
 
-const WAVESPEED_ANY_LLM_URL = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/any-llm'
-const WAVESPEED_POLL_URL = 'https://api.wavespeed.ai/api/v3/predictions'
 const THROUGHPUT_TOKEN_THRESHOLD = 12_000
 const LATENCY_POLL_TIMEOUT_MS = 2 * 60_000
 const THROUGHPUT_POLL_TIMEOUT_MS = 10 * 60_000
@@ -16,6 +14,10 @@ const POLL_INITIAL_DELAY_MS = 1_000
 const POLL_MAX_DELAY_MS = 5_000
 
 type WaveSpeedPriority = 'latency' | 'throughput'
+
+function buildWaveSpeedUrl(baseUrl: string, path: string): string {
+    return `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
+}
 
 export async function callLLM(
     prompt: string,
@@ -57,7 +59,7 @@ async function callLLMWaveSpeed(
         ?? (priority === 'throughput' ? THROUGHPUT_POLL_TIMEOUT_MS : LATENCY_POLL_TIMEOUT_MS)
     console.log(`[LLM] wavespeed/${model} (${prompt.length} chars)`)
 
-    const res = await fetch(WAVESPEED_ANY_LLM_URL, {
+    const res = await fetch(buildWaveSpeedUrl(config.baseUrl, 'wavespeed-ai/any-llm'), {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${config.apiKey}`,
@@ -95,6 +97,7 @@ async function callLLMWaveSpeed(
     }
 
     const text = await pollWaveSpeedTextResult(config.apiKey, taskId, {
+        baseUrl: config.baseUrl,
         timeoutMs: pollTimeoutMs,
     })
     console.log(`[LLM] Response: ${text.length} chars`)
@@ -105,7 +108,7 @@ async function callLLMWaveSpeed(
 async function pollWaveSpeedTextResult(
     apiKey: string,
     taskId: string,
-    options: { timeoutMs: number },
+    options: { baseUrl: string, timeoutMs: number },
 ): Promise<string> {
     const startedAt = Date.now()
     let attempt = 0
@@ -119,7 +122,7 @@ async function pollWaveSpeedTextResult(
         }
         attempt += 1
 
-        const res = await fetch(`${WAVESPEED_POLL_URL}/${taskId}/result`, {
+        const res = await fetch(buildWaveSpeedUrl(options.baseUrl, `predictions/${taskId}/result`), {
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
             },

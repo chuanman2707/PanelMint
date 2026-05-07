@@ -79,19 +79,28 @@ describe('queue repository', () => {
         })).resolves.toEqual([{ id: 'job-1', attempts: 1 }])
 
         expect(mocks.prisma.$queryRaw).toHaveBeenCalledTimes(1)
+        const sql = String(mocks.prisma.$queryRaw.mock.calls[0]?.[0]?.sql ?? '')
+        expect(sql).toContain('FOR UPDATE SKIP LOCKED')
     })
 
     it('marks failed jobs for retry when attempts remain', async () => {
-        await failPipelineJob({
+        mocks.prisma.pipelineJob.updateMany.mockResolvedValue({ count: 1 })
+
+        await expect(failPipelineJob({
             jobId: 'job-1',
+            workerId: 'worker-1',
             error: new Error('network'),
             attempts: 1,
             maxAttempts: 3,
             retryDelayMs: 5_000,
-        })
+        })).resolves.toBe(true)
 
-        expect(mocks.prisma.pipelineJob.update).toHaveBeenCalledWith({
-            where: { id: 'job-1' },
+        expect(mocks.prisma.pipelineJob.updateMany).toHaveBeenCalledWith({
+            where: {
+                id: 'job-1',
+                status: 'running',
+                lockedBy: 'worker-1',
+            },
             data: expect.objectContaining({
                 status: 'queued',
                 lockedAt: null,
@@ -120,15 +129,33 @@ describe('queue repository', () => {
     })
 
     it('marks jobs succeeded', async () => {
-        await completePipelineJob('job-1')
+        mocks.prisma.pipelineJob.updateMany.mockResolvedValue({ count: 1 })
 
-        expect(mocks.prisma.pipelineJob.update).toHaveBeenCalledWith({
-            where: { id: 'job-1' },
+        await expect(completePipelineJob({
+            jobId: 'job-1',
+            workerId: 'worker-1',
+        })).resolves.toBe(true)
+
+        expect(mocks.prisma.pipelineJob.updateMany).toHaveBeenCalledWith({
+            where: {
+                id: 'job-1',
+                status: 'running',
+                lockedBy: 'worker-1',
+            },
             data: expect.objectContaining({
                 status: 'succeeded',
                 lockedAt: null,
                 lockedBy: null,
             }),
         })
+    })
+
+    it('does not complete a job owned by another worker', async () => {
+        mocks.prisma.pipelineJob.updateMany.mockResolvedValue({ count: 0 })
+
+        await expect(completePipelineJob({
+            jobId: 'job-1',
+            workerId: 'worker-old',
+        })).resolves.toBe(false)
     })
 })

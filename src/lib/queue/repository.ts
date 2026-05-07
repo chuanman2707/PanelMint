@@ -45,10 +45,16 @@ type ClaimPipelineJobsInput = {
 
 type FailPipelineJobInput = {
     jobId: string
+    workerId: string
     error: unknown
     attempts: number
     maxAttempts: number
     retryDelayMs: number
+}
+
+type CompletePipelineJobInput = {
+    jobId: string
+    workerId: string
 }
 
 const ACTIVE_JOB_STATUSES = ['queued', 'running'] as const
@@ -146,23 +152,33 @@ export async function claimPipelineJobs(
     `)
 }
 
-export async function completePipelineJob(jobId: string): Promise<PipelineJobRecord> {
-    return prisma.pipelineJob.update({
-        where: { id: jobId },
+export async function completePipelineJob(input: CompletePipelineJobInput): Promise<boolean> {
+    const result = await prisma.pipelineJob.updateMany({
+        where: {
+            id: input.jobId,
+            status: 'running',
+            lockedBy: input.workerId,
+        },
         data: {
             status: 'succeeded',
             lockedAt: null,
             lockedBy: null,
             lastError: null,
         },
-    }) as Promise<PipelineJobRecord>
+    })
+
+    return result.count === 1
 }
 
-export async function failPipelineJob(input: FailPipelineJobInput): Promise<PipelineJobRecord> {
+export async function failPipelineJob(input: FailPipelineJobInput): Promise<boolean> {
     const shouldRetry = input.attempts < input.maxAttempts
 
-    return prisma.pipelineJob.update({
-        where: { id: input.jobId },
+    const result = await prisma.pipelineJob.updateMany({
+        where: {
+            id: input.jobId,
+            status: 'running',
+            lockedBy: input.workerId,
+        },
         data: {
             status: shouldRetry ? 'queued' : 'failed',
             availableAt: shouldRetry
@@ -172,7 +188,9 @@ export async function failPipelineJob(input: FailPipelineJobInput): Promise<Pipe
             lockedBy: null,
             lastError: errorMessage(input.error),
         },
-    }) as Promise<PipelineJobRecord>
+    })
+
+    return result.count === 1
 }
 
 export async function cancelEpisodeJobs(episodeId: string): Promise<number> {

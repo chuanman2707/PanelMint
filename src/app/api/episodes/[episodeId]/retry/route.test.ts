@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
     getOrCreateLocalUser: vi.fn(),
     getLocalEpisode: vi.fn(),
     checkRateLimit: vi.fn(),
-    checkCredits: vi.fn(),
     enqueueImageGen: vi.fn(),
     syncPipelineRunState: vi.fn(),
     recordPipelineEvent: vi.fn(),
@@ -30,12 +29,6 @@ vi.mock('@/lib/local-user', () => ({
 vi.mock('@/lib/api-rate-limit', () => ({
     RETRY_LIMIT: { windowSeconds: 60, maxRequests: 2 },
     checkRateLimit: mocks.checkRateLimit,
-}))
-
-vi.mock('@/lib/billing', () => ({
-    checkCredits: mocks.checkCredits,
-    getImageGenerationCreditCost: (tier: 'standard' | 'premium') => tier === 'premium' ? 250 : 40,
-    normalizeImageModelTier: (tier?: string | null) => tier === 'premium' ? 'premium' : 'standard',
 }))
 
 vi.mock('@/lib/queue', () => ({
@@ -71,7 +64,6 @@ describe('POST /api/episodes/[episodeId]/retry', () => {
         })
         mocks.prisma.episode.findUnique.mockResolvedValue({
             id: 'ep-1',
-            project: { id: 'project-1', imageModel: 'standard' },
         })
         mocks.prisma.panel.findMany.mockResolvedValue([
             { id: 'panel-1' },
@@ -84,21 +76,7 @@ describe('POST /api/episodes/[episodeId]/retry', () => {
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
     })
 
-    it('returns 402 when the user lacks credits for the retry set', async () => {
-        mocks.checkCredits.mockResolvedValue(false)
-
-        const response = await POST(
-            new NextRequest('http://localhost/api/episodes/ep-1/retry', { method: 'POST' }),
-            { params: Promise.resolve({ episodeId: 'ep-1' }) },
-        )
-
-        expect(response.status).toBe(402)
-        expect(mocks.enqueueImageGen).not.toHaveBeenCalled()
-    })
-
-    it('queues failed panels for retry when credits are available', async () => {
-        mocks.checkCredits.mockResolvedValue(true)
-
+    it('queues failed panels for retry', async () => {
         const response = await POST(
             new NextRequest('http://localhost/api/episodes/ep-1/retry', { method: 'POST' }),
             { params: Promise.resolve({ episodeId: 'ep-1' }) },
@@ -106,6 +84,9 @@ describe('POST /api/episodes/[episodeId]/retry', () => {
 
         expect(response.status).toBe(200)
         expect(mocks.getLocalEpisode).toHaveBeenCalledWith('user-1', 'ep-1')
+        expect(mocks.prisma.episode.findUnique).toHaveBeenCalledWith({
+            where: { id: 'ep-1' },
+        })
         expect(mocks.prisma.episode.update).toHaveBeenCalledWith({
             where: { id: 'ep-1' },
             data: { status: 'imaging', progress: 50, error: null },
@@ -118,7 +99,6 @@ describe('POST /api/episodes/[episodeId]/retry', () => {
     })
 
     it('retries only the requested panel ids when a subset is provided', async () => {
-        mocks.checkCredits.mockResolvedValue(true)
         mocks.prisma.panel.findMany
             .mockResolvedValueOnce([{ id: 'panel-2' }])
             .mockResolvedValueOnce([{ id: 'panel-2' }])

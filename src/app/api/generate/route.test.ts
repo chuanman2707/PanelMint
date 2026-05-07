@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
     getOrCreateLocalUser: vi.fn(),
     checkRateLimit: vi.fn(),
     parseJsonBody: vi.fn(),
-    checkCredits: vi.fn(),
     enqueueAnalyze: vi.fn(),
     syncPipelineRunState: vi.fn(),
     recordPipelineEvent: vi.fn(),
@@ -33,13 +32,6 @@ vi.mock('@/lib/api-validate', () => ({
     parseJsonBody: mocks.parseJsonBody,
 }))
 
-vi.mock('@/lib/billing', () => ({
-    ACTION_CREDIT_COSTS: { llm_generation: 80 },
-    canAccessPremium: (tier: 'free' | 'paid') => tier === 'paid',
-    checkCredits: mocks.checkCredits,
-    normalizeImageModelTier: (tier?: string | null) => tier === 'premium' ? 'premium' : 'standard',
-}))
-
 vi.mock('@/lib/prisma', () => ({
     prisma: mocks.prisma,
 }))
@@ -58,7 +50,7 @@ import { POST } from './route'
 describe('POST /api/generate', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1', accountTier: 'free' })
+        mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
         mocks.checkRateLimit.mockResolvedValue(null)
         mocks.prisma.$transaction.mockImplementation(async (input: unknown) => {
             if (typeof input === 'function') {
@@ -71,9 +63,7 @@ describe('POST /api/generate', () => {
             text: 'A dramatic chapter opening',
             artStyle: 'webtoon',
             pageCount: 12,
-            imageModelTier: 'standard',
         })
-        mocks.checkCredits.mockResolvedValue(true)
         mocks.prisma.episode.findFirst.mockResolvedValue(null)
         mocks.prisma.project.create.mockResolvedValue({
             id: 'project-1',
@@ -99,34 +89,15 @@ describe('POST /api/generate', () => {
             data: expect.objectContaining({
                 userId: 'user-1',
                 artStyle: 'webtoon',
-                imageModel: 'standard',
             }),
             include: { episodes: true },
         })
+        const projectCreateData = mocks.prisma.project.create.mock.calls[0][0].data
+        expect(projectCreateData).not.toHaveProperty('imageModel')
         expect(mocks.enqueueAnalyze).toHaveBeenCalledWith(expect.objectContaining({
             episodeId: 'episode-1',
             userId: 'user-1',
         }))
     })
 
-    it('blocks premium generation for free accounts', async () => {
-        mocks.parseJsonBody.mockResolvedValue({
-            text: 'A dramatic chapter opening',
-            artStyle: 'webtoon',
-            pageCount: 12,
-            imageModelTier: 'premium',
-        })
-
-        const response = await POST(
-            new NextRequest('http://localhost/api/generate', {
-                method: 'POST',
-                body: JSON.stringify({ text: 'chapter' }),
-                headers: { 'content-type': 'application/json' },
-            }),
-            { params: Promise.resolve({}) },
-        )
-
-        expect(response.status).toBe(403)
-        expect(mocks.prisma.project.create).not.toHaveBeenCalled()
-    })
 })

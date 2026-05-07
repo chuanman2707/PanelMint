@@ -1,15 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
 import { Icon } from './ui/icons'
 import { NeoButton } from './ui/NeoButton'
 import { artStyleOptions, normalizeArtStyle, type ArtStyle } from '@/lib/art-styles'
-import {
-    ACTION_CREDIT_COSTS,
-    estimateGenerationCredits,
-    type ImageModelTier,
-} from '@/lib/credit-catalog'
 import {
     MAX_STORY_MANUSCRIPT_CHARS,
     getStoryboardPanelBudget,
@@ -27,18 +21,15 @@ import {
 const CREATE_DRAFT_STORAGE_KEY = 'panelmint:create-draft:v1'
 
 interface GenerateFormProps {
-    onGenerate: (text: string, artStyle: string, pageCount: number, imageModelTier: ImageModelTier) => void
+    onGenerate: (text: string, artStyle: string, pageCount: number) => void
     isLoading: boolean
-    credits: number
-    accountTier: string
     disabled?: boolean
 }
 
-export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disabled = false }: GenerateFormProps) {
+export function GenerateForm({ onGenerate, isLoading, disabled = false }: GenerateFormProps) {
     const [text, setText] = useState('')
     const [artStyle, setArtStyle] = useState<ArtStyle>('manga')
     const [pageCount, setPageCount] = useState(15)
-    const [imageModelTier, setImageModelTier] = useState<ImageModelTier>('standard')
     const [pasteOverflowText, setPasteOverflowText] = useState('')
     const [pasteOverflowStatus, setPasteOverflowStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
     const hasHydratedDraft = useRef(false)
@@ -53,7 +44,6 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
                 text?: string
                 artStyle?: string
                 pageCount?: number
-                imageModelTier?: ImageModelTier
             }
 
             if (typeof parsed.text === 'string') {
@@ -68,10 +58,6 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
             if (typeof parsed.pageCount === 'number' && parsed.pageCount >= 5 && parsed.pageCount <= 30) {
                 setPageCount(parsed.pageCount)
             }
-
-            if (parsed.imageModelTier === 'standard' || parsed.imageModelTier === 'premium') {
-                setImageModelTier(parsed.imageModelTier)
-            }
         } catch {
             window.localStorage.removeItem(CREATE_DRAFT_STORAGE_KEY)
         } finally {
@@ -82,7 +68,7 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
     useEffect(() => {
         if (!hasHydratedDraft.current) return
 
-        const isDefaultDraft = !text && artStyle === 'manga' && pageCount === 15 && imageModelTier === 'standard'
+        const isDefaultDraft = !text && artStyle === 'manga' && pageCount === 15
 
         if (isDefaultDraft) {
             window.localStorage.removeItem(CREATE_DRAFT_STORAGE_KEY)
@@ -95,15 +81,14 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
                 text,
                 artStyle,
                 pageCount,
-                imageModelTier,
             }),
         )
-    }, [artStyle, imageModelTier, pageCount, text])
+    }, [artStyle, pageCount, text])
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        if (!text.trim() || isLoading || disabled || text.length >= MAX_STORY_MANUSCRIPT_CHARS) return
-        onGenerate(text.trim(), artStyle, pageCount, imageModelTier)
+        if (!text.trim() || isLoading || disabled || isGenerateManuscriptAtLimit(text.length)) return
+        onGenerate(text.trim(), artStyle, pageCount)
     }
 
     const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -155,34 +140,10 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
         manuscriptChars: charCount,
         pageCount,
     })
-    const estimatedCredits = estimateGenerationCredits(pageCount, imageModelTier, charCount)
-    const canAffordEstimate = credits >= estimatedCredits
-    const isSubmitDisabled = !text.trim() || isLoading || disabled || !canAffordEstimate || isAtCharLimit
+    const isSubmitDisabled = !text.trim() || isLoading || disabled || isAtCharLimit
 
     return (
         <form onSubmit={handleSubmit} className="w-full space-y-8 pb-10">
-            {/* Credits Overview Box */}
-            <div className="rounded-[var(--neo-radius)] border-4 border-black bg-white p-5 shadow-[var(--neo-shadow-button)] relative overflow-hidden">
-                <div className="flex items-center justify-between mb-4">
-                    <p className="text-xs font-bold uppercase tracking-widest text-black">
-                        Available Balance
-                    </p>
-                    <span className="rounded-[var(--neo-radius-full)] border-2 border-black bg-[var(--neo-accent-green)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest shadow-sm">
-                        {accountTier === 'paid' ? 'Pro' : 'Free'}
-                    </span>
-                </div>
-                <div className="flex items-end justify-between">
-                    <p className="text-4xl font-bold font-mono text-black">
-                        {credits.toLocaleString()}
-                    </p>
-                    {!canAffordEstimate && (
-                        <Link href="/settings?tab=credits" className="text-xs font-bold uppercase tracking-widest text-[var(--neo-accent-danger)] hover:underline border-b-2 border-transparent hover:border-[var(--neo-accent-danger)] pb-0.5 transition-colors">
-                            Top Up Required →
-                        </Link>
-                    )}
-                </div>
-            </div>
-
             {/* Input Area */}
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -308,68 +269,10 @@ export function GenerateForm({ onGenerate, isLoading, credits, accountTier, disa
                         className="w-full h-4 rounded-full appearance-none border-2 border-black bg-white accent-black cursor-ew-resize hover:bg-[var(--neo-bg-canvas)] disabled:opacity-50 transition-colors"
                     />
                 </div>
-
-                {/* Render Quality */}
-                <div className="space-y-4 pt-6 border-t-2 border-black border-dashed">
-                    <label className="text-sm font-bold uppercase tracking-widest text-black">
-                        Render Quality
-                    </label>
-                    <div className="grid gap-4">
-                        <button
-                            type="button"
-                            onClick={() => setImageModelTier('standard')}
-                            disabled={isLoading || disabled}
-                            className={`flex items-center justify-between rounded-[var(--neo-radius)] border-2 p-4 text-left transition-all ${imageModelTier === 'standard'
-                                    ? 'border-black bg-black text-white shadow-[var(--neo-shadow-button)] translate-x-1'
-                                    : 'border-black bg-white hover:bg-[var(--neo-accent-green)]'
-                                } disabled:opacity-50`}
-                        >
-                            <span className="font-bold uppercase tracking-wider text-sm">Standard</span>
-                            <span className={`font-mono text-xs font-bold ${imageModelTier === 'standard' ? 'text-gray-300' : 'text-gray-700'}`}>{ACTION_CREDIT_COSTS.standard_image}/img</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (accountTier === 'paid') setImageModelTier('premium')
-                            }}
-                            disabled={isLoading || disabled || accountTier !== 'paid'}
-                            className={`flex items-center justify-between rounded-[var(--neo-radius)] border-2 p-4 text-left transition-all relative overflow-hidden ${accountTier !== 'paid'
-                                    ? 'cursor-not-allowed border-black bg-[var(--neo-bg-canvas)] opacity-80'
-                                    : imageModelTier === 'premium'
-                                        ? 'border-black bg-black text-[var(--neo-accent-rainbow)] shadow-[var(--neo-shadow-button)] translate-x-1'
-                                        : 'border-black bg-white hover:bg-[var(--neo-accent-green)] text-black'
-                                } disabled:opacity-50`}
-                        >
-                            {accountTier !== 'paid' && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-[var(--neo-bg-canvas)]/50 backdrop-blur-sm pointer-events-none z-10">
-                                    <span className="rounded-[var(--neo-radius-full)] border-2 border-black bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-black flex items-center gap-2 shadow-sm">
-                                        <Icon name="lock" size={14} /> Requires Pro
-                                    </span>
-                                </div>
-                            )}
-                            <span className="font-bold uppercase tracking-wider text-sm flex items-center gap-2 relative z-0">
-                                Premium <Icon name="crown" size={16} className={imageModelTier === 'premium' ? 'text-[var(--neo-accent-rainbow)]' : 'text-[#63c7f9]'} />
-                            </span>
-                            <span className={`font-mono text-xs font-bold relative z-0 ${imageModelTier === 'premium' ? 'text-gray-300' : 'text-gray-700'}`}>{ACTION_CREDIT_COSTS.premium_image}/img</span>
-                        </button>
-                    </div>
-                </div>
             </div>
 
             {/* Run Action */}
             <div className="space-y-5 border-t-4 border-black pt-6">
-                <div className="flex items-center justify-between bg-black text-white p-4 rounded-[var(--neo-radius-lg)] shadow-[var(--neo-shadow-button)]">
-                    <span className="text-sm font-bold uppercase tracking-widest">Est. Cost</span>
-                    <span className="text-2xl font-bold font-mono text-[var(--neo-accent-green)]">-{estimatedCredits} <span className="text-sm text-gray-400">cR</span></span>
-                </div>
-
-                {!canAffordEstimate && (
-                    <div className="rounded-[var(--neo-radius)] border-2 border-black bg-[var(--neo-accent-danger)] p-4 text-center text-sm font-bold uppercase tracking-widest text-white shadow-sm flex items-center justify-center gap-2">
-                        <Icon name="alert" size={18} /> Insufficient credits
-                    </div>
-                )}
-
                 <NeoButton
                     type="submit"
                     variant={isSubmitDisabled ? 'secondary' : 'primary'}

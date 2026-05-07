@@ -51,7 +51,7 @@ export function DashboardHero({
                         Comics without the hassle.
                     </h1>
                     <p className="mt-4 max-w-xl text-lg font-bold text-gray-600">
-                        Draft faster, review storyboards with confidence, and keep render costs visible before you spend credits.
+                        Draft faster, review storyboards with confidence, and render through your local WaveSpeed key.
                     </p>
                     <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                         <NeoButton variant="primary" size="xl" onClick={onCreate}>

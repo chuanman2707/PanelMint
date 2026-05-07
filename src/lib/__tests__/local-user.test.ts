@@ -9,9 +9,6 @@ const { prismaMock } = vi.hoisted(() => {
             create: vi.fn(),
             findFirst: vi.fn(),
         },
-        creditTransaction: {
-            create: vi.fn(),
-        },
         episode: {
             findFirst: vi.fn(),
         },
@@ -35,10 +32,6 @@ const { prismaMock } = vi.hoisted(() => {
 
 vi.mock('@/lib/prisma', () => ({
     prisma: prismaMock,
-}))
-
-vi.mock('@/lib/billing', () => ({
-    STARTER_CREDITS: 300,
 }))
 
 import {
@@ -65,16 +58,12 @@ describe('getOrCreateLocalUser', () => {
             id: 'local-user-1',
             email: LOCAL_USER_EMAIL,
             name: 'Local Creator',
-            credits: 300,
-            accountTier: 'free',
         })
 
         await expect(getOrCreateLocalUser()).resolves.toEqual({
             id: 'local-user-1',
             email: LOCAL_USER_EMAIL,
             name: 'Local Creator',
-            credits: 300,
-            accountTier: 'free',
         })
 
         expect(prismaMock.user.create).not.toHaveBeenCalled()
@@ -87,8 +76,6 @@ describe('getOrCreateLocalUser', () => {
                 id: 'existing-user-1',
                 email: 'old@example.com',
                 name: 'Existing Creator',
-                credits: 120,
-                accountTier: 'paid',
             },
         ])
 
@@ -107,33 +94,24 @@ describe('getOrCreateLocalUser', () => {
             id: 'local-user-1',
             email: LOCAL_USER_EMAIL,
             name: 'Local Creator',
-            credits: 300,
-            accountTier: 'free',
         })
 
-        await expect(getOrCreateLocalUser()).resolves.toMatchObject({
+        await expect(getOrCreateLocalUser()).resolves.toEqual({
             id: 'local-user-1',
             email: LOCAL_USER_EMAIL,
-            credits: 300,
+            name: 'Local Creator',
         })
 
-        expect(prismaMock.user.create).toHaveBeenCalledWith(expect.objectContaining({
-            data: expect.objectContaining({
+        expect(prismaMock.user.create).toHaveBeenCalledWith({
+            data: {
                 email: LOCAL_USER_EMAIL,
                 name: 'Local Creator',
-                credits: 300,
-                accountTier: 'free',
-                lifetimePurchasedCredits: 0,
-            }),
-        }))
-        expect(prismaMock.creditTransaction.create).toHaveBeenCalledWith({
-            data: expect.objectContaining({
-                userId: 'local-user-1',
-                amount: 300,
-                reason: 'starter_bonus',
-                balance: 300,
-                operationKey: 'starter_bonus:local-user-1',
-            }),
+            },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+            },
         })
     })
 
@@ -144,23 +122,17 @@ describe('getOrCreateLocalUser', () => {
                 id: 'existing-user-1',
                 email: 'first@example.com',
                 name: 'First Creator',
-                credits: 120,
-                accountTier: 'paid',
             },
             {
                 id: 'existing-user-2',
                 email: 'second@example.com',
                 name: 'Second Creator',
-                credits: 80,
-                accountTier: 'free',
             },
         ])
         prismaMock.user.create.mockResolvedValue({
             id: 'local-user-1',
             email: LOCAL_USER_EMAIL,
             name: 'Local Creator',
-            credits: 300,
-            accountTier: 'free',
         })
 
         await expect(getOrCreateLocalUser()).resolves.toMatchObject({
@@ -169,10 +141,10 @@ describe('getOrCreateLocalUser', () => {
         })
 
         expect(prismaMock.user.create).toHaveBeenCalledWith(expect.objectContaining({
-            data: expect.objectContaining({
+            data: {
                 email: LOCAL_USER_EMAIL,
                 name: 'Local Creator',
-            }),
+            },
         }))
     })
 
@@ -182,16 +154,12 @@ describe('getOrCreateLocalUser', () => {
             id: 'local-user-1',
             email: LOCAL_USER_EMAIL,
             name: 'Local Creator',
-            credits: 300,
-            accountTier: 'free',
         })
 
         await expect(getOrCreateLocalUser()).resolves.toEqual({
             id: 'local-user-1',
             email: LOCAL_USER_EMAIL,
             name: 'Local Creator',
-            credits: 300,
-            accountTier: 'free',
         })
 
         expect(prismaMock.user.findUnique).toHaveBeenCalledWith(expect.objectContaining({

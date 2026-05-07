@@ -17,8 +17,6 @@ const mocks = vi.hoisted(() => ({
     analyzeCharactersAndLocations: vi.fn(),
     splitIntoPagesWithPanels: vi.fn(),
     getProviderConfig: vi.fn(),
-    checkCredits: vi.fn(),
-    deductCredits: vi.fn(),
     recordPipelineEvent: vi.fn(),
     syncPipelineRunState: vi.fn(),
     generateCharacterDescription: vi.fn(),
@@ -36,23 +34,6 @@ vi.mock('@/lib/pipeline/analyze', () => ({
 
 vi.mock('@/lib/api-config', () => ({
     getProviderConfig: mocks.getProviderConfig,
-}))
-
-vi.mock('@/lib/billing', () => ({
-    ACTION_CREDIT_COSTS: {
-        llm_generation: 80,
-        standard_image: 40,
-        premium_image: 250,
-    },
-    checkCredits: mocks.checkCredits,
-    deductCredits: mocks.deductCredits,
-    getImageGenerationCreditCost: (tier: 'standard' | 'premium') => tier === 'premium' ? 250 : 40,
-    normalizeImageModelTier: (tier?: string | null) => tier === 'premium' ? 'premium' : 'standard',
-    InsufficientCreditsError: class InsufficientCreditsError extends Error {
-        constructor(required: number, available: number) {
-            super(`Insufficient credits: need ${required}, have ${available}.`)
-        }
-    },
 }))
 
 vi.mock('@/lib/ai/character-design', () => ({
@@ -88,8 +69,6 @@ describe('runAnalyzeStep', () => {
             baseUrl: 'https://api.wavespeed.ai/api/v3',
             userId: 'user-1',
         })
-        mocks.checkCredits.mockResolvedValue(true)
-        mocks.deductCredits.mockResolvedValue(undefined)
         mocks.prisma.episode.findUnique.mockResolvedValue({ status: 'queued' })
         mocks.prisma.episode.update.mockResolvedValue({})
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
@@ -136,14 +115,12 @@ describe('runAnalyzeStep', () => {
             pageCount: 5,
         })
 
-        expect(mocks.checkCredits).toHaveBeenCalledTimes(1)
-        expect(mocks.deductCredits).toHaveBeenCalledTimes(1)
-        expect(mocks.deductCredits).toHaveBeenCalledWith(
-            'user-1',
-            80,
-            'chapter_analysis',
-            'episode-1',
-            { operationKey: 'analyze:episode-1' },
+        expect(mocks.analyzeCharactersAndLocations).toHaveBeenCalledWith(
+            'A training day at the academy.',
+            expect.objectContaining({
+                provider: 'wavespeed',
+                apiKey: 'api-key',
+            }),
         )
         expect(mocks.generateCharacterSheet).not.toHaveBeenCalled()
         expect(mocks.generateCharacterDescription).not.toHaveBeenCalled()

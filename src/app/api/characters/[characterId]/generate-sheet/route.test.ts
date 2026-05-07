@@ -5,8 +5,6 @@ const mocks = vi.hoisted(() => ({
     getOrCreateLocalUser: vi.fn(),
     getLocalCharacter: vi.fn(),
     getProviderConfig: vi.fn(),
-    deductCredits: vi.fn(),
-    refundCredits: vi.fn(),
     generateCharacterSheet: vi.fn(),
     prisma: {
         character: {
@@ -29,12 +27,6 @@ vi.mock('@/lib/ai/character-design', () => ({
     generateCharacterSheet: mocks.generateCharacterSheet,
 }))
 
-vi.mock('@/lib/billing', () => ({
-    ACTION_CREDIT_COSTS: { standard_image: 40 },
-    deductCredits: mocks.deductCredits,
-    refundCredits: mocks.refundCredits,
-}))
-
 vi.mock('@/lib/prisma', () => ({
     prisma: mocks.prisma,
 }))
@@ -47,7 +39,6 @@ describe('POST /api/characters/[characterId]/generate-sheet', () => {
         mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
         mocks.getLocalCharacter.mockResolvedValue({ character: { id: 'char-1' }, error: null })
         mocks.getProviderConfig.mockResolvedValue({ apiKey: 'ws-key', provider: 'wavespeed' })
-        mocks.deductCredits.mockResolvedValue(true)
         mocks.generateCharacterSheet.mockResolvedValue({ imageUrl: '/image.png', storageKey: 'key' })
         mocks.prisma.character.findUnique.mockResolvedValue({
             id: 'char-1',
@@ -65,6 +56,7 @@ describe('POST /api/characters/[characterId]/generate-sheet', () => {
 
         expect(response.status).toBe(200)
         expect(mocks.getLocalCharacter).toHaveBeenCalledWith('user-1', 'char-1')
+        expect(mocks.getProviderConfig).toHaveBeenCalledWith('user-1')
         expect(mocks.generateCharacterSheet).toHaveBeenCalledWith(
             'char-1',
             'Hero',
@@ -72,5 +64,10 @@ describe('POST /api/characters/[characterId]/generate-sheet', () => {
             expect.anything(),
             'user-1',
         )
+        expect(mocks.prisma.character.update).toHaveBeenCalledWith({
+            where: { id: 'char-1' },
+            data: { imageUrl: '/image.png', storageKey: 'key' },
+        })
+        await expect(response.json()).resolves.toEqual({ imageUrl: '/image.png' })
     })
 })

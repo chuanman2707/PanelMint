@@ -17,7 +17,6 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-4 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[color:rgba(9,9,11,0.62)]">
-                        <Link href="/pricing">Pricing</Link>
                         <Link href="/legal">Legal</Link>
                         <Link href="/dashboard">Open app</Link>
                     </div>

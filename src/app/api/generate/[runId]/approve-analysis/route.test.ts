@@ -18,9 +18,6 @@ const mocks = vi.hoisted(() => ({
             findMany: vi.fn(),
             update: vi.fn(),
         },
-        project: {
-            findUnique: vi.fn(),
-        },
         episode: {
             update: vi.fn(),
         },
@@ -67,7 +64,6 @@ describe('POST /api/generate/[runId]/approve-analysis', () => {
         mocks.prisma.location.findMany.mockResolvedValue([{ id: 'loc-1' }])
         mocks.prisma.character.update.mockResolvedValue({})
         mocks.prisma.location.update.mockResolvedValue({})
-        mocks.prisma.project.findUnique.mockResolvedValue({ imageModel: 'standard' })
         mocks.prisma.episode.update.mockResolvedValue({})
         mocks.enqueueStoryboard.mockResolvedValue({})
         mocks.enqueueCharacterSheets.mockResolvedValue({})
@@ -135,39 +131,6 @@ describe('POST /api/generate/[runId]/approve-analysis', () => {
                 description: 'Main setting',
             },
         })
-        expect(mocks.enqueueStoryboard).toHaveBeenCalledWith('ep-1')
-        expect(mocks.enqueueCharacterSheets).not.toHaveBeenCalled()
-    })
-
-    it('enqueues character sheets for premium projects', async () => {
-        mocks.prisma.project.findUnique.mockResolvedValue({ imageModel: 'premium' })
-
-        const response = await POST(
-            new NextRequest('http://localhost/api/generate/ep-1/approve-analysis', {
-                method: 'POST',
-                body: JSON.stringify({
-                    characters: [
-                        {
-                            id: 'char-1',
-                            name: 'Aoi',
-                            aliases: 'The Hero',
-                            description: 'Lead protagonist',
-                        },
-                    ],
-                    locations: [
-                        {
-                            id: 'loc-1',
-                            name: 'Neo City',
-                            description: 'Main setting',
-                        },
-                    ],
-                }),
-                headers: { 'content-type': 'application/json' },
-            }),
-            { params: Promise.resolve({ runId: 'ep-1' }) },
-        )
-
-        expect(response.status).toBe(200)
         expect(mocks.enqueueStoryboard).toHaveBeenCalledWith('ep-1')
         expect(mocks.enqueueCharacterSheets).toHaveBeenCalledWith('ep-1')
     })

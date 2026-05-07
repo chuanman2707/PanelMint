@@ -10,14 +10,12 @@ import { NeoCard } from '@/components/ui/NeoCard'
 import { NeoTag } from '@/components/ui/NeoTag'
 import { NeoButton } from '@/components/ui/NeoButton'
 import { Icon } from '@/components/ui/icons'
-import { useLocalUser } from '@/hooks/useLocalUser'
 import { useCreateWorkflow } from './useCreateWorkflow'
 
 export default function CreatePage() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const resumeId = searchParams.get('resume')
-    const { user } = useLocalUser()
     const {
         state,
         runId,
@@ -57,8 +55,6 @@ export default function CreatePage() {
                     <GenerateForm
                         onGenerate={handleGenerate}
                         isLoading={state !== 'input' && state !== 'done'}
-                        credits={user?.credits ?? 0}
-                        accountTier={user?.accountTier ?? 'free'}
                         disabled={state !== 'input'}
                     />
                 </div>

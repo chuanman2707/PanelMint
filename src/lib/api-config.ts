@@ -27,6 +27,7 @@ const PROVIDER_DEFAULTS: Record<ApiProvider, Omit<ProviderConfig, 'apiKey'>> = {
         provider: 'wavespeed',
         llmModel: 'bytedance-seed/seed-1.6-flash',
         imageModel: 'wavespeed-ai/flux-kontext-pro/multi',
+        imageFallbackModel: 'bytedance/seedream-v4',
         baseUrl: 'https://api.wavespeed.ai/api/v3',
     },
 }
@@ -71,7 +72,7 @@ export async function hasApiKey(userId: string): Promise<boolean> {
 }
 
 /**
- * Get provider info for display (pricing, setup URL, risk level).
+ * Get provider info for display (configuration, setup URL, risk level).
  */
 export function getProviderInfo(provider: ApiProvider) {
     const info = {
@@ -80,7 +81,7 @@ export function getProviderInfo(provider: ApiProvider) {
             description: 'Unified provider for text generation and multi-reference image generation.',
             llmModel: 'Seed 1.6 Flash',
             imageModel: 'FLUX Kontext Pro Multi',
-            pricing: 'Project-configured',
+            configuration: 'Project-configured',
             risk: 'none' as const,
             setupUrl: 'https://wavespeed.ai/accesskey',
         },

@@ -114,7 +114,6 @@ export async function recordPipelineEvent(input: {
     step: string
     status: PipelineEventStatus
     metadata?: Record<string, unknown>
-    creditOperationKey?: string | null
     client?: Prisma.TransactionClient
 }): Promise<void> {
     const db = getDb(input.client)
@@ -132,7 +131,6 @@ export async function recordPipelineEvent(input: {
             step: input.step,
             status: input.status,
             metadata: toMetadataJson(input.metadata),
-            creditOperationKey: input.creditOperationKey ?? null,
             completedAt: input.status === 'started' ? null : new Date(),
         },
     })

@@ -4,12 +4,6 @@ import { enqueueImageGen } from '@/lib/queue'
 import { getLocalEpisode, getOrCreateLocalUser } from '@/lib/local-user'
 import { apiHandler } from '@/lib/api-handler'
 import { checkRateLimit, RETRY_LIMIT } from '@/lib/api-rate-limit'
-import { AppError } from '@/lib/errors'
-import {
-    checkCredits,
-    getImageGenerationCreditCost,
-    normalizeImageModelTier,
-} from '@/lib/billing'
 import { parseJsonBody } from '@/lib/api-validate'
 import { retryRequestSchema } from '@/lib/validators/pipeline'
 import { recordPipelineEvent, syncPipelineRunState } from '@/lib/pipeline/run-state'
@@ -26,9 +20,6 @@ export const POST = apiHandler(async (request, context) => {
 
     const episode = await prisma.episode.findUnique({
         where: { id: episodeId },
-        include: {
-            project: { select: { id: true, imageModel: true } },
-        },
     })
 
     if (!episode) {
@@ -69,16 +60,6 @@ export const POST = apiHandler(async (request, context) => {
 
     if (failedPanels.length === 0) {
         return NextResponse.json({ message: 'No failed panels to retry', retried: 0 })
-    }
-
-    const imageModelTier = normalizeImageModelTier(episode.project.imageModel)
-    const totalCreditCost = failedPanels.length * getImageGenerationCreditCost(imageModelTier)
-    const hasCredits = await checkCredits(localUser.id, totalCreditCost)
-    if (!hasCredits) {
-        throw new AppError(
-            'Insufficient credits. Purchase more credits to retry failed panels.',
-            402,
-        )
     }
 
     await prisma.$transaction(async (tx) => {

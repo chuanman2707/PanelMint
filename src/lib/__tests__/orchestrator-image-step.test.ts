@@ -36,9 +36,6 @@ const mocks = vi.hoisted(() => {
         getProviderConfig: vi.fn(),
         collectPanelReferenceImages: vi.fn(),
         buildCharacterCanon: vi.fn(),
-        checkCredits: vi.fn(),
-        deductCredits: vi.fn(),
-        refundCredits: vi.fn(),
         recordPipelineEvent: vi.fn(),
         syncPipelineRunState: vi.fn(),
         generatePanelImage: vi.fn(),
@@ -73,22 +70,6 @@ vi.mock('@/lib/api-config', () => ({
     getProviderConfig: mocks.getProviderConfig,
 }))
 
-vi.mock('@/lib/billing', () => ({
-    ACTION_CREDIT_COSTS: {
-        llm_generation: 80,
-        standard_image: 40,
-        premium_image: 250,
-    },
-    checkCredits: mocks.checkCredits,
-    deductCredits: mocks.deductCredits,
-    refundCredits: mocks.refundCredits,
-    getImageGenerationCreditCost: (tier: 'standard' | 'premium') => tier === 'premium' ? 250 : 40,
-    getImageGenerationReason: (tier: 'standard' | 'premium') =>
-        tier === 'premium' ? 'premium_image_generation' : 'standard_image_generation',
-    normalizeImageModelTier: (tier?: string | null) => tier === 'premium' ? 'premium' : 'standard',
-    InsufficientCreditsError: class InsufficientCreditsError extends Error {},
-}))
-
 vi.mock('@/lib/pipeline/image-gen', () => ({
     generatePanelImage: mocks.generatePanelImage,
     ContentFilterError: mocks.ContentFilterError,
@@ -112,7 +93,6 @@ describe('runImageGenStep', () => {
             project: {
                 userId: 'user-1',
                 artStyle: 'webtoon',
-                imageModel: 'standard',
             },
             projectId: 'project-1',
         })
@@ -136,9 +116,6 @@ describe('runImageGenStep', () => {
         })
         mocks.collectPanelReferenceImages.mockReturnValue([])
         mocks.buildCharacterCanon.mockReturnValue([])
-        mocks.checkCredits.mockResolvedValue(true)
-        mocks.deductCredits.mockResolvedValue(true)
-        mocks.refundCredits.mockResolvedValue(undefined)
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
         mocks.syncPipelineRunState.mockResolvedValue(undefined)
         mocks.prisma.episode.update.mockResolvedValue({})
@@ -188,13 +165,6 @@ describe('runImageGenStep', () => {
             where: { id: 'panel-1' },
             data: { status: 'content_filtered' },
         })
-        expect(mocks.refundCredits).toHaveBeenCalledWith(
-            'user-1',
-            40,
-            'panel gen failed: panel-1',
-            'episode-1',
-            { operationKey: 'refund:image:panel-1:1' },
-        )
         expect(mocks.prisma.episode.update).toHaveBeenLastCalledWith({
             where: { id: 'episode-1' },
             data: { status: 'done', progress: 100 },
@@ -240,13 +210,6 @@ describe('runImageGenStep', () => {
             where: { id: 'panel-2' },
             data: { status: 'error' },
         })
-        expect(mocks.refundCredits).toHaveBeenCalledWith(
-            'user-1',
-            40,
-            'panel gen failed: panel-2',
-            'episode-1',
-            { operationKey: 'refund:image:panel-2:1' },
-        )
         expect(mocks.prisma.episode.update).toHaveBeenLastCalledWith({
             where: { id: 'episode-1' },
             data: { status: 'review_storyboard', progress: 50 },

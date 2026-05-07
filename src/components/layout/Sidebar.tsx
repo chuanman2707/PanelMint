@@ -11,14 +11,12 @@ const NAV_ITEMS = [
     { href: '/dashboard', icon: 'layout-grid', label: 'Dashboard' },
     { href: '/create', icon: 'sparkles', label: 'Create' },
     { href: '/library', icon: 'book', label: 'My Library' },
-    { href: '/dashboard/pricing', icon: 'wallet', label: 'Pricing' },
     { href: '/settings', icon: 'settings', label: 'Settings' },
 ] as const
 
 export function Sidebar() {
     const pathname = usePathname()
     const { user } = useLocalUser()
-    const creditBalance = (user?.credits ?? 0).toLocaleString()
     const activeHref = NAV_ITEMS.reduce<string | null>((bestMatch, item) => {
         const matches = pathname === item.href || pathname.startsWith(`${item.href}/`)
 
@@ -41,7 +39,7 @@ export function Sidebar() {
                         COMIC_ENGINE_V1
                     </Link>
                     <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black/55">
-                        Credits: {creditBalance}
+                        Local workspace
                     </p>
                 </div>
 
@@ -81,7 +79,7 @@ export function Sidebar() {
                                 {user?.name || user?.email?.split('@')[0] || 'Creator'}
                             </p>
                             <NeoTag tone="lime" className="mt-1">
-                                {(user?.accountTier ?? 'free') === 'paid' ? 'Local paid tier' : 'Local workspace'}
+                                Local workspace
                             </NeoTag>
                         </div>
                     </div>

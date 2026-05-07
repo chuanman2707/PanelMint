@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { STARTER_CREDITS } from './billing'
 import { decrypt, encrypt, isEncrypted } from './crypto'
 import { prisma } from './prisma'
 
@@ -10,8 +9,6 @@ export interface LocalUser {
     id: string
     email: string
     name: string | null
-    credits: number
-    accountTier: string
 }
 
 function mapLocalUser(user: LocalUser): LocalUser {
@@ -19,8 +16,6 @@ function mapLocalUser(user: LocalUser): LocalUser {
         id: user.id,
         email: user.email,
         name: user.name,
-        credits: user.credits,
-        accountTier: user.accountTier,
     }
 }
 
@@ -41,8 +36,6 @@ export async function getOrCreateLocalUser(): Promise<LocalUser> {
                     id: true,
                     email: true,
                     name: true,
-                    credits: true,
-                    accountTier: true,
                 },
             })
 
@@ -57,8 +50,6 @@ export async function getOrCreateLocalUser(): Promise<LocalUser> {
                     id: true,
                     email: true,
                     name: true,
-                    credits: true,
-                    accountTier: true,
                 },
             })
 
@@ -70,26 +61,11 @@ export async function getOrCreateLocalUser(): Promise<LocalUser> {
                 data: {
                     email: LOCAL_USER_EMAIL,
                     name: LOCAL_USER_NAME,
-                    credits: STARTER_CREDITS,
-                    accountTier: 'free',
-                    lifetimePurchasedCredits: 0,
                 },
                 select: {
                     id: true,
                     email: true,
                     name: true,
-                    credits: true,
-                    accountTier: true,
-                },
-            })
-
-            await tx.creditTransaction.create({
-                data: {
-                    userId: created.id,
-                    amount: STARTER_CREDITS,
-                    reason: 'starter_bonus',
-                    balance: created.credits,
-                    operationKey: `starter_bonus:${created.id}`,
                 },
             })
 
@@ -106,8 +82,6 @@ export async function getOrCreateLocalUser(): Promise<LocalUser> {
                 id: true,
                 email: true,
                 name: true,
-                credits: true,
-                accountTier: true,
             },
         })
 

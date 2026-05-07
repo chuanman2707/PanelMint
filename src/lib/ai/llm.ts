@@ -7,7 +7,6 @@
  */
 
 import type { ProviderConfig } from '@/lib/api-config'
-import { logUsage } from '@/lib/usage'
 
 const WAVESPEED_ANY_LLM_URL = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/any-llm'
 const WAVESPEED_POLL_URL = 'https://api.wavespeed.ai/api/v3/predictions'
@@ -49,6 +48,7 @@ function getPlatformProviderConfig(): ProviderConfig {
         apiKey,
         llmModel: process.env.LLM_MODEL?.trim() || 'bytedance-seed/seed-1.6-flash',
         imageModel: process.env.IMAGE_MODEL?.trim() || 'wavespeed-ai/flux-kontext-pro/multi',
+        imageFallbackModel: 'bytedance/seedream-v4',
         baseUrl: 'https://api.wavespeed.ai/api/v3',
     }
 }
@@ -115,15 +115,6 @@ async function callLLMWaveSpeed(
         timeoutMs: pollTimeoutMs,
     })
     console.log(`[LLM] Response: ${text.length} chars`)
-
-    if (config.userId) {
-        logUsage({
-            userId: config.userId,
-            type: 'llm_call',
-            model,
-            tokens: prompt.length + text.length,
-        })
-    }
 
     return text
 }

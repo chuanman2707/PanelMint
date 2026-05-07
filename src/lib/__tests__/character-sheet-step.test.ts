@@ -13,8 +13,6 @@ const mocks = vi.hoisted(() => ({
     },
     getProviderConfig: vi.fn(),
     generateCharacterSheet: vi.fn(),
-    deductCredits: vi.fn(),
-    refundCredits: vi.fn(),
     recordPipelineEvent: vi.fn(),
 }))
 
@@ -30,14 +28,6 @@ vi.mock('@/lib/ai/character-design', () => ({
     generateCharacterSheet: mocks.generateCharacterSheet,
 }))
 
-vi.mock('@/lib/billing', () => ({
-    ACTION_CREDIT_COSTS: {
-        standard_image: 40,
-    },
-    deductCredits: mocks.deductCredits,
-    refundCredits: mocks.refundCredits,
-}))
-
 vi.mock('@/lib/pipeline/run-state', () => ({
     recordPipelineEvent: mocks.recordPipelineEvent,
 }))
@@ -51,8 +41,6 @@ describe('character sheet step', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
-        mocks.deductCredits.mockResolvedValue(true)
-        mocks.refundCredits.mockResolvedValue(undefined)
         mocks.prisma.character.update.mockResolvedValue({})
     })
 
@@ -110,18 +98,21 @@ describe('character sheet step', () => {
             characterId: 'char-1',
         })
 
-        expect(mocks.deductCredits).toHaveBeenCalledWith(
-            'user-1',
-            40,
-            'character_sheet_generation',
-            'ep-1',
-            { operationKey: 'character_sheet:ep-1:char-1:1' },
-        )
         expect(mocks.prisma.character.update).toHaveBeenCalledWith({
             where: { id: 'char-1' },
             data: { imageUrl: '/chars/aoi.png', storageKey: 'characters/aoi.png' },
         })
-        expect(mocks.refundCredits).not.toHaveBeenCalled()
+        expect(mocks.recordPipelineEvent).toHaveBeenNthCalledWith(1, {
+            episodeId: 'ep-1',
+            userId: 'user-1',
+            step: 'character_sheet:char-1',
+            status: 'started',
+            metadata: {
+                attempt: 1,
+                characterId: 'char-1',
+                characterName: 'Aoi',
+            },
+        })
         expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
             episodeId: 'ep-1',
             userId: 'user-1',
@@ -134,7 +125,6 @@ describe('character sheet step', () => {
                 imageUrl: '/chars/aoi.png',
                 storageKey: 'characters/aoi.png',
             },
-            creditOperationKey: 'character_sheet:ep-1:char-1:1',
         })
     })
 
@@ -182,7 +172,6 @@ describe('character sheet step', () => {
             where: { id: 'char-1' },
             data: { imageUrl: '/chars/aoi-delayed.png', storageKey: 'characters/aoi-delayed.png' },
         })
-        expect(mocks.refundCredits).not.toHaveBeenCalled()
         expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
             episodeId: 'ep-1',
             userId: 'user-1',
@@ -195,11 +184,10 @@ describe('character sheet step', () => {
                 imageUrl: '/chars/aoi-delayed.png',
                 storageKey: 'characters/aoi-delayed.png',
             },
-            creditOperationKey: 'character_sheet:ep-1:char-1:1',
         })
     })
 
-    it('refunds and records failure when sheet generation fails', async () => {
+    it('records failure when sheet generation fails', async () => {
         mocks.prisma.character.findUnique.mockResolvedValue({
             id: 'char-1',
             name: 'Aoi',
@@ -227,13 +215,6 @@ describe('character sheet step', () => {
             characterId: 'char-1',
         })
 
-        expect(mocks.refundCredits).toHaveBeenCalledWith(
-            'user-1',
-            40,
-            'character sheet failed: Aoi',
-            'ep-1',
-            { operationKey: 'refund:character_sheet:ep-1:char-1:1' },
-        )
         expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
             episodeId: 'ep-1',
             userId: 'user-1',
@@ -245,11 +226,10 @@ describe('character sheet step', () => {
                 attempt: 1,
                 error: 'upstream timeout',
             },
-            creditOperationKey: 'character_sheet:ep-1:char-1:1',
         })
     })
 
-    it('does not refund when the failure happens before charging credits', async () => {
+    it('records provider config failures', async () => {
         mocks.prisma.character.findUnique.mockResolvedValue({
             id: 'char-1',
             name: 'Aoi',
@@ -268,8 +248,6 @@ describe('character sheet step', () => {
             characterId: 'char-1',
         })
 
-        expect(mocks.deductCredits).not.toHaveBeenCalled()
-        expect(mocks.refundCredits).not.toHaveBeenCalled()
         expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
             episodeId: 'ep-1',
             userId: 'user-1',
@@ -281,7 +259,6 @@ describe('character sheet step', () => {
                 characterName: 'Aoi',
                 error: 'missing provider key',
             },
-            creditOperationKey: 'character_sheet:ep-1:char-1:1',
         })
     })
 })

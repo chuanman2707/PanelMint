@@ -4,14 +4,6 @@ import { ServiceError } from './image-gen'
 import { executePanelImageGeneration } from './panel-image-executor'
 import { getProviderConfig, type ProviderConfig } from '@/lib/api-config'
 import { recordPipelineEvent, syncPipelineRunState } from './run-state'
-import {
-    ACTION_CREDIT_COSTS,
-    checkCredits,
-    deductCredits,
-    InsufficientCreditsError,
-    getImageGenerationCreditCost,
-    normalizeImageModelTier,
-} from '@/lib/billing'
 
 // Statuses that indicate an episode is already being processed
 const PROCESSING_STATUSES = ['analyzing', 'storyboarding', 'imaging']
@@ -70,23 +62,6 @@ export async function runAnalyzeStep(input: PipelineInput): Promise<void> {
         return
     }
 
-    // Credit check for analysis step
-    try {
-        const hasCreds = await checkCredits(userId, ACTION_CREDIT_COSTS.llm_generation)
-        if (!hasCreds) {
-            await setEpisodeError(
-                episodeId,
-                userId,
-                new InsufficientCreditsError(ACTION_CREDIT_COSTS.llm_generation, 0),
-                'analyze',
-            )
-            return
-        }
-    } catch (err) {
-        await setEpisodeError(episodeId, userId, err, 'analyze')
-        return
-    }
-
     // DB status check as safety net (e.g. after server restart)
     const existing = await prisma.episode.findUnique({
         where: { id: episodeId },
@@ -113,15 +88,6 @@ export async function runAnalyzeStep(input: PipelineInput): Promise<void> {
         })
 
         await updateEpisode(episodeId, userId, 'analyzing', 5)
-
-        // Deduct analysis credit
-        await deductCredits(
-            userId,
-            ACTION_CREDIT_COSTS.llm_generation,
-            'chapter_analysis',
-            episodeId,
-            { operationKey: `analyze:${episodeId}` },
-        )
 
         const { characters, locations } = await analyzeCharactersAndLocations(text, providerConfig)
 
@@ -213,26 +179,7 @@ export async function runStoryboardStep(episodeId: string): Promise<void> {
 
         const pageCount = episode.pageCount || 15
 
-        const hasStoryboardCredits = await checkCredits(userId, ACTION_CREDIT_COSTS.llm_generation)
-        if (!hasStoryboardCredits) {
-            await setEpisodeError(
-                episodeId,
-                userId,
-                new InsufficientCreditsError(ACTION_CREDIT_COSTS.llm_generation, 0),
-                'storyboard',
-            )
-            return
-        }
-
         await updateEpisode(episodeId, userId, 'storyboarding', 35)
-
-        await deductCredits(
-            userId,
-            ACTION_CREDIT_COSTS.llm_generation,
-            'storyboard_generation',
-            episodeId,
-            { operationKey: `storyboard:${episodeId}` },
-        )
 
         // 1 LLM call → pages + enriched panels together
         const pages = await splitIntoPagesWithPanels(
@@ -341,8 +288,6 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
         const providerConfig = await getProviderConfig(episode.project.userId!)
         const artStyle = episode.project.artStyle || 'webtoon'
         const userId = episode.project.userId!
-        const imageModelTier = normalizeImageModelTier(episode.project.imageModel)
-        const imageCreditCost = getImageGenerationCreditCost(imageModelTier)
         const isChildInvocation = Boolean(panelIds?.length === 1)
 
         await updateEpisode(episodeId, userId, 'imaging', 50)
@@ -392,19 +337,6 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
             return
         }
 
-        // Pre-check credits for all panels
-        const totalCreditCost = allPanels.length * imageCreditCost
-        const hasEnoughCredits = await checkCredits(userId, totalCreditCost)
-        if (!hasEnoughCredits) {
-            await setEpisodeError(
-                episodeId,
-                userId,
-                new InsufficientCreditsError(totalCreditCost, 0),
-                'image_gen',
-            )
-            return
-        }
-
         const totalPanels = allPanels.length
         console.log(`[Pipeline] Generating images for ${totalPanels} panels`)
 
@@ -431,16 +363,8 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
             })
 
             if (latestEpisodeState?.status === 'error') {
-                console.warn(`[Pipeline] Episode ${episodeId} cancelled while imaging. Stopping before charging more panels.`)
+                console.warn(`[Pipeline] Episode ${episodeId} cancelled while imaging. Stopping before remaining panels.`)
                 return
-            }
-
-            // Check credits before each panel (in case we run out mid-pipeline)
-            const hasCredits = await checkCredits(userId, imageCreditCost)
-            if (!hasCredits) {
-                console.warn(`[Pipeline] Insufficient credits mid-pipeline. Stopping. ${completedPanels}/${totalPanels} done.`)
-                // Refund is not needed — we only deduct per panel
-                break
             }
 
             try {
@@ -449,7 +373,6 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
                     dbCharacters,
                     providerConfig,
                     artStyle,
-                    imageModelTier,
                     userId,
                     episodeId,
                 })
@@ -639,11 +562,7 @@ async function setEpisodeError(
     err: unknown,
     step?: string,
 ) {
-    const message = err instanceof InsufficientCreditsError
-        ? err.message
-        : err instanceof Error
-            ? err.message
-            : 'Unknown pipeline error'
+    const message = err instanceof Error ? err.message : 'Unknown pipeline error'
 
     await prisma.episode.update({
         where: { id: episodeId },

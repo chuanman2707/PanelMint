@@ -34,4 +34,20 @@ describe('generateRequestSchema', () => {
             text: 'x'.repeat(MAX_STORY_MANUSCRIPT_CHARS + 1),
         })).toThrowError(GENERATE_MANUSCRIPT_LIMIT_HELPER_TEXT)
     })
+
+    it('ignores removed render-mode input', () => {
+        const removedRenderModeKey = 'imageModel' + 'Tier'
+        const parsed = generateRequestSchema.parse({
+            text: 'story',
+            artStyle: 'manga',
+            pageCount: 15,
+            [removedRenderModeKey]: 'retired-render-mode',
+        })
+
+        expect(parsed).toEqual({
+            text: 'story',
+            artStyle: 'manga',
+            pageCount: 15,
+        })
+    })
 })

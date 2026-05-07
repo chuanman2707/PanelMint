@@ -8,15 +8,13 @@ import { NeoButton, cn } from './NeoButton'
 
 const DEFAULT_NAV_ITEMS = [
     { href: '/', label: 'Home' },
-    { href: '/pricing', label: 'Pricing' },
     { href: '/legal', label: 'Legal' },
 ]
 
-const LANDING_SECTION_IDS = ['features', 'pricing', 'cta']
+const LANDING_SECTION_IDS = ['features', 'cta']
 
 const LANDING_NAV_ITEMS = [
     { href: '#features', label: 'Features', sectionId: 'features' },
-    { href: '#pricing', label: 'Pricing', sectionId: 'pricing' },
     { href: '/legal', label: 'Legal' },
 ] as const
 

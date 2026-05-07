@@ -7,26 +7,6 @@ import { apiHandler } from '@/lib/api-handler'
 import { parseJsonBody } from '@/lib/api-validate'
 import { generateImagesRequestSchema } from '@/lib/validators/pipeline'
 import { recordPipelineEvent, syncPipelineRunState } from '@/lib/pipeline/run-state'
-import { findMissingReferenceCharacters } from '@/lib/pipeline/reference-images'
-import {
-    checkCredits,
-    getImageGenerationCreditCost,
-    normalizeImageModelTier,
-} from '@/lib/billing'
-import { AppError } from '@/lib/errors'
-
-function parsePanelCharacterNames(rawCharacters: string | null): string[] {
-    if (!rawCharacters) return []
-
-    try {
-        const parsed = JSON.parse(rawCharacters) as unknown
-        return Array.isArray(parsed)
-            ? parsed.filter((value): value is string => typeof value === 'string' && value.length > 0)
-            : []
-    } catch {
-        return []
-    }
-}
 
 export const POST = apiHandler(async (request, context) => {
     const localUser = await getOrCreateLocalUser()
@@ -40,14 +20,6 @@ export const POST = apiHandler(async (request, context) => {
 
     const episode = await prisma.episode.findUnique({
         where: { id: runId },
-        include: {
-            project: {
-                select: {
-                    id: true,
-                    imageModel: true,
-                },
-            },
-        },
     })
 
     if (!episode) {
@@ -90,57 +62,13 @@ export const POST = apiHandler(async (request, context) => {
             status: { in: ['pending', 'error', 'content_filtered'] },
             ...(requestedPanelIds ? { id: { in: requestedPanelIds } } : {}),
         },
-        select: {
-            id: true,
-            characters: true,
-        },
+        select: { id: true },
     })
 
     if (panels.length === 0) {
         return NextResponse.json({
             error: 'No panels need image generation. Approve panels first.',
         }, { status: 400 })
-    }
-
-    const imageModelTier = normalizeImageModelTier(episode.project?.imageModel)
-    if (imageModelTier === 'premium') {
-        const projectCharacters = await prisma.character.findMany({
-            where: { projectId: episode.project.id },
-            select: {
-                name: true,
-                imageUrl: true,
-                storageKey: true,
-                appearances: {
-                    where: { isDefault: true },
-                    select: { imageUrl: true, storageKey: true, isDefault: true },
-                },
-            },
-        })
-
-        const missingReferenceCharacters = [...new Set(
-            panels.flatMap((panel) =>
-                findMissingReferenceCharacters(
-                    parsePanelCharacterNames(panel.characters),
-                    projectCharacters,
-                )
-            ),
-        )]
-
-        if (missingReferenceCharacters.length > 0) {
-            return NextResponse.json({
-                error: 'Character sheets are still generating. Please wait for reference images before rendering panels.',
-                missingCharacters: missingReferenceCharacters,
-            }, { status: 409 })
-        }
-    }
-
-    const totalCreditCost = panels.length * getImageGenerationCreditCost(imageModelTier)
-    const hasCredits = await checkCredits(localUser.id, totalCreditCost)
-    if (!hasCredits) {
-        throw new AppError(
-            'Insufficient credits. Purchase more credits to generate these images.',
-            402,
-        )
     }
 
     await prisma.$transaction(async (tx) => {

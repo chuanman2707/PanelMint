@@ -43,7 +43,10 @@ describe('POST /api/characters/[characterId]/generate-sheet', () => {
         mocks.getOrCreateLocalUser.mockResolvedValue({ id: 'user-1' })
         mocks.getLocalCharacter.mockResolvedValue({ character: { id: 'char-1' }, error: null })
         mocks.getProviderConfig.mockResolvedValue({ apiKey: 'ws-key', provider: 'wavespeed' })
-        mocks.generateCharacterSheet.mockResolvedValue({ imageUrl: '/image.png', storageKey: 'key' })
+        mocks.generateCharacterSheet.mockResolvedValue({
+            imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/char-char-1.png',
+            storageKey: 'users/user-1/episodes/episode-1/panels/char-char-1.png',
+        })
         mocks.prisma.character.findUnique.mockResolvedValue({
             id: 'char-1',
             name: 'Aoi',
@@ -70,9 +73,14 @@ describe('POST /api/characters/[characterId]/generate-sheet', () => {
         )
         expect(mocks.prisma.character.update).toHaveBeenCalledWith({
             where: { id: 'char-1' },
-            data: { imageUrl: '/image.png', storageKey: 'key' },
+            data: {
+                imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/char-char-1.png',
+                storageKey: 'users/user-1/episodes/episode-1/panels/char-char-1.png',
+            },
         })
-        await expect(response.json()).resolves.toEqual({ imageUrl: '/image.png' })
+        await expect(response.json()).resolves.toEqual({
+            imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/char-char-1.png',
+        })
     })
 
     it('returns local WaveSpeed setup guidance when the provider key is missing', async () => {

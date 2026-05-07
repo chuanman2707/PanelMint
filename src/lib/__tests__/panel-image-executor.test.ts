@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => {
         buildCharacterCanon: vi.fn(),
         generatePanelImage: vi.fn(),
         collectPanelReferenceImages: vi.fn(),
+        prepareWaveSpeedReferenceImages: vi.fn(),
         ContentFilterError: MockContentFilterError,
         ServiceError: MockServiceError,
     }
@@ -51,6 +52,10 @@ vi.mock('@/lib/pipeline/image-gen', () => ({
 
 vi.mock('@/lib/pipeline/reference-images', () => ({
     collectPanelReferenceImages: mocks.collectPanelReferenceImages,
+}))
+
+vi.mock('@/lib/pipeline/wavespeed-media', () => ({
+    prepareWaveSpeedReferenceImages: mocks.prepareWaveSpeedReferenceImages,
 }))
 
 vi.mock('@/lib/pipeline/run-state', () => ({
@@ -96,13 +101,14 @@ describe('executePanelImageGeneration', () => {
         mocks.prisma.panel.update.mockResolvedValue({})
         mocks.prisma.panel.updateMany.mockResolvedValue({ count: 1 })
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
-        mocks.collectPanelReferenceImages.mockResolvedValue(['/refs/aoi.png'])
+        mocks.collectPanelReferenceImages.mockResolvedValue([{ imageUrl: '/api/storage/refs/aoi.png', storageKey: 'refs/aoi.png' }])
+        mocks.prepareWaveSpeedReferenceImages.mockResolvedValue(['https://wavespeed.media/aoi.png'])
         mocks.buildCharacterCanon.mockReturnValue('Aoi: Lead hero')
     })
 
     it('marks the panel done after a successful generation', async () => {
         mocks.generatePanelImage.mockResolvedValue({
-            imageUrl: '/generated/panel-1.png',
+            imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/panel-1.png',
             storageKey: 'user-1/episode-1/panel-1.png',
         })
 
@@ -130,7 +136,7 @@ describe('executePanelImageGeneration', () => {
         expect(mocks.prisma.panel.update).toHaveBeenNthCalledWith(1, {
             where: { id: 'panel-1' },
             data: {
-                imageUrl: '/generated/panel-1.png',
+                imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/panel-1.png',
                 storageKey: 'user-1/episode-1/panel-1.png',
                 status: 'done',
             },
@@ -138,6 +144,7 @@ describe('executePanelImageGeneration', () => {
         expect(mocks.generatePanelImage).toHaveBeenCalledWith(expect.objectContaining({
             panelId: 'panel-1',
             providerConfig,
+            referenceImages: ['https://wavespeed.media/aoi.png'],
         }))
         expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
             episodeId: 'episode-1',
@@ -146,7 +153,7 @@ describe('executePanelImageGeneration', () => {
             status: 'completed',
             metadata: {
                 attempt: 1,
-                imageUrl: '/generated/panel-1.png',
+                imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/panel-1.png',
                 storageKey: 'user-1/episode-1/panel-1.png',
                 panelId: 'panel-1',
             },

@@ -1,23 +1,17 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { collectPanelReferenceImages } from '@/lib/pipeline/reference-images'
-
-vi.mock('@/lib/storage', () => ({
-    getStorage: () => ({
-        getSignedUrl: vi.fn(async (key: string) => `signed:${key}`),
-    }),
-}))
 
 describe('collectPanelReferenceImages', () => {
     const characters = [
         {
             name: 'Anh Minh',
-            imageUrl: '/generated/char-1.png',
+            imageUrl: '/api/storage/characters/anh-minh.png',
             storageKey: 'characters/anh-minh.png',
             appearances: [{ imageUrl: '/appearances/minh-default.png', storageKey: 'appearances/minh-default.png', isDefault: true }],
         },
         {
             name: 'Thanh Thu',
-            imageUrl: '/generated/char-2.png',
+            imageUrl: '/api/storage/characters/thanh-thu.png',
             storageKey: 'characters/thanh-thu.png',
             appearances: [{ imageUrl: null, isDefault: true }],
         },
@@ -32,7 +26,10 @@ describe('collectPanelReferenceImages', () => {
         const refs = await collectPanelReferenceImages(['Anh Minh', 'Thanh Thu'], characters)
         // Anh Minh: uses default appearance image
         // Thanh Thu: falls back to character imageUrl
-        expect(refs).toEqual(['signed:appearances/minh-default.png', 'signed:characters/thanh-thu.png'])
+        expect(refs).toEqual([
+            { imageUrl: '/appearances/minh-default.png', storageKey: 'appearances/minh-default.png' },
+            { imageUrl: '/api/storage/characters/thanh-thu.png', storageKey: 'characters/thanh-thu.png' },
+        ])
     })
 
     it('returns empty array when no characters have sheets', async () => {
@@ -59,6 +56,8 @@ describe('collectPanelReferenceImages', () => {
 
     it('prefers default appearance image over character imageUrl', async () => {
         const refs = await collectPanelReferenceImages(['Anh Minh'], characters)
-        expect(refs).toEqual(['signed:appearances/minh-default.png'])
+        expect(refs).toEqual([
+            { imageUrl: '/appearances/minh-default.png', storageKey: 'appearances/minh-default.png' },
+        ])
     })
 })

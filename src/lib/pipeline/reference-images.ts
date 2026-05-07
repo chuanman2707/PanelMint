@@ -5,7 +5,9 @@
  */
 
 import { matchCharacterName } from '@/lib/utils/character-match'
-import { getStorage } from '@/lib/storage'
+import type { ReferenceImageCandidate } from './wavespeed-media'
+
+export type { ReferenceImageCandidate } from './wavespeed-media'
 
 interface StoredImageReference {
     imageUrl: string | null
@@ -44,12 +46,16 @@ function getReferenceImage(character: CharacterWithImage): StoredImageReference 
     }
 }
 
-async function resolveReferenceImageUrl(reference: StoredImageReference | null): Promise<string | null> {
+function resolveReferenceImage(reference: StoredImageReference | null): ReferenceImageCandidate | null {
     if (!reference) return null
-    if (reference.storageKey) {
-        return getStorage().getSignedUrl(reference.storageKey)
+    if (!reference.imageUrl && !reference.storageKey) {
+        return null
     }
-    return reference.imageUrl
+
+    return {
+        imageUrl: reference.imageUrl,
+        storageKey: reference.storageKey,
+    }
 }
 
 /**
@@ -60,8 +66,8 @@ async function resolveReferenceImageUrl(reference: StoredImageReference | null):
 export async function collectPanelReferenceImages(
     panelCharacterNames: string[],
     projectCharacters: CharacterWithImage[],
-): Promise<string[]> {
-    const refs: string[] = []
+): Promise<ReferenceImageCandidate[]> {
+    const refs: ReferenceImageCandidate[] = []
 
     for (const charName of panelCharacterNames) {
         const match = projectCharacters.find((c) =>
@@ -69,8 +75,8 @@ export async function collectPanelReferenceImages(
         )
         if (!match) continue
 
-        const url = await resolveReferenceImageUrl(getReferenceImage(match))
-        if (url) refs.push(url)
+        const reference = resolveReferenceImage(getReferenceImage(match))
+        if (reference) refs.push(reference)
         if (refs.length === 5) break
     }
 

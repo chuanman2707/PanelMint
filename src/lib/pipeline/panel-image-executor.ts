@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { buildCharacterCanon } from './character-canon'
 import { generatePanelImage, ContentFilterError, ServiceError } from './image-gen'
 import { collectPanelReferenceImages } from './reference-images'
+import { prepareWaveSpeedReferenceImages } from './wavespeed-media'
 import { recordPipelineEvent } from './run-state'
 
 interface CharacterAppearance {
@@ -89,7 +90,8 @@ export async function executePanelImageGeneration({
     episodeId,
 }: ExecutePanelImageGenerationInput): Promise<PanelExecutionResult> {
     const panelCharNames = parsePanelCharacterNames(panel.characters)
-    const referenceImages = await collectPanelReferenceImages(panelCharNames, dbCharacters)
+    const referenceCandidates = await collectPanelReferenceImages(panelCharNames, dbCharacters)
+    const referenceImages = await prepareWaveSpeedReferenceImages(referenceCandidates, providerConfig)
     const panelCharCanon = buildCharacterCanon(dbCharacters, panelCharNames)
     const mustKeep = parseMustKeep(panel.mustKeep)
 

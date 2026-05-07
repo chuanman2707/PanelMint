@@ -30,7 +30,8 @@ vi.mock('@/lib/storage', () => ({
         upload: mocks.upload,
     }),
     buildStorageKey: (userId: string, episodeId: string, panelId: string) =>
-        `${userId}/${episodeId}/${panelId}.png`,
+        `users/${userId}/episodes/${episodeId}/panels/${panelId}.png`,
+    buildStorageProxyUrl: (key: string) => `/api/storage/${key}`,
 }))
 
 import { ContentFilterError, generatePanelImage, ServiceError } from '@/lib/pipeline/image-gen'
@@ -40,7 +41,7 @@ describe('generatePanelImage', () => {
         vi.clearAllMocks()
         mocks.getArtStylePrompt.mockReturnValue('manga')
         mocks.acquire.mockResolvedValue(undefined)
-        mocks.upload.mockResolvedValue('/generated/panel.png')
+        mocks.upload.mockImplementation(async (_buffer: Buffer, key: string) => key)
     })
 
     afterEach(() => {
@@ -83,8 +84,8 @@ describe('generatePanelImage', () => {
         })
 
         expect(imageAsset).toEqual({
-            imageUrl: '/generated/panel.png',
-            storageKey: 'user-1/episode-1/panel-2.png',
+            imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/panel-2.png',
+            storageKey: 'users/user-1/episodes/episode-1/panels/panel-2.png',
         })
         expect(fetchMock).toHaveBeenCalledTimes(3)
         expect(mocks.upload).toHaveBeenCalled()
@@ -373,7 +374,7 @@ describe('generatePanelImage', () => {
         await vi.runAllTimersAsync()
 
         await expect(imagePromise).resolves.toEqual({
-            imageUrl: '/generated/panel.png',
+            imageUrl: '/api/storage/panel-long.png',
             storageKey: 'panel-long.png',
         })
         expect(pollCount).toBeGreaterThanOrEqual(25)

@@ -403,13 +403,10 @@ async function downloadAndSave(panelId: string, sourceImageUrl: string, userId?:
         ? buildStorageKey(userId, episodeId, panelId)
         : `${panelId}.png`
     const storage = getStorage()
-    const storedValue = await storage.upload(buffer, key)
-    const persistedImageUrl = storedValue.startsWith('http://') || storedValue.startsWith('https://') || storedValue.startsWith('/')
-        ? storedValue
-        : buildStorageProxyUrl(key)
-    console.log(`[ImageGen] Saved: ${key}`)
+    const storedKey = await storage.upload(buffer, key, { contentType: 'image/png' })
+    console.log(`[ImageGen] Saved: ${storedKey}`)
     return {
-        imageUrl: persistedImageUrl,
-        storageKey: key,
+        imageUrl: buildStorageProxyUrl(storedKey),
+        storageKey: storedKey,
     }
 }

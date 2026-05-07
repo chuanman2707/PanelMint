@@ -28,7 +28,7 @@ export function getStorageBaseDir(): string {
 
 export function normalizeStorageKey(key: string): string {
     const slashNormalized = key.replace(/\\/g, '/')
-    if (!slashNormalized || slashNormalized.startsWith('/')) {
+    if (!slashNormalized || slashNormalized.startsWith('/') || /^[A-Za-z]:($|\/)/.test(slashNormalized)) {
         throw new Error('Invalid storage key')
     }
 

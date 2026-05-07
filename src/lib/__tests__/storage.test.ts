@@ -28,13 +28,20 @@ describe('local storage', () => {
 
     it('rejects path traversal and absolute keys', () => {
         expect(() => normalizeStorageKey('../secret.png')).toThrow('Invalid storage key')
+        expect(() => normalizeStorageKey('..\\secret.png')).toThrow('Invalid storage key')
         expect(() => normalizeStorageKey('/tmp/secret.png')).toThrow('Invalid storage key')
+        expect(() => normalizeStorageKey('C:\\tmp\\secret.png')).toThrow('Invalid storage key')
     })
 
     it('uploads under PANELMINT_STORAGE_DIR and returns the normalized key', async () => {
         const provider = new LocalStorageProvider()
-        await expect(provider.upload(Buffer.from('image'), 'users/u/panel.png')).resolves.toBe('users/u/panel.png')
-        expect(writeFile).toHaveBeenCalled()
+        const buffer = Buffer.from('image')
+
+        await expect(provider.upload(buffer, 'users/u/panel.png')).resolves.toBe('users/u/panel.png')
+        expect(writeFile).toHaveBeenCalledWith(
+            '/tmp/panelmint-generated/users/u/panel.png',
+            buffer,
+        )
     })
 
     it('reads local files with content type', async () => {

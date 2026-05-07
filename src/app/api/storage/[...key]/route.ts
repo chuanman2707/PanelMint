@@ -17,8 +17,9 @@ export async function GET(_request: NextRequest, context: StorageRouteContext) {
             .map((segment) => decodeURIComponent(segment))
             .join('/')
         const file = await getStorage().read(storageKey)
+        const body = Uint8Array.from(file.buffer)
 
-        return new NextResponse(file.buffer, {
+        return new NextResponse(body, {
             status: 200,
             headers: {
                 'Content-Type': file.contentType,

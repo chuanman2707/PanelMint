@@ -28,7 +28,22 @@ describe('GET /api/storage/[...key]', () => {
 
         expect(response.status).toBe(200)
         expect(response.headers.get('content-type')).toBe('image/png')
+        await expect(response.arrayBuffer()).resolves.toEqual(
+            Uint8Array.from(Buffer.from('image-bytes')).buffer,
+        )
         expect(mocks.read).toHaveBeenCalledWith('users/u/panel.png')
+    })
+
+    it('rejects traversal keys', async () => {
+        mocks.read.mockRejectedValue(new Error('Invalid storage key'))
+
+        const response = await GET(
+            new NextRequest('http://localhost/api/storage/%2e%2e/secret.png'),
+            { params: Promise.resolve({ key: ['%2e%2e', 'secret.png'] }) },
+        )
+
+        expect(response.status).toBe(404)
+        expect(mocks.read).toHaveBeenCalledWith('../secret.png')
     })
 
     it('returns 404 for missing keys', async () => {

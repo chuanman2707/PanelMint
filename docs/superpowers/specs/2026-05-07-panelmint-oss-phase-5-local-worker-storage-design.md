@@ -364,6 +364,27 @@ Các API response có thể trả `imageUrl` từ DB để giữ UI đơn giản
 
 Phase 5 không cần migration phức tạp cho asset cũ trước OSS release, nhưng fresh generated assets sau Phase 5 phải dùng contract mới.
 
+## 15. Hợp đồng reference image cho WaveSpeed
+
+`/api/storage/...` là URL local để browser đọc ảnh. Không dùng URL này làm input reference image cho WaveSpeed, vì WaveSpeed cloud không truy cập được localhost/local file server của user.
+
+Khi cần gửi character sheet hoặc reference image local cho WaveSpeed:
+
+- Đọc file từ `PANELMINT_STORAGE_DIR` bằng `storageKey`.
+- Upload file đó lên WaveSpeed Media Upload API bằng `WAVESPEED_API_KEY`.
+- Dùng `data.download_url` trả về làm item trong `body.images`.
+
+Đây là provider handoff tạm thời, không phải app storage mới:
+
+- App vẫn lưu asset chính trong local storage.
+- DB vẫn lưu `storageKey` local.
+- Không lưu WaveSpeed media upload URL vào DB như source of truth.
+- Không đưa R2 hoặc cloud storage fallback quay lại.
+
+Nếu reference image thiếu file local, worker nên bỏ reference đó và tiếp tục với prompt-only/fallback model nếu flow hiện tại cho phép. Không được gửi `/api/storage/...`, `/generated/...`, hoặc absolute path vào WaveSpeed request body.
+
+Implementation nên thêm helper riêng, ví dụ `prepareWaveSpeedReferenceImages`, để giữ logic này tách khỏi UI storage serving.
+
 `LocalStorageProvider` chịu trách nhiệm:
 
 - Normalize key.
@@ -385,7 +406,7 @@ Phase 5 không cần migration phức tạp cho asset cũ trước OSS release, 
 - Set `Content-Type`.
 - Không redirect sang signed URL.
 
-## 15. Dọn R2
+## 16. Dọn R2
 
 Xóa khỏi runtime chính:
 
@@ -405,7 +426,7 @@ Xóa env khỏi `.env.example`:
 
 README không còn nói R2 là production stack.
 
-## 16. Dọn Inngest
+## 17. Dọn Inngest
 
 Xóa khỏi runtime chính:
 
@@ -423,7 +444,7 @@ Xóa khỏi runtime chính:
 
 Nếu implementation muốn giữ một generic external run id thì phải rename rõ ràng, nhưng mặc định là xóa.
 
-## 17. Status và health
+## 18. Status và health
 
 Status UI nên tiếp tục dựa trên state hiện có:
 
@@ -451,7 +472,7 @@ Health endpoint nên phản ánh local runtime:
 
 Nếu thêm heartbeat đơn giản thì chỉ dùng để hiển thị, không làm app crash.
 
-## 18. Xử lý lỗi
+## 19. Xử lý lỗi
 
 Job failure phải rõ ràng:
 
@@ -470,7 +491,7 @@ Retry delay nên đơn giản:
 
 Không cần distributed scheduler phức tạp trong v1.
 
-## 19. Thay đổi DB
+## 20. Thay đổi DB
 
 Thêm model queue job.
 
@@ -489,7 +510,7 @@ Queue table cần indexes cho claim nhanh:
 
 Nếu partial unique index khó biểu diễn qua Prisma, implementation có thể dùng SQL migration/index thủ công trong baseline.
 
-## 20. Docs
+## 21. Docs
 
 README quickstart cần chuyển sang local OSS runtime:
 
@@ -521,7 +542,7 @@ Docs phải nói rõ:
 - model/rate limit options
 - `PANELMINT_STORAGE_DIR`
 
-## 21. Chiến lược test
+## 22. Chiến lược test
 
 Focused tests:
 
@@ -538,6 +559,8 @@ Focused tests:
 - Local storage ghi file dưới `PANELMINT_STORAGE_DIR`.
 - `/api/storage/...` serve file local.
 - `/api/storage/...` chặn path traversal.
+- Reference images local được upload qua WaveSpeed Media Upload trước khi gửi vào `body.images`.
+- WaveSpeed request body không bao giờ chứa `/api/storage/...`, `/generated/...`, hoặc absolute local path.
 - Env validation không check Inngest/R2.
 - Health không report Inngest/R2 readiness.
 - Stale tests đang giả định Inngest/R2 phải được update hoặc delete.
@@ -555,7 +578,7 @@ Final `rg` should return no active runtime, schema, script, package, env, test, 
 
 Before committing implementation changes, run GitNexus change detection and confirm affected scope matches Phase 5 queue/storage replacement.
 
-## 22. Ngoài phạm vi
+## 23. Ngoài phạm vi
 
 Phase 5 should not:
 
@@ -568,7 +591,7 @@ Phase 5 should not:
 - Add cloud storage fallback.
 - Add a new billing/credits system.
 
-## 23. Done khi
+## 24. Done khi
 
 Phase 5 is done when:
 

@@ -29,13 +29,6 @@ describe('GET /api/health', () => {
             checks: {
                 DATABASE_URL: 'configured',
                 WAVESPEED_API_KEY: 'configured',
-                INNGEST_EVENT_KEY: 'configured',
-                INNGEST_SIGNING_KEY: 'configured',
-                R2_ACCOUNT_ID: 'optional',
-                R2_ACCESS_KEY_ID: 'optional',
-                R2_SECRET_ACCESS_KEY: 'optional',
-                R2_BUCKET_NAME: 'optional',
-                R2_PUBLIC_URL: 'optional',
                 ALLOWED_ORIGINS: 'configured',
             },
         })
@@ -56,7 +49,7 @@ describe('GET /api/health', () => {
             },
             checks: {
                 runtime: {
-                    queue: 'inngest',
+                    queue: 'local-worker',
                     identity: 'local-single-user',
                 },
             },
@@ -71,13 +64,6 @@ describe('GET /api/health', () => {
             checks: {
                 DATABASE_URL: 'configured',
                 WAVESPEED_API_KEY: 'missing',
-                INNGEST_EVENT_KEY: 'configured',
-                INNGEST_SIGNING_KEY: 'configured',
-                R2_ACCOUNT_ID: 'optional',
-                R2_ACCESS_KEY_ID: 'optional',
-                R2_SECRET_ACCESS_KEY: 'optional',
-                R2_BUCKET_NAME: 'optional',
-                R2_PUBLIC_URL: 'optional',
                 ALLOWED_ORIGINS: 'optional',
             },
         })

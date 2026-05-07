@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "inngest:dev": "npx --ignore-scripts=false inngest-cli@latest dev -u http://localhost:3000/api/inngest",
     "worker": "tsx scripts/worker.ts",
     "build": "prisma generate && next build",
     "start": "next start",
@@ -26,7 +25,6 @@
     "dotenv": "^17.3.1",
     "fabric": "^7.2.0",
     "framer-motion": "^12.38.0",
-    "inngest": "^4.1.0",
     "jsonrepair": "^3.13.2",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.7.0",

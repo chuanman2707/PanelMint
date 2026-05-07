@@ -7,7 +7,7 @@ This repository has been cleaned to center on one production stack:
 - Next.js 16 + React 19 frontend
 - Single local workspace owner, with no hosted identity service in OSS v1
 - Neon Postgres via Prisma
-- Inngest background workflows
+- Local worker background queue
 - Cloudflare R2 object storage
 
 ## Local setup
@@ -22,13 +22,19 @@ npm run dev
 
 The app runs at `http://localhost:3000`.
 
+Run the local worker in a second terminal to process queued generation jobs:
+
+```bash
+npm run worker
+```
+
 Optional local Postgres helper:
 
 ```bash
 docker compose up -d
 ```
 
-That helper is only for disposable local development. The intended deployment contract is Vercel + Neon + local single-user runtime + Inngest + R2.
+That helper is only for disposable local development. The intended deployment contract is Vercel + Neon + local single-user runtime + local worker queue + R2.
 
 ## Useful checks
 
@@ -54,8 +60,6 @@ Use the local red-green-refactor loop for behavior changes in `src/app`, `src/li
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | Neon/Postgres runtime connection string. |
 | `DIRECT_URL` | Optional | Direct Postgres connection for migrations. |
-| `INNGEST_EVENT_KEY` | Yes | Sends Inngest events. |
-| `INNGEST_SIGNING_KEY` | Yes | Verifies Inngest endpoint calls. |
 | `WAVESPEED_API_KEY` | Yes for generation | Your WaveSpeed API key from `.env`; used for both LLM and image generation. |
 | `WAVESPEED_BASE_URL` | Optional | Defaults to `https://api.wavespeed.ai/api/v3`; override only for a WaveSpeed-compatible proxy. |
 | `ALLOWED_ORIGINS` | Optional | Extra trusted origins for mutating requests. |
@@ -84,8 +88,6 @@ cp .env.example .env
 | --- | --- | --- |
 | `DATABASE_URL` | Neon Dashboard -> your project -> `Connect` | The pooled connection string. Prefer the host with `-pooler` in it. Keep the database name aligned with the actual Neon database, which is usually `neondb` by default. |
 | `DIRECT_URL` | Neon Dashboard -> your project -> `Connect` | The direct Postgres connection string for Prisma migrations. Prisma CLI in this repo prefers this value when it is set. Do not use the `-pooler` host here. |
-| `INNGEST_EVENT_KEY` | Inngest Dashboard -> target environment | Create or copy the environment Event Key. |
-| `INNGEST_SIGNING_KEY` | Inngest Dashboard -> target environment -> `Signing Key` | Copy the signing key for the same Inngest environment. |
 | `WAVESPEED_API_KEY` | WaveSpeed -> API Keys | Generate one key and paste it into `.env`. PanelMint does not store provider keys in the database. |
 | `WAVESPEED_BASE_URL` | `.env.example` default | Leave as-is unless you route requests through a WaveSpeed-compatible proxy. |
 | `ALLOWED_ORIGINS` | Your app domains | Comma-separated origins allowed to make mutating cross-origin requests. |
@@ -93,20 +95,16 @@ cp .env.example .env
 3. Recommended local/dev values:
 
 - `ALLOWED_ORIGINS=http://localhost:3000`
-- For local Inngest dev server, leave `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` blank and uncomment `INNGEST_DEV=1`.
 - If you use local Docker Postgres instead of Neon during development, swap `DATABASE_URL` and `DIRECT_URL` to the commented localhost examples in `.env.example`.
 - If you use the current Neon setup for this repo, the database name is `neondb` even though the Neon project is called `panelmint`.
 
-4. Exact endpoints for this repo:
-
-- Inngest serve URL: `http://localhost:3000/api/inngest` in local dev, or `https://your-domain.com/api/inngest` in production.
-
-5. Quick verification after saving `.env`:
+4. Quick verification after saving `.env`:
 
 ```bash
 npx prisma generate
 npx prisma db push
 npm run dev
+npm run worker
 curl http://localhost:3000/api/health
 ```
 

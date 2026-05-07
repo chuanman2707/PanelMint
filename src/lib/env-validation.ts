@@ -1,16 +1,5 @@
 const STARTUP_REQUIRED = ['DATABASE_URL'] as const
 const GENERATION_REQUIRED = ['WAVESPEED_API_KEY'] as const
-const PROD_QUEUE_REQUIRED = [
-    'INNGEST_EVENT_KEY',
-    'INNGEST_SIGNING_KEY',
-] as const
-const OPTIONAL_R2_REQUIRED = [
-    'R2_ACCOUNT_ID',
-    'R2_ACCESS_KEY_ID',
-    'R2_SECRET_ACCESS_KEY',
-    'R2_BUCKET_NAME',
-] as const
-const OPTIONAL_R2_OPTIONAL = ['R2_PUBLIC_URL'] as const
 
 export interface EnvValidationReport {
     ready: boolean
@@ -33,15 +22,6 @@ export function getEnvValidationReport(): EnvValidationReport {
         ...missing(GENERATION_REQUIRED),
     ]
 
-    if (process.env.NODE_ENV === 'production') {
-        requiredMissing.push(...missing(PROD_QUEUE_REQUIRED))
-    }
-
-    const anyR2Configured = [...OPTIONAL_R2_REQUIRED, ...OPTIONAL_R2_OPTIONAL].some((key) => hasValue(key))
-    if (anyR2Configured) {
-        requiredMissing.push(...missing(OPTIONAL_R2_REQUIRED))
-    }
-
     const warnings: string[] = []
     if (process.env.NODE_ENV === 'production' && !hasValue('ALLOWED_ORIGINS')) {
         warnings.push('ALLOWED_ORIGINS is empty; only same-origin mutating requests will be accepted.')
@@ -53,15 +33,6 @@ export function getEnvValidationReport(): EnvValidationReport {
     }
     for (const key of GENERATION_REQUIRED) {
         checks[key] = hasValue(key) ? 'configured' : 'missing'
-    }
-    for (const key of PROD_QUEUE_REQUIRED) {
-        checks[key] = hasValue(key) ? 'configured' : 'missing'
-    }
-    for (const key of OPTIONAL_R2_REQUIRED) {
-        checks[key] = hasValue(key) ? 'configured' : 'optional'
-    }
-    for (const key of OPTIONAL_R2_OPTIONAL) {
-        checks[key] = hasValue(key) ? 'configured' : 'optional'
     }
     checks.ALLOWED_ORIGINS = hasValue('ALLOWED_ORIGINS') ? 'configured' : 'optional'
 

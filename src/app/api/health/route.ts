@@ -26,7 +26,7 @@ export const GET = apiHandler(async () => {
                 env: envReport.checks,
                 runtime: {
                     deployment: process.env.VERCEL ? 'vercel' : 'local',
-                    queue: 'inngest',
+                    queue: 'local-worker',
                     identity: 'local-single-user',
                 },
             },

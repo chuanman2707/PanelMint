@@ -416,6 +416,10 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
                     console.log(`[Pipeline] Panel ${completedPanels}/${totalPanels}: image generated`)
                 } else if (result === 'skipped') {
                     console.warn(`[Pipeline] Panel ${panel.id} skipped because it was cancelled or already reserved`)
+                    if (await episodeCancellationRequested(episodeId)) {
+                        console.warn(`[Pipeline] Episode ${episodeId} cancelled after panel ${panel.id}. Stopping before progress update.`)
+                        return
+                    }
                     continue
                 } else {
                     failedPanels++

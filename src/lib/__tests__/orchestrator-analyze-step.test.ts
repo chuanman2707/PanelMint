@@ -140,4 +140,37 @@ describe('runAnalyzeStep', () => {
             },
         })
     })
+
+    it('persists WAVESPEED_API_KEY setup errors without stale Settings copy', async () => {
+        mocks.getProviderConfig.mockRejectedValueOnce(
+            new Error('WAVESPEED_API_KEY is required for WaveSpeed generation. Set it in .env.'),
+        )
+
+        await runAnalyzeStep({
+            projectId: 'project-1',
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            text: 'A training day at the academy.',
+            artStyle: 'manhua',
+            pageCount: 5,
+        })
+
+        expect(mocks.prisma.episode.update).toHaveBeenCalledWith({
+            where: { id: 'episode-1' },
+            data: {
+                status: 'error',
+                error: 'WAVESPEED_API_KEY is required for WaveSpeed generation. Set it in .env.',
+            },
+        })
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            step: 'analyze',
+            status: 'failed',
+            metadata: {
+                error: 'WAVESPEED_API_KEY is required for WaveSpeed generation. Set it in .env.',
+            },
+        })
+        expect(mocks.analyzeCharactersAndLocations).not.toHaveBeenCalled()
+    })
 })

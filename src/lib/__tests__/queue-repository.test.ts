@@ -40,6 +40,12 @@ describe('queue repository', () => {
             dedupeKey: 'analyze:ep-1',
         })).resolves.toEqual({ id: 'job-existing' })
 
+        expect(mocks.prisma.pipelineJob.findFirst).toHaveBeenCalledWith({
+            where: {
+                activeDedupeKey: 'analyze:ep-1',
+                status: { in: ['queued', 'running'] },
+            },
+        })
         expect(mocks.prisma.pipelineJob.create).not.toHaveBeenCalled()
     })
 
@@ -64,6 +70,7 @@ describe('queue repository', () => {
                 payload: JSON.stringify({ episodeId: 'ep-1' }),
                 status: 'queued',
                 dedupeKey: 'storyboard:ep-1',
+                activeDedupeKey: 'storyboard:ep-1',
                 maxAttempts: 5,
             }),
         })
@@ -109,6 +116,35 @@ describe('queue repository', () => {
                 lockedAt: null,
                 lockedBy: null,
                 lastError: 'network',
+                activeDedupeKey: undefined,
+            }),
+        })
+    })
+
+    it('clears active dedupe when a failed job has no attempts left', async () => {
+        mocks.prisma.pipelineJob.updateMany.mockResolvedValue({ count: 1 })
+
+        await expect(failPipelineJob({
+            jobId: 'job-1',
+            workerId: 'worker-1',
+            error: new Error('network'),
+            attempts: 3,
+            maxAttempts: 3,
+            retryDelayMs: 5_000,
+        })).resolves.toBe(true)
+
+        expect(mocks.prisma.pipelineJob.updateMany).toHaveBeenCalledWith({
+            where: {
+                id: 'job-1',
+                status: 'running',
+                lockedBy: 'worker-1',
+            },
+            data: expect.objectContaining({
+                status: 'failed',
+                lockedAt: null,
+                lockedBy: null,
+                lastError: 'network',
+                activeDedupeKey: null,
             }),
         })
     })
@@ -127,6 +163,7 @@ describe('queue repository', () => {
                 status: 'cancelled',
                 lockedAt: null,
                 lockedBy: null,
+                activeDedupeKey: null,
             }),
         })
     })
@@ -149,6 +186,7 @@ describe('queue repository', () => {
                 status: 'succeeded',
                 lockedAt: null,
                 lockedBy: null,
+                activeDedupeKey: null,
             }),
         })
     })

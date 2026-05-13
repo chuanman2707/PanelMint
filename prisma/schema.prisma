@@ -38,20 +38,20 @@ model Project {
 }
 
 model Episode {
-  id          String       @id @default(uuid())
-  projectId   String
-  name        String
-  novelText   String?      @db.Text
-  pageCount   Int?
-  format      String       @default("webtoon")
-  status      String       @default("pending")
-  progress    Int          @default(0)
-  error       String?      @db.Text
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @default(now()) @updatedAt
-  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  pages       Page[]
-  pipelineRun PipelineRun?
+  id           String        @id @default(uuid())
+  projectId    String
+  name         String
+  novelText    String?       @db.Text
+  pageCount    Int?
+  format       String        @default("webtoon")
+  status       String        @default("pending")
+  progress     Int           @default(0)
+  error        String?       @db.Text
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @default(now()) @updatedAt
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pages        Page[]
+  pipelineRun  PipelineRun?
   pipelineJobs PipelineJob[]
 
   @@index([projectId])
@@ -196,18 +196,18 @@ model RateLimitWindow {
 }
 
 model PipelineRun {
-  id           String          @id @default(uuid())
-  episodeId    String          @unique
-  userId       String
-  status       String          @default("pending")
-  currentStep  String?         @map("current_step")
-  startedAt    DateTime        @default(now()) @map("started_at")
-  completedAt  DateTime?       @map("completed_at")
-  error        String?         @db.Text
-  updatedAt    DateTime        @default(now()) @updatedAt
-  episode      Episode         @relation(fields: [episodeId], references: [id], onDelete: Cascade)
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  events       PipelineEvent[]
+  id          String          @id @default(uuid())
+  episodeId   String          @unique
+  userId      String
+  status      String          @default("pending")
+  currentStep String?         @map("current_step")
+  startedAt   DateTime        @default(now()) @map("started_at")
+  completedAt DateTime?       @map("completed_at")
+  error       String?         @db.Text
+  updatedAt   DateTime        @default(now()) @updatedAt
+  episode     Episode         @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events      PipelineEvent[]
 
   @@index([userId])
   @@index([status])
@@ -230,23 +230,24 @@ model PipelineEvent {
 }
 
 model PipelineJob {
-  id          String    @id @default(uuid())
-  episodeId   String    @map("episode_id")
-  userId      String    @map("user_id")
-  type        String
-  payload     String    @db.Text
-  status      String    @default("queued")
-  attempts    Int       @default(0)
-  maxAttempts Int       @default(3) @map("max_attempts")
-  availableAt DateTime  @default(now()) @map("available_at")
-  lockedAt    DateTime? @map("locked_at")
-  lockedBy    String?   @map("locked_by")
-  lastError   String?   @map("last_error") @db.Text
-  dedupeKey   String    @map("dedupe_key")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
-  episode     Episode   @relation(fields: [episodeId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String    @id @default(uuid())
+  episodeId       String    @map("episode_id")
+  userId          String    @map("user_id")
+  type            String
+  payload         String    @db.Text
+  status          String    @default("queued")
+  attempts        Int       @default(0)
+  maxAttempts     Int       @default(3) @map("max_attempts")
+  availableAt     DateTime  @default(now()) @map("available_at")
+  lockedAt        DateTime? @map("locked_at")
+  lockedBy        String?   @map("locked_by")
+  lastError       String?   @map("last_error") @db.Text
+  dedupeKey       String    @map("dedupe_key")
+  activeDedupeKey String?   @unique @map("active_dedupe_key")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+  episode         Episode   @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([status, availableAt])
   @@index([lockedAt])

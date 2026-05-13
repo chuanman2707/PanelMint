@@ -25,6 +25,7 @@ export type PipelineJobRecord = {
     lockedBy: string | null
     lastError: string | null
     dedupeKey: string
+    activeDedupeKey: string | null
 }
 
 export type EnqueuePipelineJobInput = {
@@ -62,7 +63,7 @@ const ACTIVE_JOB_STATUSES = ['queued', 'running'] as const
 async function findActiveDuplicate(dedupeKey: string): Promise<PipelineJobRecord | null> {
     return prisma.pipelineJob.findFirst({
         where: {
-            dedupeKey,
+            activeDedupeKey: dedupeKey,
             status: { in: [...ACTIVE_JOB_STATUSES] },
         },
     }) as Promise<PipelineJobRecord | null>
@@ -94,6 +95,7 @@ export async function enqueuePipelineJob(
                 payload: JSON.stringify(input.payload),
                 status: 'queued',
                 dedupeKey: input.dedupeKey,
+                activeDedupeKey: input.dedupeKey,
                 maxAttempts: input.maxAttempts ?? 3,
                 availableAt: input.availableAt ?? new Date(),
             },
@@ -160,7 +162,8 @@ export async function claimPipelineJobs(
             job.locked_at AS "lockedAt",
             job.locked_by AS "lockedBy",
             job.last_error AS "lastError",
-            job.dedupe_key AS "dedupeKey"
+            job.dedupe_key AS "dedupeKey",
+            job.active_dedupe_key AS "activeDedupeKey"
     `)
 }
 
@@ -176,6 +179,7 @@ export async function completePipelineJob(input: CompletePipelineJobInput): Prom
             lockedAt: null,
             lockedBy: null,
             lastError: null,
+            activeDedupeKey: null,
         },
     })
 
@@ -199,6 +203,7 @@ export async function failPipelineJob(input: FailPipelineJobInput): Promise<bool
             lockedAt: null,
             lockedBy: null,
             lastError: errorMessage(input.error),
+            activeDedupeKey: shouldRetry ? undefined : null,
         },
     })
 
@@ -215,6 +220,7 @@ export async function cancelEpisodeJobs(episodeId: string): Promise<number> {
             status: 'cancelled',
             lockedAt: null,
             lockedBy: null,
+            activeDedupeKey: null,
         },
     })
 

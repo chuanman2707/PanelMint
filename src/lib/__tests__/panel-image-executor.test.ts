@@ -127,6 +127,11 @@ describe('executePanelImageGeneration', () => {
                 id: 'panel-1',
                 imageUrl: null,
                 status: { in: ['pending', 'error', 'queued', 'generating'] },
+                page: {
+                    episode: {
+                        status: { not: 'error' },
+                    },
+                },
             },
             data: {
                 status: 'generating',
@@ -325,6 +330,40 @@ describe('executePanelImageGeneration', () => {
         })
 
         expect(result).toBe('skipped')
+        expect(mocks.prepareWaveSpeedReferenceImages).not.toHaveBeenCalled()
+        expect(mocks.generatePanelImage).not.toHaveBeenCalled()
+    })
+
+    it('does not call the provider when cancellation wins the reservation race', async () => {
+        mocks.prisma.episode.findUnique.mockResolvedValue({ status: 'imaging' })
+        mocks.prisma.panel.updateMany.mockResolvedValue({ count: 0 })
+
+        const result = await executePanelImageGeneration({
+            panel,
+            dbCharacters,
+            providerConfig,
+            artStyle: 'webtoon',
+            userId: 'user-1',
+            episodeId: 'episode-1',
+        })
+
+        expect(result).toBe('skipped')
+        expect(mocks.prisma.panel.updateMany).toHaveBeenCalledWith({
+            where: {
+                id: 'panel-1',
+                imageUrl: null,
+                status: { in: ['pending', 'error', 'queued', 'generating'] },
+                page: {
+                    episode: {
+                        status: { not: 'error' },
+                    },
+                },
+            },
+            data: {
+                status: 'generating',
+                generationAttempt: { increment: 1 },
+            },
+        })
         expect(mocks.prepareWaveSpeedReferenceImages).not.toHaveBeenCalled()
         expect(mocks.generatePanelImage).not.toHaveBeenCalled()
     })

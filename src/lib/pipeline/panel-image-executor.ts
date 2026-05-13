@@ -103,6 +103,11 @@ export async function executePanelImageGeneration({
             id: panel.id,
             imageUrl: null,
             status: { in: ['pending', 'error', 'queued', 'generating'] },
+            page: {
+                episode: {
+                    status: { not: 'error' },
+                },
+            },
         },
         data: {
             status: 'generating',

@@ -1480,4 +1480,3 @@ If there were no residual file changes after previous commits, skip this commit.
 - [ ] `npm test` passes.
 - [ ] `npm run build` passes.
 - [ ] GitNexus change detection matches Phase 3 scope.
-

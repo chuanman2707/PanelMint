@@ -30,8 +30,6 @@ export const POST = apiHandler(async (request, context) => {
         )
     }
 
-    const cancelledJobs = await cancelEpisodePipelineJobs(runId)
-
     await prisma.$transaction(async (tx) => {
         await tx.episode.update({
             where: { id: runId },
@@ -41,7 +39,7 @@ export const POST = apiHandler(async (request, context) => {
         await tx.panel.updateMany({
             where: {
                 page: { episodeId: runId },
-                status: 'queued',
+                status: { in: ['queued', 'generating'] },
             },
             data: { status: 'error' },
         })
@@ -56,15 +54,16 @@ export const POST = apiHandler(async (request, context) => {
             completedAt: new Date(),
             client: tx,
         })
+    })
 
-        await recordPipelineEvent({
-            episodeId: runId,
-            userId: localUser.id,
-            step: 'cancelled',
-            status: 'cancelled',
-            metadata: { cancelledJobs },
-            client: tx,
-        })
+    const cancelledJobs = await cancelEpisodePipelineJobs(runId)
+
+    await recordPipelineEvent({
+        episodeId: runId,
+        userId: localUser.id,
+        step: 'cancelled',
+        status: 'cancelled',
+        metadata: { cancelledJobs },
     })
 
     return NextResponse.json({ ok: true, message: 'Generation cancelled', cancelledJobs })

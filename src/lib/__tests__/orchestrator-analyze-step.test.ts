@@ -149,6 +149,31 @@ describe('runAnalyzeStep', () => {
         })
     })
 
+    it('retries analysis work when a stale job left the episode analyzing', async () => {
+        mocks.prisma.episode.findUnique.mockResolvedValue({ status: 'analyzing' })
+
+        await runAnalyzeStep({
+            projectId: 'project-1',
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            text: 'A training day at the academy.',
+            artStyle: 'manhua',
+            pageCount: 5,
+        })
+
+        expect(mocks.analyzeCharactersAndLocations).toHaveBeenCalled()
+        expect(mocks.prisma.episode.update).toHaveBeenLastCalledWith({
+            where: { id: 'episode-1' },
+            data: { status: 'review_analysis', progress: 25 },
+        })
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith(expect.objectContaining({
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            step: 'analyze',
+            status: 'completed',
+        }))
+    })
+
     it('persists WAVESPEED_API_KEY setup errors without stale Settings copy', async () => {
         mocks.getProviderConfig.mockRejectedValueOnce(
             new Error('WAVESPEED_API_KEY is required for WaveSpeed generation. Set it in .env.'),
@@ -182,6 +207,28 @@ describe('runAnalyzeStep', () => {
         expect(mocks.analyzeCharactersAndLocations).not.toHaveBeenCalled()
     })
 
+    it('does not start analysis when the episode was already cancelled', async () => {
+        mocks.prisma.episode.findUnique.mockResolvedValue({ status: 'error' })
+
+        await runAnalyzeStep({
+            projectId: 'project-1',
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            text: 'A training day at the academy.',
+            artStyle: 'manhua',
+            pageCount: 5,
+        })
+
+        expect(mocks.getProviderConfig).not.toHaveBeenCalled()
+        expect(mocks.analyzeCharactersAndLocations).not.toHaveBeenCalled()
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            step: 'analyze',
+            status: 'cancelled',
+        })
+    })
+
     it('does not persist analysis output when cancellation happens during provider work', async () => {
         mocks.prisma.episode.findUnique
             .mockResolvedValueOnce({ status: 'queued' })
@@ -206,10 +253,34 @@ describe('runAnalyzeStep', () => {
         })
     })
 
+    it('does not start storyboard when the episode was already cancelled', async () => {
+        mocks.prisma.episode.findUniqueOrThrow.mockResolvedValue({
+            id: 'episode-1',
+            projectId: 'project-1',
+            status: 'error',
+            project: {
+                userId: 'user-1',
+            },
+        })
+
+        await runStoryboardStep('episode-1')
+
+        expect(mocks.getProviderConfig).not.toHaveBeenCalled()
+        expect(mocks.splitIntoPagesWithPanels).not.toHaveBeenCalled()
+        expect(mocks.prisma.episode.update).not.toHaveBeenCalled()
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            step: 'storyboard',
+            status: 'cancelled',
+        })
+    })
+
     it('does not persist storyboard output when cancellation happens during provider work', async () => {
         mocks.prisma.episode.findUniqueOrThrow.mockResolvedValue({
             id: 'episode-1',
             projectId: 'project-1',
+            status: 'storyboarding',
             novelText: 'A training day at the academy.',
             pageCount: 1,
             project: {

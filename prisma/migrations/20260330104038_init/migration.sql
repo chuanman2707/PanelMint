@@ -6,7 +6,14 @@ CREATE TABLE "users" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "name" TEXT,
+    "auth_user_id" TEXT,
+    "passwordHash" TEXT,
+    "apiKey" TEXT,
+    "apiProvider" TEXT,
     "preferences" TEXT,
+    "credits" INTEGER NOT NULL DEFAULT 300,
+    "accountTier" TEXT NOT NULL DEFAULT 'free',
+    "lifetimePurchasedCredits" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -19,6 +26,7 @@ CREATE TABLE "projects" (
     "userId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "artStyle" TEXT NOT NULL DEFAULT 'manga',
+    "imageModel" TEXT,
     "llmModel" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -154,6 +162,35 @@ CREATE TABLE "locations" (
 );
 
 -- CreateTable
+CREATE TABLE "credit_transactions" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "amount" INTEGER NOT NULL,
+    "reason" TEXT NOT NULL,
+    "balance" INTEGER NOT NULL,
+    "episodeId" TEXT,
+    "providerTxId" TEXT,
+    "operation_key" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "credit_transactions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "usage_records" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "model" TEXT NOT NULL,
+    "tokens" INTEGER,
+    "cost" DOUBLE PRECISION,
+    "metadata" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "usage_records_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "rate_limit_windows" (
     "id" TEXT NOT NULL,
     "scope" TEXT NOT NULL,
@@ -191,12 +228,16 @@ CREATE TABLE "pipeline_events" (
     "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "completed_at" TIMESTAMP(3),
     "metadata" TEXT,
+    "credit_operation_key" TEXT,
 
     CONSTRAINT "pipeline_events_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_auth_user_id_key" ON "users"("auth_user_id");
 
 -- CreateIndex
 CREATE INDEX "projects_userId_idx" ON "projects"("userId");
@@ -235,6 +276,18 @@ CREATE UNIQUE INDEX "character_appearances_characterId_appearanceIndex_key" ON "
 CREATE INDEX "locations_projectId_idx" ON "locations"("projectId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "credit_transactions_providerTxId_key" ON "credit_transactions"("providerTxId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "credit_transactions_operation_key_key" ON "credit_transactions"("operation_key");
+
+-- CreateIndex
+CREATE INDEX "credit_transactions_userId_createdAt_idx" ON "credit_transactions"("userId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "usage_records_userId_createdAt_idx" ON "usage_records"("userId", "createdAt");
+
+-- CreateIndex
 CREATE INDEX "rate_limit_windows_expires_at_idx" ON "rate_limit_windows"("expires_at");
 
 -- CreateIndex
@@ -251,6 +304,9 @@ CREATE INDEX "pipeline_runs_userId_idx" ON "pipeline_runs"("userId");
 
 -- CreateIndex
 CREATE INDEX "pipeline_runs_status_idx" ON "pipeline_runs"("status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "pipeline_events_credit_operation_key_key" ON "pipeline_events"("credit_operation_key");
 
 -- CreateIndex
 CREATE INDEX "pipeline_events_run_id_started_at_idx" ON "pipeline_events"("run_id", "started_at");
@@ -281,6 +337,12 @@ ALTER TABLE "character_appearances" ADD CONSTRAINT "character_appearances_charac
 
 -- AddForeignKey
 ALTER TABLE "locations" ADD CONSTRAINT "locations_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "credit_transactions" ADD CONSTRAINT "credit_transactions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "usage_records" ADD CONSTRAINT "usage_records_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "pipeline_runs" ADD CONSTRAINT "pipeline_runs_episodeId_fkey" FOREIGN KEY ("episodeId") REFERENCES "episodes"("id") ON DELETE CASCADE ON UPDATE CASCADE;

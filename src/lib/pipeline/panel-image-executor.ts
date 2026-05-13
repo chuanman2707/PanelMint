@@ -169,14 +169,42 @@ export async function executePanelImageGeneration({
             return 'skipped'
         }
 
-        await prisma.panel.update({
-            where: { id: panel.id },
+        const persisted = await prisma.panel.updateMany({
+            where: {
+                id: panel.id,
+                status: 'generating',
+                page: {
+                    episode: {
+                        status: { not: 'error' },
+                    },
+                },
+            },
             data: {
                 imageUrl: imageAsset.imageUrl,
                 storageKey: imageAsset.storageKey,
                 status: 'done',
             },
         })
+
+        if (persisted.count === 0) {
+            if (await episodeCancellationRequested(episodeId)) {
+                await prisma.panel.updateMany({
+                    where: { id: panel.id, status: 'generating' },
+                    data: { status: 'error' },
+                })
+                await recordPipelineEvent({
+                    episodeId,
+                    userId,
+                    step: `image_panel:${panel.id}`,
+                    status: 'cancelled',
+                    metadata: {
+                        attempt: generationAttempt,
+                        panelId: panel.id,
+                    },
+                })
+            }
+            return 'skipped'
+        }
 
         await recordPipelineEvent({
             episodeId,

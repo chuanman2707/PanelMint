@@ -122,7 +122,7 @@ describe('executePanelImageGeneration', () => {
         })
 
         expect(result).toBe('done')
-        expect(mocks.prisma.panel.updateMany).toHaveBeenCalledWith({
+        expect(mocks.prisma.panel.updateMany).toHaveBeenNthCalledWith(1, {
             where: {
                 id: 'panel-1',
                 imageUrl: null,
@@ -133,14 +133,23 @@ describe('executePanelImageGeneration', () => {
                 generationAttempt: { increment: 1 },
             },
         })
-        expect(mocks.prisma.panel.update).toHaveBeenNthCalledWith(1, {
-            where: { id: 'panel-1' },
+        expect(mocks.prisma.panel.updateMany).toHaveBeenNthCalledWith(2, {
+            where: {
+                id: 'panel-1',
+                status: 'generating',
+                page: {
+                    episode: {
+                        status: { not: 'error' },
+                    },
+                },
+            },
             data: {
                 imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/panel-1.png',
                 storageKey: 'user-1/episode-1/panel-1.png',
                 status: 'done',
             },
         })
+        expect(mocks.prisma.panel.update).not.toHaveBeenCalled()
         expect(mocks.generatePanelImage).toHaveBeenCalledWith(expect.objectContaining({
             panelId: 'panel-1',
             providerConfig,
@@ -155,6 +164,63 @@ describe('executePanelImageGeneration', () => {
                 attempt: 1,
                 imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/panel-1.png',
                 storageKey: 'user-1/episode-1/panel-1.png',
+                panelId: 'panel-1',
+            },
+        })
+    })
+
+    it('does not persist generated output when cancellation wins the persist race', async () => {
+        mocks.prisma.episode.findUnique
+            .mockResolvedValueOnce({ status: 'imaging' })
+            .mockResolvedValueOnce({ status: 'imaging' })
+            .mockResolvedValueOnce({ status: 'error' })
+        mocks.prisma.panel.updateMany
+            .mockResolvedValueOnce({ count: 1 })
+            .mockResolvedValueOnce({ count: 0 })
+            .mockResolvedValueOnce({ count: 1 })
+        mocks.generatePanelImage.mockResolvedValue({
+            imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/panel-1.png',
+            storageKey: 'user-1/episode-1/panel-1.png',
+        })
+
+        const result = await executePanelImageGeneration({
+            panel,
+            dbCharacters,
+            providerConfig,
+            artStyle: 'webtoon',
+            userId: 'user-1',
+            episodeId: 'episode-1',
+        })
+
+        expect(result).toBe('skipped')
+        expect(mocks.prisma.panel.update).not.toHaveBeenCalled()
+        expect(mocks.prisma.panel.updateMany).toHaveBeenNthCalledWith(2, {
+            where: {
+                id: 'panel-1',
+                status: 'generating',
+                page: {
+                    episode: {
+                        status: { not: 'error' },
+                    },
+                },
+            },
+            data: {
+                imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/panel-1.png',
+                storageKey: 'user-1/episode-1/panel-1.png',
+                status: 'done',
+            },
+        })
+        expect(mocks.prisma.panel.updateMany).toHaveBeenNthCalledWith(3, {
+            where: { id: 'panel-1', status: 'generating' },
+            data: { status: 'error' },
+        })
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            step: 'image_panel:panel-1',
+            status: 'cancelled',
+            metadata: {
+                attempt: 1,
                 panelId: 'panel-1',
             },
         })

@@ -5,9 +5,6 @@ import { executePanelImageGeneration } from './panel-image-executor'
 import { getProviderConfig, type ProviderConfig } from '@/lib/api-config'
 import { recordPipelineEvent, syncPipelineRunState } from './run-state'
 
-// Statuses that indicate an episode is already being processed
-const PROCESSING_STATUSES = ['analyzing', 'storyboarding', 'imaging']
-
 async function episodeCancellationRequested(episodeId: string): Promise<boolean> {
     const episode = await prisma.episode.findUnique({
         where: { id: episodeId },
@@ -57,22 +54,22 @@ export async function runAnalyzeStep(input: PipelineInput): Promise<void> {
         return
     }
 
+    if (await episodeCancellationRequested(episodeId)) {
+        await recordPipelineEvent({
+            episodeId,
+            userId,
+            step: 'analyze',
+            status: 'cancelled',
+        })
+        return
+    }
+
     // Load provider config
     let providerConfig: ProviderConfig
     try {
         providerConfig = await getProviderConfig(userId)
     } catch (error) {
         await setEpisodeError(episodeId, userId, error, 'analyze')
-        return
-    }
-
-    // DB status check as safety net (e.g. after server restart)
-    const existing = await prisma.episode.findUnique({
-        where: { id: episodeId },
-        select: { status: true },
-    })
-    if (existing && PROCESSING_STATUSES.includes(existing.status)) {
-        console.warn(`[Pipeline] Episode ${episodeId} already in status "${existing.status}". Skipping.`)
         return
     }
 
@@ -166,6 +163,16 @@ export async function runStoryboardStep(episodeId: string): Promise<void> {
         })
 
         const userId = episode.project.userId!
+
+        if (episode.status === 'error') {
+            await recordPipelineEvent({
+                episodeId,
+                userId,
+                step: 'storyboard',
+                status: 'cancelled',
+            })
+            return
+        }
 
         await recordPipelineEvent({
             episodeId,

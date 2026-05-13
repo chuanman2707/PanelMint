@@ -61,5 +61,21 @@ describe('POST /api/generate/[runId]/cancel', () => {
             userId: 'user-1',
             runStatus: 'cancelled',
         }))
+        expect(mocks.prisma.panel.updateMany).toHaveBeenCalledWith({
+            where: {
+                page: { episodeId: 'ep-1' },
+                status: { in: ['queued', 'generating'] },
+            },
+            data: { status: 'error' },
+        })
+        expect(mocks.prisma.episode.update.mock.invocationCallOrder[0])
+            .toBeLessThan(mocks.cancelEpisodePipelineJobs.mock.invocationCallOrder[0])
+        expect(mocks.recordPipelineEvent).toHaveBeenCalledWith({
+            episodeId: 'ep-1',
+            userId: 'user-1',
+            step: 'cancelled',
+            status: 'cancelled',
+            metadata: { cancelledJobs: 2 },
+        })
     })
 })

@@ -54,6 +54,30 @@ function defaultRunStateFromEpisodeStatus(episodeStatus: string): {
     }
 }
 
+function pipelineRunStateForEvent(status: PipelineEventStatus): {
+    status: PipelineRunStatus
+    completedAt: Date | null
+} {
+    switch (status) {
+        case 'queued':
+            return { status: 'pending', completedAt: null }
+        case 'cancelled':
+            return { status: 'cancelled', completedAt: new Date() }
+        case 'failed':
+            return { status: 'failed', completedAt: new Date() }
+        default:
+            return { status: 'running', completedAt: null }
+    }
+}
+
+function eventShouldUpdateExistingRun(status: PipelineEventStatus): boolean {
+    return status === 'queued' || status === 'started'
+}
+
+function isTerminalRunStatus(status: string): boolean {
+    return status === 'completed' || status === 'failed' || status === 'cancelled'
+}
+
 async function ensurePipelineRun(
     db: DbClient,
     input: {
@@ -117,13 +141,31 @@ export async function recordPipelineEvent(input: {
     client?: Prisma.TransactionClient
 }): Promise<void> {
     const db = getDb(input.client)
-    const run = await ensurePipelineRun(db, {
-        episodeId: input.episodeId,
-        userId: input.userId,
-        status: input.status === 'queued' ? 'pending' : 'running',
-        currentStep: input.step,
-        completedAt: null,
+    const eventRunState = pipelineRunStateForEvent(input.status)
+    const existingRun = await db.pipelineRun.findUnique({
+        where: { episodeId: input.episodeId },
     })
+
+    const run = existingRun
+        ? eventShouldUpdateExistingRun(input.status) && !isTerminalRunStatus(existingRun.status)
+            ? await db.pipelineRun.update({
+                where: { episodeId: input.episodeId },
+                data: {
+                    userId: input.userId,
+                    status: eventRunState.status,
+                    currentStep: input.step,
+                    error: null,
+                    completedAt: eventRunState.completedAt,
+                },
+            })
+            : existingRun
+        : await ensurePipelineRun(db, {
+            episodeId: input.episodeId,
+            userId: input.userId,
+            status: eventRunState.status,
+            currentStep: input.step,
+            completedAt: eventRunState.completedAt,
+        })
 
     await db.pipelineEvent.create({
         data: {

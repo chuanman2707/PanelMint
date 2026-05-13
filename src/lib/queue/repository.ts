@@ -114,7 +114,19 @@ export async function claimPipelineJobs(
     const staleBefore = new Date(Date.now() - input.staleAfterMs)
 
     return prisma.$queryRaw<PipelineJobRecord[]>(Prisma.sql`
-        WITH candidates AS (
+        WITH expired_final_attempts AS (
+            UPDATE pipeline_jobs
+            SET status = 'failed',
+                locked_at = NULL,
+                locked_by = NULL,
+                last_error = 'Worker lost final attempt before completing job.',
+                updated_at = NOW()
+            WHERE status = 'running'
+              AND locked_at <= ${staleBefore}
+              AND attempts >= max_attempts
+            RETURNING id
+        ),
+        candidates AS (
             SELECT id
             FROM pipeline_jobs
             WHERE attempts < max_attempts

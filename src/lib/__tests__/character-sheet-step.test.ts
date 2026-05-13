@@ -40,6 +40,7 @@ import {
 describe('character sheet step', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mocks.prisma.episode.findUnique.mockResolvedValue({ status: 'imaging' })
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
         mocks.prisma.character.update.mockResolvedValue({})
     })
@@ -258,6 +259,54 @@ describe('character sheet step', () => {
                 characterId: 'char-1',
                 characterName: 'Aoi',
                 error: 'missing provider key',
+            },
+        })
+    })
+
+    it('does not update character output when cancellation happens during generation', async () => {
+        mocks.prisma.character.findUnique.mockResolvedValue({
+            id: 'char-1',
+            name: 'Aoi',
+            description: 'hero',
+            imageUrl: null,
+            project: {
+                userId: 'user-1',
+                artStyle: 'manhwa',
+            },
+        })
+        mocks.prisma.episode.findUnique
+            .mockResolvedValueOnce({ status: 'imaging' })
+            .mockResolvedValueOnce({ status: 'error' })
+        mocks.getProviderConfig.mockResolvedValue({
+            provider: 'wavespeed',
+            apiKey: 'key',
+            llmModel: 'seed',
+            imageModel: 'flux',
+            imageFallbackModel: 'seedream',
+            baseUrl: 'https://api.wavespeed.ai/api/v3',
+            userId: 'user-1',
+        })
+        mocks.generateCharacterSheet.mockResolvedValue({
+            imageUrl: '/chars/aoi.png',
+            storageKey: 'characters/aoi.png',
+        })
+
+        await runCharacterSheetStep({
+            episodeId: 'ep-1',
+            userId: 'user-1',
+            characterId: 'char-1',
+        })
+
+        expect(mocks.prisma.character.update).not.toHaveBeenCalled()
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'ep-1',
+            userId: 'user-1',
+            step: 'character_sheet:char-1',
+            status: 'cancelled',
+            metadata: {
+                attempt: 1,
+                characterId: 'char-1',
+                characterName: 'Aoi',
             },
         })
     })

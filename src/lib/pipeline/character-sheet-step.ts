@@ -6,6 +6,15 @@ import { recordPipelineEvent } from './run-state'
 
 const CHARACTER_SHEET_TIMEOUT_MS = WAVESPEED_IMAGE_POLL_TIMEOUT_MS + (3 * 60_000)
 
+async function episodeCancellationRequested(episodeId: string): Promise<boolean> {
+    const episode = await prisma.episode.findUnique({
+        where: { id: episodeId },
+        select: { status: true },
+    })
+
+    return episode?.status === 'error'
+}
+
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
@@ -98,6 +107,21 @@ export async function runCharacterSheetStep(input: {
     })
 
     try {
+        if (await episodeCancellationRequested(episodeId)) {
+            await recordPipelineEvent({
+                episodeId,
+                userId,
+                step: `character_sheet:${character.id}`,
+                status: 'cancelled',
+                metadata: {
+                    attempt,
+                    characterId: character.id,
+                    characterName: character.name,
+                },
+            })
+            return
+        }
+
         const providerConfig = await getProviderConfig(userId)
 
         const { imageUrl, storageKey } = await withTimeout(
@@ -115,6 +139,21 @@ export async function runCharacterSheetStep(input: {
 
         if (!imageUrl) {
             throw new Error(`Character sheet returned no image for ${character.name}`)
+        }
+
+        if (await episodeCancellationRequested(episodeId)) {
+            await recordPipelineEvent({
+                episodeId,
+                userId,
+                step: `character_sheet:${character.id}`,
+                status: 'cancelled',
+                metadata: {
+                    attempt,
+                    characterId: character.id,
+                    characterName: character.name,
+                },
+            })
+            return
         }
 
         await prisma.character.update({
@@ -136,6 +175,21 @@ export async function runCharacterSheetStep(input: {
             },
         })
     } catch (err) {
+        if (await episodeCancellationRequested(episodeId)) {
+            await recordPipelineEvent({
+                episodeId,
+                userId,
+                step: `character_sheet:${character.id}`,
+                status: 'cancelled',
+                metadata: {
+                    attempt,
+                    characterId: character.id,
+                    characterName: character.name,
+                },
+            }).catch(console.error)
+            return
+        }
+
         await recordPipelineEvent({
             episodeId,
             userId,

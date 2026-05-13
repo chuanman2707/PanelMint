@@ -81,6 +81,9 @@ describe('queue repository', () => {
         expect(mocks.prisma.$queryRaw).toHaveBeenCalledTimes(1)
         const sql = String(mocks.prisma.$queryRaw.mock.calls[0]?.[0]?.sql ?? '')
         expect(sql).toContain('FOR UPDATE SKIP LOCKED')
+        expect(sql).toContain('expired_final_attempts')
+        expect(sql).toContain('attempts >= max_attempts')
+        expect(sql).toContain("status = 'failed'")
     })
 
     it('marks failed jobs for retry when attempts remain', async () => {

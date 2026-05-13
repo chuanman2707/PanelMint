@@ -197,6 +197,43 @@ describe('executePanelImageGeneration', () => {
 
         expect(result).toBe('skipped')
         expect(mocks.prisma.panel.update).not.toHaveBeenCalled()
+        expect(mocks.prisma.panel.updateMany).toHaveBeenNthCalledWith(2, {
+            where: { id: 'panel-1', status: 'generating' },
+            data: { status: 'error' },
+        })
+        expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
+            episodeId: 'episode-1',
+            userId: 'user-1',
+            step: 'image_panel:panel-1',
+            status: 'cancelled',
+            metadata: {
+                attempt: 1,
+                panelId: 'panel-1',
+            },
+        })
+    })
+
+    it('resets the reserved panel when provider work fails after cancellation', async () => {
+        mocks.prisma.episode.findUnique
+            .mockResolvedValueOnce({ status: 'imaging' })
+            .mockResolvedValueOnce({ status: 'error' })
+        mocks.generatePanelImage.mockRejectedValue(new Error('provider cancelled'))
+
+        const result = await executePanelImageGeneration({
+            panel,
+            dbCharacters,
+            providerConfig,
+            artStyle: 'webtoon',
+            userId: 'user-1',
+            episodeId: 'episode-1',
+        })
+
+        expect(result).toBe('skipped')
+        expect(mocks.prisma.panel.update).not.toHaveBeenCalled()
+        expect(mocks.prisma.panel.updateMany).toHaveBeenNthCalledWith(2, {
+            where: { id: 'panel-1', status: 'generating' },
+            data: { status: 'error' },
+        })
         expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
             episodeId: 'episode-1',
             userId: 'user-1',

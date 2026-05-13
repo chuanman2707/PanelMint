@@ -152,6 +152,10 @@ export async function executePanelImageGeneration({
         })
 
         if (await episodeCancellationRequested(episodeId)) {
+            await prisma.panel.updateMany({
+                where: { id: panel.id, status: 'generating' },
+                data: { status: 'error' },
+            })
             await recordPipelineEvent({
                 episodeId,
                 userId,
@@ -190,6 +194,10 @@ export async function executePanelImageGeneration({
         return 'done'
     } catch (err) {
         if (await episodeCancellationRequested(episodeId)) {
+            await prisma.panel.updateMany({
+                where: { id: panel.id, status: 'generating' },
+                data: { status: 'error' },
+            })
             await recordPipelineEvent({
                 episodeId,
                 userId,

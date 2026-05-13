@@ -112,5 +112,4 @@ curl http://localhost:3000/api/health
 - `runId` in the public API still maps to `episode.id`.
 - Durable pipeline state lives in `pipeline_runs` and `pipeline_events`.
 - Coarse UI state still mirrors `episodes.status`, `episodes.progress`, and `episodes.error`.
-- Credit transactions use operation-level idempotency.
 - Legacy Supabase, Redis worker, and multi-repo wrapper artifacts were intentionally removed from the main repository contract.

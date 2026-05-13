@@ -88,7 +88,9 @@ export async function runAnalyzeStep(input: PipelineInput): Promise<void> {
             },
         })
 
-        await updateEpisode(episodeId, userId, 'analyzing', 5)
+        if (!(await updateEpisode(episodeId, userId, 'analyzing', 5))) {
+            return
+        }
 
         const { characters, locations } = await analyzeCharactersAndLocations(text, providerConfig)
 
@@ -131,7 +133,9 @@ export async function runAnalyzeStep(input: PipelineInput): Promise<void> {
         // STOP -- wait for user to review characters + locations.
         // The initial analyze prompt already returns identity anchors, so extra
         // per-character LLM refinement should stay off the critical path.
-        await updateEpisode(episodeId, userId, 'review_analysis', 25)
+        if (!(await updateEpisode(episodeId, userId, 'review_analysis', 25))) {
+            return
+        }
         await recordPipelineEvent({
             episodeId,
             userId,
@@ -184,7 +188,9 @@ export async function runStoryboardStep(episodeId: string): Promise<void> {
             },
         })
 
-        await updateEpisode(episodeId, userId, 'storyboarding', 30)
+        if (!(await updateEpisode(episodeId, userId, 'storyboarding', 30))) {
+            return
+        }
 
         const providerConfig = await getProviderConfig(userId)
 
@@ -200,7 +206,9 @@ export async function runStoryboardStep(episodeId: string): Promise<void> {
 
         const pageCount = episode.pageCount || 15
 
-        await updateEpisode(episodeId, userId, 'storyboarding', 35)
+        if (!(await updateEpisode(episodeId, userId, 'storyboarding', 35))) {
+            return
+        }
 
         // 1 LLM call → pages + enriched panels together
         const pages = await splitIntoPagesWithPanels(
@@ -232,7 +240,9 @@ export async function runStoryboardStep(episodeId: string): Promise<void> {
             return
         }
 
-        await updateEpisode(episodeId, userId, 'storyboarding', 45)
+        if (!(await updateEpisode(episodeId, userId, 'storyboarding', 45))) {
+            return
+        }
 
         // Save pages + panels to DB with enriched fields including dialogue
         for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
@@ -275,7 +285,9 @@ export async function runStoryboardStep(episodeId: string): Promise<void> {
         }
 
         // STOP — wait for user to review storyboard
-        await updateEpisode(episodeId, userId, 'review_storyboard', 50)
+        if (!(await updateEpisode(episodeId, userId, 'review_storyboard', 50))) {
+            return
+        }
         await recordPipelineEvent({
             episodeId,
             userId,
@@ -321,7 +333,9 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
         const userId = episode.project.userId!
         const isChildInvocation = Boolean(panelIds?.length === 1)
 
-        await updateEpisode(episodeId, userId, 'imaging', 50)
+        if (!(await updateEpisode(episodeId, userId, 'imaging', 50))) {
+            return
+        }
 
         // EAGER LOAD: all characters + all panels in one query (avoids N+1)
         const dbCharacters = await prisma.character.findMany({
@@ -356,6 +370,9 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
         if (allPanels.length === 0) {
             console.log('[Pipeline] No panels need image generation')
             if (!isChildInvocation) {
+                if (!(await updateEpisode(episodeId, userId, 'done', 100))) {
+                    return
+                }
                 await recordPipelineEvent({
                     episodeId,
                     userId,
@@ -363,7 +380,6 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
                     status: 'completed',
                     metadata: { panelCount: 0, reason: 'no_panels' },
                 })
-                await updateEpisode(episodeId, userId, 'done', 100)
                 return
             }
 
@@ -447,7 +463,9 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
 
             const summary = await getEpisodeImageGenerationSummary(episodeId)
             const progress = getImageGenerationProgress(summary)
-            await updateEpisode(episodeId, userId, 'imaging', progress)
+            if (!(await updateEpisode(episodeId, userId, 'imaging', progress))) {
+                return
+            }
         }
 
         const finalEpisodeState = await prisma.episode.findUnique({
@@ -463,6 +481,9 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
         const summary = await getEpisodeImageGenerationSummary(episodeId)
 
         if (summary.remainingPanels === 0) {
+            if (!(await updateEpisode(episodeId, userId, 'done', 100))) {
+                return
+            }
             if (!isChildInvocation) {
                 await recordPipelineEvent({
                     episodeId,
@@ -476,9 +497,11 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
                     },
                 })
             }
-            await updateEpisode(episodeId, userId, 'done', 100)
             console.log(`[Pipeline] Complete! ${completedPanels} panels generated, ${failedPanels} failed.`)
         } else if (summary.activePanels === 0) {
+            if (!(await updateEpisode(episodeId, userId, 'review_storyboard', 50))) {
+                return
+            }
             if (!isChildInvocation) {
                 await recordPipelineEvent({
                     episodeId,
@@ -492,7 +515,6 @@ export async function runImageGenStep(episodeId: string, panelIds?: string[]): P
                     },
                 })
             }
-            await updateEpisode(episodeId, userId, 'review_storyboard', 50)
             console.log(`[Pipeline] Partial: ${completedPanels} done, ${summary.remainingPanels} remaining.`)
         }
 
@@ -589,16 +611,19 @@ async function updateEpisode(
     progress: number,
     extra?: { currentPanel?: number; totalPanels?: number },
 ) {
-    await prisma.episode.update({
-        where: { id: episodeId },
+    const updated = await prisma.episode.updateMany({
+        where: { id: episodeId, status: { not: 'error' } },
         data: { status, progress },
     })
+    if (updated.count === 0) return false
+
     await syncPipelineRunState({
         episodeId,
         userId,
         episodeStatus: status,
     })
     await emitProgress(episodeId, { status, progress, ...extra })
+    return true
 }
 
 async function setEpisodeError(

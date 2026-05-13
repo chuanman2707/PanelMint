@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
             findUnique: vi.fn(),
             findUniqueOrThrow: vi.fn(),
             update: vi.fn(),
+            updateMany: vi.fn(),
         },
         character: {
             create: vi.fn(),
@@ -79,6 +80,7 @@ describe('runAnalyzeStep', () => {
         })
         mocks.prisma.episode.findUnique.mockResolvedValue({ status: 'queued' })
         mocks.prisma.episode.update.mockResolvedValue({})
+        mocks.prisma.episode.updateMany.mockResolvedValue({ count: 1 })
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
         mocks.syncPipelineRunState.mockResolvedValue(undefined)
         mocks.prisma.character.create.mockResolvedValue({
@@ -133,8 +135,8 @@ describe('runAnalyzeStep', () => {
         expect(mocks.generateCharacterSheet).not.toHaveBeenCalled()
         expect(mocks.generateCharacterDescription).not.toHaveBeenCalled()
         expect(mocks.prisma.character.update).not.toHaveBeenCalled()
-        expect(mocks.prisma.episode.update).toHaveBeenLastCalledWith({
-            where: { id: 'episode-1' },
+        expect(mocks.prisma.episode.updateMany).toHaveBeenLastCalledWith({
+            where: { id: 'episode-1', status: { not: 'error' } },
             data: { status: 'review_analysis', progress: 25 },
         })
         expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
@@ -162,8 +164,8 @@ describe('runAnalyzeStep', () => {
         })
 
         expect(mocks.analyzeCharactersAndLocations).toHaveBeenCalled()
-        expect(mocks.prisma.episode.update).toHaveBeenLastCalledWith({
-            where: { id: 'episode-1' },
+        expect(mocks.prisma.episode.updateMany).toHaveBeenLastCalledWith({
+            where: { id: 'episode-1', status: { not: 'error' } },
             data: { status: 'review_analysis', progress: 25 },
         })
         expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith(expect.objectContaining({
@@ -267,7 +269,7 @@ describe('runAnalyzeStep', () => {
 
         expect(mocks.getProviderConfig).not.toHaveBeenCalled()
         expect(mocks.splitIntoPagesWithPanels).not.toHaveBeenCalled()
-        expect(mocks.prisma.episode.update).not.toHaveBeenCalled()
+        expect(mocks.prisma.episode.updateMany).not.toHaveBeenCalled()
         expect(mocks.recordPipelineEvent).toHaveBeenLastCalledWith({
             episodeId: 'episode-1',
             userId: 'user-1',

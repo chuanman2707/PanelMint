@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => {
                 findUnique: vi.fn(),
                 findUniqueOrThrow: vi.fn(),
                 update: vi.fn(),
+                updateMany: vi.fn(),
             },
             character: {
                 findMany: vi.fn(),
@@ -119,6 +120,7 @@ describe('runImageGenStep', () => {
         mocks.recordPipelineEvent.mockResolvedValue(undefined)
         mocks.syncPipelineRunState.mockResolvedValue(undefined)
         mocks.prisma.episode.update.mockResolvedValue({})
+        mocks.prisma.episode.updateMany.mockResolvedValue({ count: 1 })
         mocks.prisma.panel.findUnique.mockResolvedValue({ generationAttempt: 1 })
         mocks.prisma.panel.update.mockResolvedValue({})
         mocks.prisma.panel.updateMany.mockResolvedValue({ count: 1 })
@@ -174,8 +176,8 @@ describe('runImageGenStep', () => {
             where: { id: 'panel-1' },
             data: { status: 'content_filtered' },
         })
-        expect(mocks.prisma.episode.update).toHaveBeenLastCalledWith({
-            where: { id: 'episode-1' },
+        expect(mocks.prisma.episode.updateMany).toHaveBeenLastCalledWith({
+            where: { id: 'episode-1', status: { not: 'error' } },
             data: { status: 'done', progress: 100 },
         })
     })
@@ -219,8 +221,8 @@ describe('runImageGenStep', () => {
             where: { id: 'panel-2' },
             data: { status: 'error' },
         })
-        expect(mocks.prisma.episode.update).toHaveBeenLastCalledWith({
-            where: { id: 'episode-1' },
+        expect(mocks.prisma.episode.updateMany).toHaveBeenLastCalledWith({
+            where: { id: 'episode-1', status: { not: 'error' } },
             data: { status: 'review_storyboard', progress: 50 },
         })
     })
@@ -237,12 +239,12 @@ describe('runImageGenStep', () => {
 
         await runImageGenStep('episode-1', ['panel-1'])
 
-        expect(mocks.prisma.episode.update).not.toHaveBeenCalledWith({
-            where: { id: 'episode-1' },
+        expect(mocks.prisma.episode.updateMany).not.toHaveBeenCalledWith({
+            where: { id: 'episode-1', status: { not: 'error' } },
             data: { status: 'done', progress: 100 },
         })
-        expect(mocks.prisma.episode.update).toHaveBeenLastCalledWith({
-            where: { id: 'episode-1' },
+        expect(mocks.prisma.episode.updateMany).toHaveBeenLastCalledWith({
+            where: { id: 'episode-1', status: { not: 'error' } },
             data: { status: 'imaging', progress: 73 },
         })
     })
@@ -276,11 +278,60 @@ describe('runImageGenStep', () => {
 
         await runImageGenStep('episode-1', ['panel-1'])
 
-        expect(mocks.prisma.episode.update).toHaveBeenCalledWith({
-            where: { id: 'episode-1' },
+        expect(mocks.prisma.episode.updateMany).toHaveBeenCalledWith({
+            where: { id: 'episode-1', status: { not: 'error' } },
             data: { status: 'imaging', progress: 50 },
         })
-        expect(mocks.prisma.episode.update).toHaveBeenCalledTimes(1)
+        expect(mocks.prisma.episode.updateMany).toHaveBeenCalledTimes(1)
         expect(mocks.prisma.panel.count).not.toHaveBeenCalled()
+    })
+
+    it('does not overwrite cancellation when it happens after a panel persists', async () => {
+        mocks.prisma.panel.findMany.mockResolvedValue([
+            {
+                id: 'panel-1',
+                characters: JSON.stringify(['Anh Minh']),
+                approvedPrompt: 'fight scene',
+                description: 'fight scene',
+                shotType: 'medium',
+                location: 'bridge',
+                mood: null,
+                lighting: null,
+                page: {
+                    sceneContext: null,
+                    characters: JSON.stringify(['Anh Minh']),
+                },
+            },
+        ])
+        mocks.generatePanelImage.mockResolvedValue({
+            imageUrl: '/api/storage/users/user-1/episodes/episode-1/panels/panel-1.png',
+            storageKey: 'users/user-1/episodes/episode-1/panels/panel-1.png',
+        })
+        mocks.prisma.panel.count
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(1)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(0)
+            .mockResolvedValueOnce(0)
+        mocks.prisma.episode.updateMany
+            .mockResolvedValueOnce({ count: 1 })
+            .mockResolvedValueOnce({ count: 0 })
+
+        await runImageGenStep('episode-1', ['panel-1'])
+
+        expect(mocks.prisma.episode.updateMany).toHaveBeenNthCalledWith(1, {
+            where: { id: 'episode-1', status: { not: 'error' } },
+            data: { status: 'imaging', progress: 50 },
+        })
+        expect(mocks.prisma.episode.updateMany).toHaveBeenNthCalledWith(2, {
+            where: { id: 'episode-1', status: { not: 'error' } },
+            data: { status: 'imaging', progress: 95 },
+        })
+        expect(mocks.prisma.episode.updateMany).not.toHaveBeenCalledWith({
+            where: { id: 'episode-1', status: { not: 'error' } },
+            data: { status: 'done', progress: 100 },
+        })
+        expect(mocks.syncPipelineRunState).toHaveBeenCalledTimes(1)
     })
 })

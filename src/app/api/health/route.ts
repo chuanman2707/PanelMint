@@ -25,9 +25,10 @@ export const GET = apiHandler(async () => {
                 database: databaseStatus,
                 env: envReport.checks,
                 runtime: {
-                    deployment: process.env.VERCEL ? 'vercel' : 'local',
+                    app: 'nextjs',
                     queue: 'local-worker',
                     identity: 'local-single-user',
+                    storage: 'local-filesystem',
                 },
             },
             details: {
@@ -35,6 +36,7 @@ export const GET = apiHandler(async () => {
                 warnings: envReport.warnings,
                 notes: [
                     'Local single-user runtime. Auth is disabled for OSS v1.',
+                    'Generated assets are stored on the local filesystem.',
                 ],
             },
         },

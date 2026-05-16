@@ -1,6 +1,6 @@
-# Legacy local helper only.
-# Default deployment is Vercel + Neon Postgres + local worker + local generated asset storage.
-# Use this file only if you want a disposable local Postgres stack for development.
+# Local Postgres helper for PanelMint OSS.
+# The exposed port and credentials match .env.example.
+# Run with: docker compose up -d --wait
 
 services:
   postgres:

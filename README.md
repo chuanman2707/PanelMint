@@ -1,20 +1,22 @@
 # PanelMint
 
-PanelMint is an AI-assisted text-to-comic generator.
+PanelMint is a local-first AI-assisted text-to-comic generator.
 
-This repository has been cleaned to center on one production stack:
+The open-source runtime is centered on:
 
-- Next.js 16 + React 19 frontend
-- Single local workspace owner, with no hosted identity service in OSS v1
-- Neon Postgres via Prisma
-- Local worker background queue
-- Local generated asset storage
+- Next.js 16 + React 19 frontend.
+- Single local workspace owner, with no hosted identity service in OSS v1.
+- Postgres via Prisma.
+- Local DB-backed worker queue.
+- Local generated asset storage.
+- WaveSpeed BYOK through `WAVESPEED_API_KEY`.
 
-## Local setup
+## Local Setup
 
 ```bash
 npm install
 cp .env.example .env
+docker compose up -d --wait
 npx prisma generate
 npx prisma migrate deploy
 npm run dev
@@ -22,94 +24,119 @@ npm run dev
 
 The app runs at `http://localhost:3000`.
 
-Run the local worker in a second terminal to process queued generation jobs:
+Run the local worker in a second terminal while the app is running:
 
 ```bash
 npm run worker
 ```
 
-Optional local Postgres helper:
+The worker processes queued analysis, storyboard, character sheet, and image jobs. Generated images are stored under `PANELMINT_STORAGE_DIR`, which defaults to `.panelmint/generated`.
+
+## First Comic
+
+Use the sample manuscript in `examples/sample-manuscript.md`, then follow `examples/local-generation-workflow.md`.
+
+Real generation requires a WaveSpeed key:
 
 ```bash
-docker compose up -d
+WAVESPEED_API_KEY=your_key_here
 ```
 
-That helper is only for disposable local development. The intended deployment contract is Vercel + Neon + local single-user runtime + local worker queue + local generated asset storage.
+PanelMint reads that key from `.env`. It does not store provider keys in the database.
 
-Generated images are stored locally under `PANELMINT_STORAGE_DIR`, defaulting to `.panelmint/generated`.
-
-## Useful checks
+## Useful Checks
 
 ```bash
+npx prisma validate
 npm test
 npm run build
 curl http://localhost:3000/api/health
 ```
 
-## TDD Workflow
+`/api/health` returns degraded status when generation env is missing. If only `WAVESPEED_API_KEY` is missing, setup is still close: add the key to `.env` before running real generation.
+
+## Environment Variables
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | Postgres runtime connection string. The default `.env.example` value matches `docker-compose.yml`. |
+| `DIRECT_URL` | Optional | Direct Postgres connection for Prisma migrations. For local Docker setup, use the same value as `DATABASE_URL`. |
+| `WAVESPEED_API_KEY` | Yes for generation | Your WaveSpeed API key; used for both LLM and image generation. |
+| `WAVESPEED_BASE_URL` | Optional | Defaults to `https://api.wavespeed.ai/api/v3`; override only for a WaveSpeed-compatible proxy. |
+| `ALLOWED_ORIGINS` | Optional | Extra trusted origins for mutating requests. Local same-origin requests work without extra values. |
+| `PANELMINT_STORAGE_DIR` | Optional | Local directory for generated images; defaults to `.panelmint/generated`. |
+| `IMAGE_MODEL` | Optional | WaveSpeed image model override. |
+| `LLM_MODEL` | Optional | WaveSpeed LLM model override. |
+| `IMAGE_RATE_LIMIT` | Optional | Local image request concurrency budget. |
+| `IMAGE_RATE_LIMIT_TIMEOUT_MS` | Optional | Timeout for waiting on image generation budget. |
+
+## Hosted Database
+
+The default setup uses local Docker Postgres. To use a hosted Postgres database instead, replace `DATABASE_URL` and `DIRECT_URL` in `.env` with that provider's connection strings, then run:
+
+```bash
+npx prisma migrate deploy
+```
+
+## Troubleshooting
+
+### Database connection failed
+
+Start the local database and apply migrations:
+
+```bash
+docker compose up -d --wait
+npx prisma migrate deploy
+```
+
+Make sure `.env` uses:
+
+```bash
+DATABASE_URL=postgresql://postgres:change-local-dev-password@127.0.0.1:15432/panelmint?schema=public
+DIRECT_URL=postgresql://postgres:change-local-dev-password@127.0.0.1:15432/panelmint?schema=public
+```
+
+### Generation reports missing provider key
+
+Set `WAVESPEED_API_KEY` in `.env`, then restart `npm run dev` and `npm run worker`.
+
+### Jobs stay queued
+
+Start the worker in a second terminal:
+
+```bash
+npm run worker
+```
+
+### Generated images are missing
+
+Check `PANELMINT_STORAGE_DIR` in `.env`. The default path is `.panelmint/generated`. Make sure the process can create and write to that directory.
+
+### Prisma or build fails after install
+
+Regenerate the Prisma client and rerun checks:
+
+```bash
+npx prisma generate
+npx prisma validate
+npm run build
+```
+
+## Development Workflow
 
 Use the local red-green-refactor loop for behavior changes in `src/app`, `src/lib`, `src/app/api`, `src/components`, and `src/hooks`.
 
 1. Write or update the failing test first.
 2. Run that targeted test and confirm the failure.
 3. Make the smallest implementation that passes.
-4. Rerun the targeted test, then the owning folder suite when it exists, otherwise the closest relevant suite or the full suite.
-5. Run broader repo checks when the change crosses multiple areas or needs extra confidence before opening a PR.
+4. Rerun the targeted test, then the owning folder suite when it exists.
+5. Run broader checks before opening a PR.
 
-## Required env vars
-
-| Variable | Required | Notes |
-| --- | --- | --- |
-| `DATABASE_URL` | Yes | Neon/Postgres runtime connection string. |
-| `DIRECT_URL` | Optional | Direct Postgres connection for migrations. |
-| `WAVESPEED_API_KEY` | Yes for generation | Your WaveSpeed API key from `.env`; used for both LLM and image generation. |
-| `WAVESPEED_BASE_URL` | Optional | Defaults to `https://api.wavespeed.ai/api/v3`; override only for a WaveSpeed-compatible proxy. |
-| `ALLOWED_ORIGINS` | Optional | Extra trusted origins for mutating requests. |
-| `PANELMINT_STORAGE_DIR` | Optional | Local directory for generated images; defaults to `.panelmint/generated`. |
-
-## Where To Get Each Key
-
-1. Copy the template and open it for editing:
-
-```bash
-cp .env.example .env
-```
-
-2. Fill the values in this order:
-
-| Variable | Where to get it | What to paste |
-| --- | --- | --- |
-| `DATABASE_URL` | Neon Dashboard -> your project -> `Connect` | The pooled connection string. Prefer the host with `-pooler` in it. Keep the database name aligned with the actual Neon database, which is usually `neondb` by default. |
-| `DIRECT_URL` | Neon Dashboard -> your project -> `Connect` | The direct Postgres connection string for Prisma migrations. Prisma CLI in this repo prefers this value when it is set. Do not use the `-pooler` host here. |
-| `WAVESPEED_API_KEY` | WaveSpeed -> API Keys | Generate one key and paste it into `.env`. PanelMint does not store provider keys in the database. |
-| `WAVESPEED_BASE_URL` | `.env.example` default | Leave as-is unless you route requests through a WaveSpeed-compatible proxy. |
-| `ALLOWED_ORIGINS` | Your app domains | Comma-separated origins allowed to make mutating cross-origin requests. |
-| `PANELMINT_STORAGE_DIR` | `.env.example` default | Leave as-is for local generated images, or point it to another local directory. |
-
-3. Recommended local/dev values:
-
-- `ALLOWED_ORIGINS=http://localhost:3000`
-- If you use local Docker Postgres instead of Neon during development, swap `DATABASE_URL` and `DIRECT_URL` to the commented localhost examples in `.env.example`.
-- If you use the current Neon setup for this repo, the database name is `neondb` even though the Neon project is called `panelmint`.
-
-4. Quick verification after saving `.env`:
-
-```bash
-npx prisma generate
-npx prisma migrate deploy
-npm run dev
-```
-
-Run the local worker in a second terminal while `npm run dev` is running:
-
-```bash
-npm run worker
-curl http://localhost:3000/api/health
-```
+See `CONTRIBUTING.md` for contributor setup and expectations.
 
 ## Notes
 
-- `runId` in the public API still maps to `episode.id`.
-- Durable pipeline state lives in `pipeline_runs` and `pipeline_events`.
-- Coarse UI state still mirrors `episodes.status`, `episodes.progress`, and `episodes.error`.
-- Legacy Supabase, Redis worker, and multi-repo wrapper artifacts were intentionally removed from the main repository contract.
+- `runId` in the public API maps to `episode.id`.
+- Durable pipeline state lives in `pipeline_runs`, `pipeline_events`, and `pipeline_jobs`.
+- Coarse UI state mirrors `episodes.status`, `episodes.progress`, and `episodes.error`.
+- Public examples live in `examples/`.

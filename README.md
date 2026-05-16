@@ -16,7 +16,7 @@ The open-source runtime is centered on:
 ```bash
 npm install
 cp .env.example .env
-docker compose up -d
+docker compose up -d --wait
 npx prisma generate
 npx prisma migrate deploy
 npm run dev
@@ -85,7 +85,7 @@ npx prisma migrate deploy
 Start the local database and apply migrations:
 
 ```bash
-docker compose up -d
+docker compose up -d --wait
 npx prisma migrate deploy
 ```
 

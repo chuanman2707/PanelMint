@@ -14,7 +14,7 @@ PanelMint OSS is a local-first single-user comic generator. The primary developm
 ```bash
 npm install
 cp .env.example .env
-docker compose up -d
+docker compose up -d --wait
 npx prisma generate
 npx prisma migrate deploy
 npm run dev

@@ -7,7 +7,7 @@ This workflow uses `examples/sample-manuscript.md` for a small first run.
 ```bash
 npm install
 cp .env.example .env
-docker compose up -d
+docker compose up -d --wait
 npx prisma generate
 npx prisma migrate deploy
 ```

@@ -1,6 +1,6 @@
 # Local Postgres helper for PanelMint OSS.
 # The exposed port and credentials match .env.example.
-# Run with: docker compose up -d
+# Run with: docker compose up -d --wait
 
 services:
   postgres:

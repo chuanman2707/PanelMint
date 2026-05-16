@@ -41,19 +41,26 @@ describe('GET /api/health', () => {
         )
 
         expect(response.status).toBe(200)
-        await expect(response.json()).resolves.toMatchObject({
+        const body = await response.json()
+        expect(body).toMatchObject({
             status: 'ready',
             details: {
                 missingRequiredEnv: [],
-                notes: ['Local single-user runtime. Auth is disabled for OSS v1.'],
+                notes: [
+                    'Local single-user runtime. Auth is disabled for OSS v1.',
+                    'Generated assets are stored on the local filesystem.',
+                ],
             },
             checks: {
                 runtime: {
+                    app: 'nextjs',
                     queue: 'local-worker',
                     identity: 'local-single-user',
+                    storage: 'local-filesystem',
                 },
             },
         })
+        expect(body.checks.runtime).not.toHaveProperty('deployment')
     })
 
     it('returns degraded when generation env is missing', async () => {

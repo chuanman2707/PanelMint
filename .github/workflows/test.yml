@@ -55,18 +55,31 @@ jobs:
 
       - name: Start app for health smoke
         run: |
-          PORT=3100 npm run start > /tmp/panelmint-health-smoke.log 2>&1 &
+          PORT=3100 setsid npm run start > /tmp/panelmint-health-smoke.log 2>&1 &
           echo $! > /tmp/panelmint-health-smoke.pid
 
       - name: Check degraded health without provider key
         run: |
           set -euo pipefail
 
+          print_app_log_on_failure() {
+            exit_code="$?"
+            if [ "$exit_code" -ne 0 ]; then
+              echo "App log:"
+              if [ -f /tmp/panelmint-health-smoke.log ]; then
+                cat /tmp/panelmint-health-smoke.log
+              else
+                echo "/tmp/panelmint-health-smoke.log not found"
+              fi
+            fi
+          }
+          trap print_app_log_on_failure EXIT
+
           health_body="$(mktemp)"
           http_code=""
 
           for attempt in {1..30}; do
-            http_code="$(curl -sS -o "$health_body" -w "%{http_code}" http://127.0.0.1:3100/api/health || true)"
+            http_code="$(curl -sS --connect-timeout 2 --max-time 5 -o "$health_body" -w "%{http_code}" http://127.0.0.1:3100/api/health || true)"
             if [ "$http_code" = "503" ]; then
               break
             fi
@@ -79,8 +92,6 @@ jobs:
 
           if [ "$http_code" != "503" ]; then
             echo "Expected /api/health to return 503 in CI because WAVESPEED_API_KEY is intentionally unset."
-            echo "App log:"
-            cat /tmp/panelmint-health-smoke.log
             exit 1
           fi
 
@@ -108,5 +119,6 @@ jobs:
         if: always()
         run: |
           if [ -f /tmp/panelmint-health-smoke.pid ]; then
-            kill "$(cat /tmp/panelmint-health-smoke.pid)" || true
+            app_pid="$(cat /tmp/panelmint-health-smoke.pid)"
+            kill -- "-$app_pid" 2>/dev/null || kill "$app_pid" 2>/dev/null || true
           fi

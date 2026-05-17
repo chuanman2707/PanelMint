@@ -1,6 +1,7 @@
 name: test
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -9,6 +10,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: panelmint
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: change-local-dev-password
+        ports:
+          - 15432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d panelmint"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+          --health-start-period 10s
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,6 +38,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Copy example env
+        run: cp .env.example .env
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
+
       - name: Validate Prisma schema
         run: npx prisma validate
 
@@ -30,3 +52,74 @@ jobs:
 
       - name: Build app
         run: npm run build
+
+      - name: Start app for health smoke
+        run: |
+          PORT=3100 setsid npm run start > /tmp/panelmint-health-smoke.log 2>&1 &
+          echo $! > /tmp/panelmint-health-smoke.pid
+
+      - name: Check degraded health without provider key
+        run: |
+          set -euo pipefail
+
+          print_app_log_on_failure() {
+            exit_code="$?"
+            if [ "$exit_code" -ne 0 ]; then
+              echo "App log:"
+              if [ -f /tmp/panelmint-health-smoke.log ]; then
+                cat /tmp/panelmint-health-smoke.log
+              else
+                echo "/tmp/panelmint-health-smoke.log not found"
+              fi
+            fi
+          }
+          trap print_app_log_on_failure EXIT
+
+          health_body="$(mktemp)"
+          http_code=""
+
+          for attempt in {1..30}; do
+            http_code="$(curl -sS --connect-timeout 2 --max-time 5 -o "$health_body" -w "%{http_code}" http://127.0.0.1:3100/api/health || true)"
+            if [ "$http_code" = "503" ]; then
+              break
+            fi
+            echo "Health attempt $attempt returned $http_code; retrying"
+            sleep 2
+          done
+
+          echo "Health HTTP status: $http_code"
+          cat "$health_body"
+          echo
+
+          if [ "$http_code" != "503" ]; then
+            echo "Expected /api/health to return 503 in CI because WAVESPEED_API_KEY is intentionally unset."
+            exit 1
+          fi
+
+          node - "$health_body" <<'NODE'
+          const fs = require('node:fs')
+
+          const body = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
+          const missingRequiredEnv = body.details?.missingRequiredEnv ?? []
+
+          if (body.status !== 'degraded') {
+            throw new Error(`Expected status degraded, received ${body.status}`)
+          }
+          if (body.checks?.runtime?.queue !== 'local-worker') {
+            throw new Error('Expected runtime queue local-worker')
+          }
+          if (body.checks?.runtime?.storage !== 'local-filesystem') {
+            throw new Error('Expected runtime storage local-filesystem')
+          }
+          if (!missingRequiredEnv.includes('WAVESPEED_API_KEY')) {
+            throw new Error('Expected missingRequiredEnv to include WAVESPEED_API_KEY')
+          }
+          NODE
+
+      - name: Stop app for health smoke
+        if: always()
+        run: |
+          if [ -f /tmp/panelmint-health-smoke.pid ]; then
+            app_pid="$(cat /tmp/panelmint-health-smoke.pid)"
+            kill -- "-$app_pid" 2>/dev/null || kill "$app_pid" 2>/dev/null || true
+          fi

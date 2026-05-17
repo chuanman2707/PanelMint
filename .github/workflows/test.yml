@@ -1,6 +1,7 @@
 name: test
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -9,6 +10,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: panelmint
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: change-local-dev-password
+        ports:
+          - 15432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d panelmint"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+          --health-start-period 10s
     steps:
       - name: Checkout
         uses: actions/checkout@v4

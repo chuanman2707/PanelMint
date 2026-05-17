@@ -52,3 +52,61 @@ jobs:
 
       - name: Build app
         run: npm run build
+
+      - name: Start app for health smoke
+        run: |
+          PORT=3100 npm run start > /tmp/panelmint-health-smoke.log 2>&1 &
+          echo $! > /tmp/panelmint-health-smoke.pid
+
+      - name: Check degraded health without provider key
+        run: |
+          set -euo pipefail
+
+          health_body="$(mktemp)"
+          http_code=""
+
+          for attempt in {1..30}; do
+            http_code="$(curl -sS -o "$health_body" -w "%{http_code}" http://127.0.0.1:3100/api/health || true)"
+            if [ "$http_code" = "503" ]; then
+              break
+            fi
+            sleep 2
+          done
+
+          echo "Health HTTP status: $http_code"
+          cat "$health_body"
+          echo
+
+          if [ "$http_code" != "503" ]; then
+            echo "Expected /api/health to return 503 in CI because WAVESPEED_API_KEY is intentionally unset."
+            echo "App log:"
+            cat /tmp/panelmint-health-smoke.log
+            exit 1
+          fi
+
+          node - "$health_body" <<'NODE'
+          const fs = require('node:fs')
+
+          const body = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
+          const missingRequiredEnv = body.details?.missingRequiredEnv ?? []
+
+          if (body.status !== 'degraded') {
+            throw new Error(`Expected status degraded, received ${body.status}`)
+          }
+          if (body.checks?.runtime?.queue !== 'local-worker') {
+            throw new Error('Expected runtime queue local-worker')
+          }
+          if (body.checks?.runtime?.storage !== 'local-filesystem') {
+            throw new Error('Expected runtime storage local-filesystem')
+          }
+          if (!missingRequiredEnv.includes('WAVESPEED_API_KEY')) {
+            throw new Error('Expected missingRequiredEnv to include WAVESPEED_API_KEY')
+          }
+          NODE
+
+      - name: Stop app for health smoke
+        if: always()
+        run: |
+          if [ -f /tmp/panelmint-health-smoke.pid ]; then
+            kill "$(cat /tmp/panelmint-health-smoke.pid)" || true
+          fi
